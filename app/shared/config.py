@@ -719,6 +719,37 @@ _TABLE: tuple[Setting, ...] = (
         300,
         help="Polling interval (seconds) for automatic sync operations.",
     ),
+    Setting(
+        "SUPABASE_DB_URL",
+        "supabase_db_url",
+        str,
+        "",
+        help=(
+            "Supabase Postgres DSN used for FSSAI registry lookups "
+            "(fssai_licenses / fssai_registrations). Read by "
+            "app/services/premises_resolver.py. Distinct from SUPABASE_URL, "
+            "which is the REST project URL the sync bridge needs."
+        ),
+    ),
+    Setting(
+        "PREMISES_SEARCH_LOCALITY_ENABLED",
+        "premises_search_locality_enabled",
+        bool,
+        True,
+        opt_in=False,
+        help=(
+            "Match premises by full_address as well as company_name, and "
+            "expand road aliases. When false the resolver matches names only."
+        ),
+    ),
+    Setting(
+        "DIARY_SCHEDULE_AI_ENABLED",
+        "diary_schedule_ai_enabled",
+        bool,
+        False,
+        opt_in=True,
+        help="Kill switch for AI schedule planning (LLM spend). 503 when off.",
+    ),
     # --- Notepad --------------------------------------------------------------
     Setting(
         "NOTEPAD_AI_ENABLED",

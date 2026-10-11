@@ -94,6 +94,11 @@ def register_blueprints(app: Flask) -> None:
     from app.diary import diary_bp
 
     app.register_blueprint(diary_bp)
+    # Schedule planning: search FSSAI premises, select, record the duty
+    # (/schedule/search, /schedule/confirm)
+    from app.schedule import schedule_bp
+
+    app.register_blueprint(schedule_bp)
     # RAG blueprint (Phase 1: retrieval foundation + health endpoint)
     from app.rag import rag_bp
 

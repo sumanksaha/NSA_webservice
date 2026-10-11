@@ -1,36 +1,39 @@
-"""Live query Supabase fssai_licenses / fssai_registrations for a premises name."""
+"""CLI: query the FSSAI registry for premises by free text.
 
-import os
+Thin wrapper over ``PremisesResolver`` so the registry is queried by exactly
+one code path (see app/services/premises_resolver.py). Reads
+``SUPABASE_DB_URL`` from the environment/config seam.
+
+    python scripts/supabase_premises_search.py "balaram mullick in NSC Bose Road"
+"""
+
+from __future__ import annotations
+
 import sys
 
-from sqlalchemy import create_engine, text
-
-# Supabase Postgres connection.
-# Set SUPABASE_DATABASE_URL in the environment; no credentials are committed.
-DB_URL = os.getenv("SUPABASE_DATABASE_URL")
+from app.services.premises_resolver import resolve
 
 
-def search_premises(name: str):
-    engine = create_engine(DB_URL)
-    results = []
-    with engine.connect() as conn:
-        for table in ("fssai_licenses", "fssai_registrations"):
-            pk_col = "license_no" if table == "fssai_licenses" else "registration_no"
-            stmt = text(
-                f"SELECT {pk_col}, company_name, full_address, expiry_date FROM {table} WHERE company_name ILIKE :name",
-            )
-            resp = conn.execute(stmt, {"name": f"%{name}%"})
-            for row in resp.mappings():
-                d = dict(row)
-                d["_source_table"] = table
-                results.append(d)
-    return results
+def search_premises(text: str) -> list:
+    """Return candidates for ``text`` (never raises; check ``error`` on failure)."""
+    return list(resolve(text).candidates)
+
+
+def main() -> int:
+    query = sys.argv[1] if len(sys.argv) > 1 else "devyani"
+    result = resolve(query)
+    if result.error:
+        print(f"Lookup failed for {query!r}: {result.error}", file=sys.stderr)
+        return 1
+    if not result.candidates:
+        print(f"No results for {query!r}")
+        return 0
+    print(f"{len(result.candidates)} result(s) for {query!r}:")
+    for cand in result.candidates:
+        print(f"  [{cand.source_table}] {cand.fssai_number}  {cand.company_name}")
+        print(f"      {cand.full_address or ''}")
+    return 0
 
 
 if __name__ == "__main__":
-    name = sys.argv[1] if len(sys.argv) > 1 else "devyani"
-    hits = search_premises(name)
-    if not hits:
-        print(f"No results for '{name}'")
-    for h in hits:
-        print(h)
+    sys.exit(main())

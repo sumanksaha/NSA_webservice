@@ -30,12 +30,12 @@
             {% for r in results %}
             <div style="border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; background: var(--bg-subtle);">
                 <label style="display: flex; align-items: flex-start; gap: 0.5rem;">
-                    <input type="checkbox" name="selected" value="{{ r.get('license_no') or r.get('registration_no') }}" {% if r.get('selected') %}checked{% endif %}>
+                    <input type="checkbox" name="selected" value="{{ r.fssai_number }}" {% if r.fssai_number in (checklist.premises if checklist else []) %}checked{% endif %}>
                     <span>
-                        <strong>{{ r.company_name }}</strong>
-                        <br><small class="text--secondary">{{ r.full_address }}</small>
-                        <br><small class="text--secondary">License: {{ r.license_no or r.registration_no }}</small>
-                        <br><small class="text--secondary">Source: {{ r._source_table }}</small>
+                        <strong>{{ r.company_name or "(name not recorded)" }}</strong>
+                        <br><small class="text--secondary">{{ r.full_address or "" }}</small>
+                        <br><small class="text--secondary">License: {{ r.fssai_number }}</small>
+                        <br><small class="text--secondary">Source: {{ r.source_table }}</small>
                     </span>
                 </label>
             </div>

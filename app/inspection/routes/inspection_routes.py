@@ -457,78 +457,42 @@ def delete_inspection(inspection_id):
 # ponytail: auth gate added; RBAC handled by blueprint-level auth
 # Add @login_required if required by app auth policy.
 def premises_search():
-    """Search Supabase license/registration tables and build an inspection checklist."""
-    import os  # ponytail: local import, no new dependency
+    """Search the FSSAI registry and build an inspection checklist.
 
-    from sqlalchemy import create_engine, text
+    Querying, address normalisation and road-alias handling belong to
+    ``PremisesResolver`` (app/services/premises_resolver.py) — this route only
+    renders results and echoes the selected identifiers back.
+    """
+    from app.services import premises_resolver
 
-    # Use env/config only; never commit secrets.
-    supabase_url = current_app.config.get("SUPABASE_DB_URL") or os.environ.get("SUPABASE_DB_URL")
     query = (request.args.get("q") or request.form.get("q") or "").strip()
     selected = request.form.getlist("selected")
-    results = []
+    results: list = []
     checklist = None
-    if not supabase_url:
+
+    result = premises_resolver.resolve(query) if query else None
+    if result is not None and result.error is not None:
+        # ponytail: graceful degradation; never leak raw DB errors
+        current_app.logger.warning(f"Premises search failed: {result.error}")
         return render_template(
             "inspection/premises_search.html",
             query=query,
             results=[],
             checklist=None,
-            error="Supabase DB URL not configured.",
+            error="Search failed. Check DB connection or try later.",
         )
-    # Ponytail: pool for reuse; secret pulled from env/config (see .env.example).
-    engine = create_engine(supabase_url, pool_pre_ping=True, pool_size=2, max_overflow=2)
-
-    if query and request.method == "GET":
-        try:
-            with engine.connect() as conn:
-                # ponytail: fixed query literals; identifier injection impossible (table names hardcoded)
-                # ponytail: parameterized :name prevents SQL injection (user input only in param)
-                # ponytail: limit=50 prevents unbounded scans; add pagination if >50 hits
-                resp = conn.execute(
-                    text(
-                        "SELECT license_no, company_name, full_address, expiry_date "
-                        "FROM fssai_licenses WHERE company_name ILIKE :name ORDER BY company_name LIMIT 50",
-                    ),
-                    {"name": f"%{query}%"},
-                )
-                for row in resp.mappings():
-                    d = dict(row)
-                    d["_source_table"] = "fssai_licenses"
-                    results.append(d)
-                resp = conn.execute(
-                    text(
-                        "SELECT registration_no, company_name, full_address, expiry_date "
-                        "FROM fssai_registrations WHERE company_name ILIKE :name ORDER BY company_name LIMIT 50",
-                    ),
-                    {"name": f"%{query}%"},
-                )
-                for row in resp.mappings():
-                    d = dict(row)
-                    d["_source_table"] = "fssai_registrations"
-                    results.append(d)
-        except Exception as exc:
-            # ponytail: graceful degradation; never leak raw DB errors
-            current_app.logger.warning(f"Premises search failed: {exc}")
-            return render_template(
-                "inspection/premises_search.html",
-                query=query,
-                results=[],
-                checklist=None,
-                error="Search failed. Check DB connection or try later.",
-            )
+    if result is not None:
+        results = list(result.candidates)
 
     if request.method == "POST" and selected:
         # ponytail: validate selected IDs against returned results; prevents forged submissions
-        # ponytail: include _source_table for audit trail
+        # ponytail: include source_table for audit trail
+        returned = {r.fssai_number for r in results}
+        accepted = [s for s in selected if s in returned]
         checklist = {
-            "premises": selected,
+            "premises": accepted,
             "items": CHECKLIST_FIELDS,
-            "source_tables": [
-                r["_source_table"]
-                for r in results
-                if r.get("license_no") in selected or r.get("registration_no") in selected
-            ],
+            "source_tables": sorted({r.source_table for r in results if r.fssai_number in accepted}),
         }
 
     return render_template(

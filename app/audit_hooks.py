@@ -1,10 +1,11 @@
 """SQLAlchemy event listeners that log INSERT / UPDATE / DELETE on the
-three business-record models to the ``RecordAudit`` table.
+business-record models to the ``RecordAudit`` table.
 
 Models instrumented:
   - Adjudication
   - Bill
   - CaseFile
+  - WorkDiaryEntry (composite key ``fso_name + work_date + duty_seq``)
 
 Design notes (performance):
   - Uses session-level ``after_flush`` (not mapper events) so that adding
@@ -112,6 +113,28 @@ def _safe_value(val):
 # ---------------------------------------------------------------------------
 
 
+def _record_identifier(target):
+    """Return a stable string identifier for ``target`` in the audit trail.
+
+    Most audited models carry a single ``id`` column. ``WorkDiaryEntry`` is
+    keyed by ``(fso_name, work_date, duty_seq)`` instead, so fall back to the
+    mapper's primary-key columns rather than assuming one ``id`` attribute.
+    """
+    rid = getattr(target, "id", None)
+    if rid is not None:
+        return rid
+    try:
+        pk_cols = sa_inspect(target).mapper.primary_key
+    except Exception:  # an unmapped object is not auditable
+        return None
+    parts = []
+    for col in pk_cols:
+        val = getattr(target, col.key, None)
+        if val is not None:
+            parts.append(f"{col.name}={val}")
+    return "|".join(parts) if parts else None
+
+
 def _capture_insert(target):
     """Build a changes dict for a newly inserted record."""
     changes = {}
@@ -156,27 +179,27 @@ def _after_flush(session: Session, _flush_context):
     if not (session.new or session.dirty or session.deleted):
         return
 
-    from app.models import Adjudication, Bill, CaseFile
+    from app.models import Adjudication, Bill, CaseFile, WorkDiaryEntry
 
-    audited_model_types = (Adjudication, Bill, CaseFile)
+    audited_model_types = (Adjudication, Bill, CaseFile, WorkDiaryEntry)
 
     # Inserts
     for target in session.new:
         if isinstance(target, audited_model_types):
             changes = _capture_insert(target)
-            _record_audit("create", type(target).__name__, target.id, changes)
+            _record_audit("create", type(target).__name__, _record_identifier(target), changes)
 
     # Updates
     for target in session.dirty:
         if isinstance(target, audited_model_types):
             changes = _capture_update(target)
             if changes:  # only log if something actually changed
-                _record_audit("update", type(target).__name__, target.id, changes)
+                _record_audit("update", type(target).__name__, _record_identifier(target), changes)
 
     # Deletes
     for target in session.deleted:
         if isinstance(target, audited_model_types):
-            _record_audit("delete", type(target).__name__, target.id)
+            _record_audit("delete", type(target).__name__, _record_identifier(target))
 
 
 # ---------------------------------------------------------------------------

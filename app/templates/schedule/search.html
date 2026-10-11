@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Plan a duty — premises search{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h2><i class="fa-solid fa-magnifying-glass-location"></i> Plan a duty</h2>
+  </div>
+
+  <form method="get" action="{{ url_for('schedule.search') }}" class="inspection-form" style="margin-bottom: 1rem;">
+    <div class="form-row">
+      <div class="form-group" style="flex: 1;">
+        <label for="q">Search premises</label>
+        <input type="text" name="q" id="q" class="form-input"
+               value="{{ query }}"
+               placeholder="e.g. restaurant in NSC Bose Road&#10;or: balaram mullick in NSC Bose Road">
+        <small class="text--secondary">
+          Type a business name, a road, or both — <em>"balaram mullick in NSC Bose Road"</em>
+          finds that business on that road.
+        </small>
+      </div>
+      <div class="form-group">
+        <label for="work_date">Duty date</label>
+        <input type="date" name="work_date" id="work_date" class="form-input" value="{{ work_date }}">
+      </div>
+      <div class="form-group" style="align-self: flex-end;">
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-magnifying-glass"></i> Search
+        </button>
+      </div>
+    </div>
+  </form>
+
+  {% if result is none %}
+    <p class="text--secondary">Enter a name, road, or locality above.</p>
+
+  {% elif result.error %}
+    <div class="info-box info-box--error">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <strong>Lookup failed.</strong> The premises database could not be reached.
+      Nothing was saved. Please try again shortly.
+    </div>
+
+  {% elif not result.candidates %}
+    <div class="info-box">
+      <i class="fa-solid fa-circle-info"></i>
+      No registered premises matched <strong>{{ query }}</strong>.
+      {% if result.name_filter and result.locality_filter %}
+        Nothing is registered under <strong>{{ result.name_filter|title }}</strong>
+        on <strong>{{ result.locality_filter|title }}</strong>.
+        <br>
+        <small>
+          Try searching the name alone to see their other locations, or the
+          road alone to see everything on it.
+        </small>
+      {% else %}
+        Try a shorter fragment — a road name on its own usually works better than a full phrase.
+      {% endif %}
+    </div>
+
+  {% else %}
+    <form method="post" action="{{ url_for('schedule.confirm') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="q" value="{{ query }}">
+      <input type="hidden" name="work_date" value="{{ work_date }}">
+
+      {% if result.name_filter %}
+      <div class="info-box" style="margin-bottom: 1rem;">
+        <i class="fa-solid fa-filter"></i>
+        Showing premises named <strong>{{ result.name_filter | title }}</strong>
+        {%- if result.locality_filter %} on <strong>{{ result.locality_filter | title }}</strong>{% endif %}.
+      </div>
+      {% endif %}
+
+      <div class="info-box" style="margin-bottom: 1rem;">
+        <i class="fa-solid fa-list-check"></i>
+        <strong>{{ result.candidates | length }}</strong> match(es).
+        Tick every premises you plan to inspect, then save.
+        Saving records a <em>Field work</em> duty slot for
+        <strong>{{ work_date }}</strong> and adds each premise to your inspection list.
+      </div>
+
+      <h3>Matches</h3>
+      <div class="checklist-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.75rem;">
+        {% for r in primary %}
+        <label style="display: flex; align-items: flex-start; gap: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; background: var(--bg-subtle);">
+          <input type="checkbox" name="fssai_number" value="{{ r.fssai_number }}">
+          <span>
+            <strong>{{ r.company_name or "(name not recorded)" }}</strong>
+            <br><small class="text--secondary">{{ r.full_address or "" }}</small>
+            <br><small class="text--secondary">
+              FSSAI/Reg: {{ r.fssai_number }}
+              {% if r.expiry_date %} · Exp: {{ r.expiry_date }}{% endif %}
+            </small>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+
+      {% if confusable %}
+      <h3 style="margin-top: 1.5rem;">
+        Similar roads — <span class="text--secondary">check these are not the road you meant</span>
+      </h3>
+      <p class="text--secondary">
+        These matched the text but sit on a <strong>different</strong> road
+        ({{ confusable[0].road.id | replace('_', ' ') | title }}).
+        They are listed separately so they are never mistaken for the road you searched.
+      </p>
+      <div class="checklist-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.75rem;">
+        {% for r in confusable %}
+        <label style="display: flex; align-items: flex-start; gap: 0.5rem; border: 1px dashed var(--border); border-radius: var(--radius); padding: 0.75rem;">
+          <input type="checkbox" name="fssai_number" value="{{ r.fssai_number }}">
+          <span>
+            <strong>{{ r.company_name or "(name not recorded)" }}</strong>
+            <br><small class="text--secondary">{{ r.full_address or "" }}</small>
+            <br><small class="text--secondary">FSSAI/Reg: {{ r.fssai_number }}</small>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="form-group" style="margin-top: 1rem;">
+        <label for="notes">Notes (optional)</label>
+        <input type="text" name="notes" id="notes" class="form-input"
+               placeholder="Defaults to the premises names you selected.">
+      </div>
+
+      <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+        <button type="submit" class="btn btn-success">
+          <i class="fa-solid fa-floppy-disk"></i> Save duty &amp; add to inspection list
+        </button>
+        <a href="{{ url_for('inspection.index') }}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

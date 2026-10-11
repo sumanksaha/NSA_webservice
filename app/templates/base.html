@@ -227,6 +227,14 @@
                             <ul class="nav-more__list">
                                 <li>
                                     <a
+                                        href="{{ url_for('schedule.search') }}"
+                                        class="nav-link {% if request.blueprint == 'schedule' %}active{% endif %}"
+                                    >
+                                        <i class="fa-solid fa-magnifying-glass-location"></i> Plan a duty
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
                                         href="{{ url_for('workdiary.index') }}"
                                         class="nav-link {% if request.blueprint == 'workdiary' %}active{% endif %}"
                                     >

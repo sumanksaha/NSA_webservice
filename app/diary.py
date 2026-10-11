@@ -164,28 +164,6 @@ def _is_untouched_stored(entry: dict | None, premises: int, samples: int, notes:
     )
 
 
-def _is_unchanged_stored(
-    entry: dict | None, activity: str, premises: int, samples: int, notes: str, summary: str, place: str = "",
-) -> bool:
-    """True when a submitted row already matches the stored row exactly.
-
-    The grid submits all 31 days on every save, so without this check every
-    save would rewrite the whole month (and report all untouched days as
-    "Saved"). Comparing the stored summary as well keeps legacy rows in sync
-    when a summary format or activity label changes.
-    """
-    if entry is None:
-        return False
-    return (
-        activity == entry["activity"]
-        and premises == entry["premises"]
-        and samples == entry["samples"]
-        and notes == entry["notes"]
-        and place == entry.get("place_of_visit", "")
-        and summary == entry["summary"]
-    )
-
-
 def derive_diary_purpose(activity: str) -> str | None:
     """Map a Monthly Diary activity to its Work Diary purpose label.
 
@@ -289,30 +267,6 @@ def _load_month(owner: str, month: _dt.date) -> dict[str, dict[int, dict]]:
     return rows
 
 
-def _upsert(
-    owner: str,
-    work_date: str,
-    activity: str,
-    premises: int,
-    samples: int,
-    notes: str,
-    summary: str,
-    place: str = "",
-    duty_seq: int = 1,
-) -> None:
-    """Insert or update one duty slot of ``owner``'s diary rows."""
-    row = db.session.get(WorkDiaryEntry, {"fso_name": owner, "work_date": work_date, "duty_seq": duty_seq})
-    if row is None:
-        row = WorkDiaryEntry(fso_name=owner, work_date=work_date, duty_seq=duty_seq)
-        db.session.add(row)
-    row.activity = activity
-    row.premises = premises
-    row.samples = samples
-    row.notes = notes
-    row.place_of_visit = place[:PLACE_MAX_LEN] or None
-    row.summary = summary
-
-
 def _delete(owner: str, work_date: str, duty_seq: int = 1) -> int:
     """Remove one duty slot of ``owner``'s diary rows; return 1 if deleted."""
     return (
@@ -370,7 +324,17 @@ def _save_slot(
     stored row). A blank slot clears its stored row; flipping a saved slot
     to "—" without retyping its numbers clears it too. Numbers (or
     notes/place) with no activity imply field work.
+
+    The two grid-specific rules live here because they read *unsubmitted
+    form state* (``stored``), which ``DiaryPlanner`` cannot see: a batch POST
+    carries the whole month, so a "—" dropdown arrives with the row's
+    pre-filled numbers still attached. Everything downstream — activity
+    normalisation, count clamping, the summary line, the upsert, and the
+    INV-1/INV-2 invariants — belongs to ``DiaryPlanner.record``, which owns
+    those rules for every other caller.
     """
+    from app.services.diary_planner import record
+
     if activity and activity not in ACTIVITIES:
         return "noop"  # unknown activity values are ignored
     if not activity:
@@ -379,14 +343,7 @@ def _save_slot(
         ):
             return "deleted" if _delete(owner, work_date, duty_seq) else "noop"
         activity = FIELD_ACTIVITY  # numbers (or notes/place) with no activity -> field work
-    if activity not in COUNT_ACTIVITIES:
-        premises = 0
-        samples = 0
-    summary = _summary_line(work_date, activity, premises, samples, notes, place)
-    if _is_unchanged_stored(stored, activity, premises, samples, notes, summary, place):
-        return "noop"  # untouched rows are not rewritten; a re-save is a no-op
-    _upsert(owner, work_date, activity, premises, samples, notes, summary, place, duty_seq)
-    return "saved"
+    return record(owner, work_date, duty_seq, activity, premises, samples, notes, place)
 
 
 # ---------------------------------------------------------------------------
@@ -563,3 +520,16 @@ def _officer_choices() -> list[str]:
     from app.utils.fso_data import get_all_fso_names
 
     return get_all_fso_names()
+
+
+# ---------------------------------------------------------------------------
+# Public vocabulary ? the single home of the Monthly Diary rules
+# ---------------------------------------------------------------------------
+# This module owns the Monthly Diary vocabulary. Other modules (the Work Diary
+# engine, and app.services.diary_planner) must reuse these names rather than
+# re-declare or re-implement them, so a rename can never silently empty a
+# filter. Exposed under public names because they are part of the seam's
+# contract; the underscore originals stay for this module's own callers.
+resolve_owner = _resolve_owner
+parse_count = _parse_count
+summary_line = _summary_line

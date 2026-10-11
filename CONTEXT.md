@@ -297,6 +297,107 @@ Work Diary rows whose officer name equals the binding are visible; everything
 else fails closed (admins see all). Creates force-stamp the bound name
 server-side.
 
+### `PremisesResolver` — the FSSAI-registry seam
+
+**Module:** `app/services/premises_resolver.py`. The single deep module behind
+"which registered premises did the officer mean by this free text". Owns:
+
+- the **canonical locality rule**: free text resolves against the Supabase
+  registry (`fssai_licenses` / `fssai_registrations`) by `company_name`
+  **and** `full_address`, merged and deduped on `(number, normalized address)`;
+- the **address-normalisation rule**: uppercase, strip control characters and
+  the registry's literal `_x000d_` export artifact, drop `.`, collapse
+  whitespace (spec §5.6 N1–N3);
+- the **road-alias table** (`ROAD_ALIASES`) — data, not branching code. One
+  street is spelled many ways in the registry (`N.S.C BOSE ROAD`,
+  `NSC BOSE ROAD`, `NETAJI SUBHAS CHANDRA BOSE ROAD`); the resolver OR-s every
+  literal spelling together so real premises are found;
+- the **confusable-road rule**: `*BOSE ROAD*` also matches **Sarat** Bose
+  Road, **AJC** Bose Road and **Doctor Sudhir** Bose Road — *different
+  streets*. They are classified with a `RoadGroup(is_confusable=True)` and
+  rendered in a separate section; they are never merged into the canonical
+  group;
+- the **query-splitting rule**: free text is decomposed on a connective
+  (*"Balaram Mullick **in** NSC Bose Road"*) into an independent
+  **name filter** (matched against `company_name`, token-wise AND) and a
+  **locality filter** (matched against `full_address`, alias-expanded). A
+  name+road query **MUST NOT** degrade to a road-only search — that would
+  answer "Balaram Mullick in NSC Bose Road" with every business on the road.
+  Generic category words (*restaurant*, *shop*, *hotel* — see
+  `_GENERIC_DESCRIPTORS`) are dropped from the name filter, so
+  *"restaurant in NSC Bose Road"* correctly means anything on that road;
+- the **error contract**: `ResolveResult(found, error, candidates)` mirroring
+  `LookupResult` — a clean no-match (`found` False, `error` None) is
+  distinguishable from a failed lookup, so an outage is never reported to the
+  FSO as "no such premises";
+- the **result ordering** (M6): exact company-name match, then name prefix,
+  then name containment, then address-only — with a canonical road always
+  outranking a confusable look-alike;
+- **one process-wide engine**, reused. The per-request `create_engine` that
+  the old inline `/inspection/premises/search` route used is gone — that route
+  now calls this module.
+
+Adding a road alias = one row in `ROAD_ALIASES` or `CONFUSABLE_ROADS`. Locality
+search is address-text-based; there is **no ward/zone/beats model** anywhere in
+this system, so nothing else may reason about geography.
+
+`PREMISES_SEARCH_LOCALITY_ENABLED` (default on, opt-out) restores the legacy
+company-name-only matching if address matching ever misbehaves in production.
+
+### `DiaryPlanner` — the Monthly Diary write seam
+
+**Module:** `app/services/diary_planner.py`. The single deep module behind
+"write one duty slot", callable without a request context. Owns:
+
+- `record(owner, work_date, duty_seq, activity, premises, samples, notes,
+  place) -> "saved" | "deleted" | "noop"` and `record_many(...)` for several
+  slots on one day;
+- the **split-duty invariants**, enforced by `record()` itself on every write:
+  a lone `duty_seq=2` row promotes to slot 1 (**INV-1**), and `holiday` /
+  `leave` never share a day — slot 1 wins (**INV-2**);
+- the **normalisation**: counts clamped to `[0, 999_999]`, non-counting
+  activities zeroed, `place_of_visit` truncated to 200 and stored as `NULL`
+  when empty, and a non-ISO `work_date` refused (**INV-7** — such a row would
+  be silently dropped from every report);
+- the **idempotency** rule: an unchanged slot returns `"noop"` instead of
+  being rewritten.
+
+It imports the vocabulary (`ACTIVITIES`, `COUNT_ACTIVITIES`,
+`EXCLUSIVE_ACTIVITIES`, `parse_count`, `summary_line` — public names exposed
+by `app/diary.py`) rather than re-declaring it, so there is exactly one
+vocabulary. The Monthly Diary grid route is a caller, not the owner.
+
+Boundary: the grid keeps two rules of its own in `_save_slot`, because they
+read **unsubmitted form state** that the planner cannot see — a batch POST
+carries the whole month, so a "—" dropdown arrives with the row's pre-filled
+numbers still attached, which must clear the day rather than coerce it back to
+field work. `owner` is likewise an explicit argument so the module is
+testable — the caller's obligation (`SEC-1`) is to derive it from
+`scoped_officer_name`, never from request data.
+
+### Diary audit
+
+`WorkDiaryEntry` is instrumented by `app/audit_hooks.py` alongside
+Adjudication/Bill/CaseFile. It is the first audited model with **no `id`
+column** — the hook derives an audit identifier from the mapper's primary-key
+columns (`fso_name=…|work_date=…|duty_seq=…`) via `_record_identifier`, so a
+composite key does not silently drop the audit entry.
+
+### Duty scheduling (plan a duty)
+
+The flow at `/schedule/search`: an FSO types free text (*"restaurant in NSC
+Bose Road"*), `PremisesResolver` returns as many registered premises as match,
+the FSO ticks the ones to inspect, and `POST /schedule/confirm` writes **two**
+things — a `Field work` Monthly Diary slot via `DiaryPlanner` (counting the
+selected premises), and one draft **Inspection** row per premise so they
+appear on the inspection list. The confirm route re-resolves each selection
+**server-side by FSSAI number**; the company name the client echoes back is
+never trusted. Re-confirming the same premises for the same day is a no-op.
+
+Boundary: this records *how many* premises, not *which* — `work_diary.premises`
+is an `Integer` count and no schema links a diary row to a premise (decision
+D1, 2026-10-11).
+
 ### Note
 
 A single item in the **Notepad** intake queue (`app/notepad/`, `/notepad`):

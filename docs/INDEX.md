@@ -43,3 +43,11 @@ Files the engineering skills read before acting:
 - [INSPECTION_IMPROVEMENT_PLAN.md](INSPECTION_IMPROVEMENT_PLAN.md) — Deepening opportunities for the inspection module (3 candidates, prioritized backlog)
 - [CODEBASE_REVIEW_2026-09-12.md](CODEBASE_REVIEW_2026-09-12.md) — Full two-axis code review (Standards + Spec), findings, remediation log, and open follow-ups
 - [PROMPT_CONDITIONING_IRAC_RESEARCH.md](PROMPT_CONDITIONING_IRAC_RESEARCH.md) — Prompt conditioning for the grounded legal-QA generator: surface inventory, failure-mode map, evidence per option, and a land-and-test path from the current stage
+- [RESTAURANT_FSSAI_DATA_ACCESS_RESEARCH.md](RESTAURANT_FSSAI_DATA_ACCESS_RESEARCH.md) — Feasibility of building a licensed-FBO lookup (address + FSSAI licence no. by locality): FoSCoS data-access surface and hardening, Zomato/Swiggy API and ToS constraints, Google Places caching rules, and the dish-matching gap. **Read before scoping any FBO-discovery feature.**
+- [SCHEDULE_PLANNING_AGENT_RESEARCH.md](SCHEDULE_PLANNING_AGENT_RESEARCH.md) — Planning an FSO's day from a free-text intent: what already exists, the three blockers (locality is unresolvable, no programmatic diary write, no audit trail), and two build options
+- [SCHEDULE_PLANNING_AGENT_IMPLEMENTATION_PLAN.md](./SCHEDULE_PLANNING_AGENT_IMPLEMENTATION_PLAN.md) — Project report for the above: 10 numbered assumptions, a 6-phase breakdown, exact files to create/modify, test plan, risks, and the decisions that gate Phase 5
+- [SCHEDULE_PLANNING_AGENT_SPEC.md](./SCHEDULE_PLANNING_AGENT_SPEC.md) — Normative specification for the above: requirement IDs, data contracts, 9 invariants, 8 validation rules, route state machine, error taxonomy, security requirements, and 19 testable acceptance criteria
+
+## Implemented
+
+- `app/services/premises_resolver.py`, `app/services/diary_planner.py`, `app/schedule.py` — **Duty scheduling** ("Plan a duty"): free-text premises search against the FSSAI registry with road-alias expansion and confusable-road separation, then a confirm step that writes the Monthly Diary slot and one draft Inspection per selected premise. Glossary entries: `CONTEXT.md` §`PremisesResolver`, §`DiaryPlanner`, §Duty scheduling.
