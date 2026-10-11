@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import re
 
-__all__ = ["_DETECTABLE_FORMS", "detect_form", "form_query"]
+__all__ = ["FORM_NAMES", "_DETECTABLE_FORMS", "detect_form", "form_query"]
 
 #: Form numbers in alphabetical order (for longest-match priority).
 _DETECTABLE_FORMS = [
@@ -45,6 +45,12 @@ _FORM_NAMES: dict[str, str] = {
     "vii": "Form VII / VIIA (analyst report)",
     "viii": "Form VIII (appeal to designated officer)",
 }
+
+#: Public alias for the form-name table. tests/test_form_arm_precision.py
+#: and downstream callers import the public name; the private spelling is
+#: kept as an alias so both import styles resolve to the same dict.
+FORM_NAMES = _FORM_NAMES
+
 
 #: Regex for standalone "Form NN" mentions (case-insensitive).
 _FORM_RE = re.compile(
