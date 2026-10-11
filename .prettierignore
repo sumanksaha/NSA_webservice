@@ -1,0 +1,10 @@
+# Vendored third-party assets are not ours to format: reformatting them would
+# create spurious diffs against the upstream library and defeat the point of
+# vendoring. Only first-party files under app/static/js and app/static/css
+# are checked by `npm run format:js` / `format:css` / `check:*`.
+app/static/vendor/
+**/*.min.js
+**/*.min.css
+
+# Generated build output (if any is ever committed)
+app/static/dist/
