@@ -349,6 +349,7 @@ tmp_*.py
 tmp_*.json
 tmp_*.txt
 _fix_*.py
+fix_*.py
 _update_*.py
 _diag*.py
 _debug*.py
@@ -356,6 +357,43 @@ _verify*.py
 output.txt
 doc_cleaner_output.txt
 doc_result.txt
+
+# Root-level investigation / probe / one-off scripts and their output
+_scratch_*
+_bench_*
+_inspect_bench.py
+_run_*.py
+_out*.txt
+_check.txt
+_v2_source.txt
+_stamp_hist.py
+_sweep_parallel.py
+_offline_tests_out.txt
+_full_suite_fixed.txt
+_pytest_domain.txt
+verify*.py
+verify*.txt
+verify*_log.txt
+diag*.py
+diag*.txt
+probe*.py
+proc_*.py
+overlay_*.py
+import_check*.py
+import_e2e.py
+extract_run*
+analysis_*.py
+env_probe.py
+simple_probe.py
+summary.txt
+out_findstr.txt
+*_out.txt
+*_output.txt
+*_log.txt
+commit_msg.txt
+run_test.bat
+retro_report.md
+test_merge_ok.py
 
 # Root-level benchmark build / extraction scripts (one-off tools)
 build_benchmark.py
@@ -366,6 +404,33 @@ corpus_identity_reconcile.py
 # Evaluation debug / probe / fix scripts (temporary investigation tools)
 evaluation/_*.py
 evaluation/fix_*.py
+
+# Evaluation one-off investigation probes generated during an analysis session.
+# Not the same thing as the tracked harnesses (ce_v2_*, rerun_*, evaluate_*).
+evaluation/analyze_*.py
+evaluation/probe_*.py
+evaluation/audit_*.py
+evaluation/diagnose_*.py
+evaluation/measure_*.py
+evaluation/census_*.py
+evaluation/oracle_*.py
+evaluation/reeval_*.py
+evaluation/score_*.py
+evaluation/show_*.py
+evaluation/locate_*.py
+evaluation/inspect_*.py
+evaluation/classify_*.py
+evaluation/attribute_*.py
+evaluation/check_*.py
+evaluation/compare_*.py
+evaluation/confirm_*.py
+evaluation/*_probe.py
+evaluation/test_*.py
+evaluation/evaluate_relabel_truth.py
+evaluation/verify_relabel_claims.py
+evaluation/concept_gate_reachability.py
+evaluation/answer_quality_headroom.py
+
 evaluation/out/
 
 # Script debug / probe scripts (temporary investigation tools)

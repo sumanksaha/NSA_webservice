@@ -12,6 +12,7 @@ on:
 
 permissions:
     contents: read
+    issues: write
 
 jobs:
     ping:
@@ -34,3 +35,43 @@ jobs:
                     --connect-timeout 15 --max-time 90 \
                     --retry-all-errors --retry 6 --retry-delay 30 \
                     "$URL"
+
+            - name: Open alert issue on failure
+              if: failure()
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  # gh resolves the target repo from --repo, GH_REPO, or a git
+                  # remote. There is no checkout step here, so the workspace is
+                  # not a git repo and GITHUB_REPOSITORY is not a fallback:
+                  # without this, every gh call below fails with "not a git
+                  # repository" and the alert never fires.
+                  GH_REPO: ${{ github.repository }}
+                  WORKFLOW_NAME: ${{ github.workflow }}
+                  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+              run: |
+                  # A failed /health ping means the app — and with it the pooled
+                  # Postgres connection — is unreachable. Supabase's free tier
+                  # pauses the project after ~7 idle days, so a silent failure
+                  # here is time-critical: surface it as an open issue instead
+                  # of leaving a red run nobody looks at.
+                  #
+                  # A single issue is reused: the first failure opens it, later
+                  # failures comment on it, so a daily schedule cannot flood
+                  # the tracker.
+                  title="[keepalive] /health ping failing"
+                  # Dynamic values arrive via env instead of "${{ }}"
+                  # interpolation, so this body stays a plain shell script that
+                  # can be syntax-checked without a runner.
+                  existing=$(gh issue list --state open --search "$title in:title" --json number --limit 1)
+                  printf -v body '%s\n' \
+                      "The scheduled \`${WORKFLOW_NAME}\` ping failed at $(date -u +'%Y-%m-%d %H:%M UTC')." \
+                      "" \
+                      "- Workflow: ${WORKFLOW_NAME}" \
+                      "- Run: ${RUN_URL}" \
+                      "" \
+                      "Supabase free Postgres pauses after ~7 days without a successful query, so two more silent failures could pause the database. Resolve this before then."
+                  if [ "$existing" = "[]" ]; then
+                      gh issue create --title "$title" --body "$body"
+                  else
+                      gh issue comment "$(printf '%s' "$existing" | jq -r '.[0].number')" --body "$body"
+                  fi
