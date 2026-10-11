@@ -17,7 +17,21 @@ __all__ = [
 ]
 
 _FORM_RE = re.compile(r"\b(form|forms?)\s+(ii|iii|iv|v|vi|vii|viii)\b", re.IGNORECASE)
-_NUMBER_RE = re.compile(r"\b(\d+)\.\s+(.*?)(?=\s*\d+\.\s+|\Z)", re.MULTILINE | re.DOTALL)
+
+#: A numbered step, in any of the three shapes this repo actually emits:
+#: ``1. text`` (numbered list), ``Step 1: text`` (test fixtures) and
+#: ``Step 1 — text`` (``prompt_template.GROUND_QA_SYSTEM_PROMPT`` writes
+#: "Work in two steps. Step 1 — quote: ...").
+#:
+#: The old pattern required ``\d+\.`` and so matched none of them, which made
+#: ``find_missing_steps`` / ``find_extra_steps`` return ``[]`` for every input
+#: -- the feature was inert. Group 1 is the number, group 2 the step text,
+#: same as before, so the callers are unchanged.
+_STEP_SEP = r"[.:\u2014\u2013-]"
+_NUMBER_RE = re.compile(
+    rf"\b(?:Step\s+)?(\d+)\s*{_STEP_SEP}\s+(.*?)(?=\s*(?:Step\s+)?\d+\s*{_STEP_SEP}\s+|\Z)",
+    re.IGNORECASE | re.MULTILINE | re.DOTALL,
+)
 
 
 @dataclass(frozen=True)
@@ -124,8 +138,12 @@ def find_citation_issues(system_answer: str, user_answer: str) -> list[str]:
 def find_factual_discrepancies(system_answer: str, user_answer: str) -> list[str]:
     """Find substantive differences between answers."""
     issues = []
-    sys_tokens = set(re.findall(r"\b[a-z]+\b", system_answer or "").lower())
-    user_tokens = set(re.findall(r"\b[a-z]+\b", user_answer or "").lower())
+    # ``.lower()`` belongs on the haystack, not on ``re.findall``'s list
+    # result -- as written this raised AttributeError on every call, so
+    # ``compare_workflow_answers`` could never return. The disabled
+    # ``tests/_test_workflow_improvement.py`` is why it shipped.
+    sys_tokens = set(re.findall(r"\b[a-z]+\b", (system_answer or "").lower()))
+    user_tokens = set(re.findall(r"\b[a-z]+\b", (user_answer or "").lower()))
     common = set([
         "the",
         "a",
@@ -188,9 +206,9 @@ def build_improvement_summary(comparison: WorkflowAnswerComparison) -> str:
     """Build a human-readable summary of improvements needed."""
     issues = []
     if comparison.missing_forms:
-        issues.append("Missing forms: " + ", ".join(comparison.missing_forms) + chr(34))
+        issues.append(f"Missing forms: {', '.join(comparison.missing_forms)}")
     if comparison.extra_forms:
-        issues.append("Extra forms (hallucinated): " + ", ".join(comparison.extra_forms) + chr(34))
+        issues.append(f"Extra forms (hallucinated): {', '.join(comparison.extra_forms)}")
     if comparison.missing_steps:
         issues.append(f"Missing steps: {len(comparison.missing_steps)}")
     if comparison.citation_issues:

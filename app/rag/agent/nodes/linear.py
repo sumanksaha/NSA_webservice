@@ -701,6 +701,9 @@ def finalize_node(state: dict[str, Any]) -> dict[str, Any]:
                 response.setdefault("retry_guard", observation)
     except Exception as exc:
         logger.debug("retry-guard observation failed: %s", exc)
+    # Surface the rag_query_log row id so a human rating (POST /api/rag/
+    # feedback) can join back to the exact logged answer.
+    response["query_log_id"] = state.get("log_id")
     response["agent"] = {
         "retry_count": state.get("retry_count", 0),
         "expanded_query": state.get("expanded_query"),

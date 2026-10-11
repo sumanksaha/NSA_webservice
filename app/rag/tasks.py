@@ -758,6 +758,9 @@ def run_generation_pipeline(
         "pipeline": pipeline or "legacy",
         "rl_reward": rl_reward,
         "rl_params": retrieval_data.get("rl_params") if cfg.rl_enabled else None,
+        # rag_query_log row id — lets a human rating (POST /api/rag/feedback)
+        # join back to the exact logged answer.
+        "log_id": retrieval_data.get("log_id"),
         # 1.3 compound queries: the sub-queries each sub-retrieval ran for
         # (absent for simple queries — decomposition never ran).
         **({"sub_queries": retrieval_data["sub_queries"]} if "sub_queries" in retrieval_data else {}),

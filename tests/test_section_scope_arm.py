@@ -15,6 +15,8 @@ No network and no LLM: retrievers are test doubles.
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pytest
 
 from app.rag.retrieval.dense_retriever import DenseRetriever
@@ -22,6 +24,7 @@ from app.rag.retrieval.hybrid_retriever import HybridRetriever
 from app.rag.retrieval.result import RetrievedChunk, SearchResult
 from app.rag.retrieval.rrf import reciprocal_rank_fuse
 from app.rag.retrieval.section_scope import (
+    merge_caller_filters,
     section_scope_filter,
     section_scope_meta,
 )
@@ -75,6 +78,12 @@ class TestSectionScopeFilter:
         assert all("should" not in item for item in built["must"])
 
     def test_section_without_act_filters_section_only(self):
+        """No Act named: scope on the section alone.
+
+        Section numbers are unique only within an Act, so this is the least
+        precise mode — but the retriever is built per collection, so in a
+        single-instrument collection the pin is unambiguous.
+        """
         built = section_scope_filter(None, "31(2)")
         assert built == {"must": [{"key": "section_number", "match": {"value": "31(2)"}}]}
 
@@ -98,6 +107,88 @@ class TestSectionScopeMeta:
     def test_plain_query_fires_no_arm(self):
         meta = section_scope_meta("Which licence do cloud kitchens need?")
         assert meta is None
+
+    def test_section_without_act_is_section_only_mode(self):
+        meta = section_scope_meta("What is the penalty under section 31?")
+        assert meta is not None
+        assert meta["mode"] == "section_only"
+        assert meta["act"] is None
+        assert meta["section"] == "31"
+
+
+# --------------------------------------------------------------------------- #
+# 1b. merge_caller_filters — the arm cannot widen the caller's scope
+# --------------------------------------------------------------------------- #
+class TestMergeCallerFilters:
+    #: Shaped base, as :func:`section_scope_filter` builds it.
+    _base: ClassVar[dict] = {
+        "must": [{"key": "section_number", "match": {"value": "55"}}],
+        "should": [{"key": "act_name", "match": {"value": "A"}}],
+    }
+
+    def test_no_caller_filters_is_a_no_op(self):
+        base = dict(self._base)
+        assert merge_caller_filters(base, None) == base
+        assert merge_caller_filters(base, {}) == base
+
+    def test_flat_caller_filters_become_extra_must_clauses(self):
+        """Every production filter is flat — QueryParser emits flat keys and
+        the routes pass the request body through verbatim. Reading the caller's
+        ``must`` directly, as an earlier version did, dropped the filter."""
+        merged = merge_caller_filters(self._base, {"legal_domain": "environment"})
+        assert merged["must"] == [
+            {"key": "section_number", "match": {"value": "55"}},
+            {"key": "legal_domain", "match": {"value": "environment"}},
+        ]
+
+    def test_caller_filter_list_expands_to_one_clause_per_value(self):
+        merged = merge_caller_filters(self._base, {"document_id": ["a", "b"]})
+        assert merged["must"][1:] == [
+            {"key": "document_id", "match": {"value": "a"}},
+            {"key": "document_id", "match": {"value": "b"}},
+        ]
+
+    def test_shaped_caller_filter_keeps_its_boolean_structure(self):
+        """A caller's ``should`` must not be flattened onto the base's
+        top-level ``should`` — that turns the caller's AND into an OR."""
+        shaped = {"should": [{"key": "act_name", "match": {"value": "X"}}]}
+        merged = merge_caller_filters(self._base, shaped)
+        assert merged["should"] == self._base["should"]
+        assert merged["must"] == [
+            {"key": "section_number", "match": {"value": "55"}},
+            {"filter": shaped},
+        ]
+
+    def test_caller_section_pin_replaces_the_arms_own_pin(self):
+        """No duplicate clause when both name the same section."""
+        merged = merge_caller_filters(self._base, {"section_number": "55"})
+        assert merged["must"] == [{"key": "section_number", "match": {"value": "55"}}]
+
+    def test_multi_section_run_is_not_contradicted_by_the_arms_pin(self):
+        """``Sections 55, 56 and 58`` yields an OR-list from SectionQueryParser.
+
+        ANDing that with the arm's single ``section_number == 55`` builds
+        mutually exclusive clauses that can never match, so the arm would
+        silently do nothing on exactly the queries it exists for.
+        """
+        merged = merge_caller_filters(self._base, {"section_number": ["55", "56", "58"]})
+        assert merged["must"] == [
+            {"key": "section_number", "match": {"value": "55"}},
+            {"key": "section_number", "match": {"value": "56"}},
+            {"key": "section_number", "match": {"value": "58"}},
+        ]
+
+    def test_non_section_caller_filters_still_combine_with_the_section_pin(self):
+        merged = merge_caller_filters(self._base, {"section_number": "55", "subsection": "2"})
+        assert merged["must"] == [
+            {"key": "section_number", "match": {"value": "55"}},
+            {"key": "subsection", "match": {"value": "2"}},
+        ]
+
+    def test_base_is_not_mutated(self):
+        base = dict(self._base)
+        merge_caller_filters(base, {"legal_domain": "environment"})
+        assert base == self._base
 
 
 # --------------------------------------------------------------------------- #
@@ -233,8 +324,12 @@ class TestSectionArmIsAdditive:
         third set of RRF points re-orders the pool, and a marginal gold chunk
         sitting at ``top_k`` can be pushed below the cut. Measured in Phase 2b:
         enabling the arm lost gold for one qid for exactly this reason. The
-        fused pool must therefore be a strict superset of what the base arms
-        already surfaced.
+        pool handed to the reranker must therefore be a strict superset of
+        what the base arms already surfaced.
+
+        The assertion is on the reranker's input, not the returned list:
+        widening the pool only pays off if something downstream re-cuts it,
+        and ``retrieve`` itself still honours ``top_k``.
         """
         from app.shared.config import cfg
 
@@ -244,12 +339,6 @@ class TestSectionArmIsAdditive:
         boundary_gold = _chunk("gold-9", 0.9)
         filler = [_chunk(f"scope-{i}", 0.9) for i in range(1, 13)]
 
-        hybrid = HybridRetriever(
-            dense=_FixedDense([*[_chunk(f"d-{i}") for i in range(9)], boundary_gold]),
-            sparse=_FixedSparse([]),
-            rrf_k=60.0,
-        )
-
         class _ScopeDense(_FixedDense):
             def search(self, query, top_k=10, filters=None, **kw):
                 if filters is not None:
@@ -258,14 +347,23 @@ class TestSectionArmIsAdditive:
                     )
                 return super().search(query, top_k=top_k, filters=filters, **kw)
 
-        hybrid.dense = _ScopeDense([*[_chunk(f"d-{i}") for i in range(9)], boundary_gold])
+        reranker = _RecordingReranker()
+        hybrid = HybridRetriever(
+            dense=_ScopeDense([*[_chunk(f"d-{i}") for i in range(9)], boundary_gold]),
+            sparse=_FixedSparse([]),
+            reranker=reranker,
+            rrf_k=60.0,
+        )
         result = hybrid.retrieve(
             "Under the Indian Contract Act, 1872 section 73 what remedy applies",
             top_k=10,
         )
-        ids = [c.chunk_id for c in result.chunks]
-        assert "gold-9" in ids, "boundary gold was displaced by the structural arm"
-        assert "scope-1" in ids
+        pool = [c.chunk_id for c in reranker.pool]
+        assert "gold-9" in pool, "boundary gold was displaced by the structural arm"
+        assert "scope-1" in pool
+        assert len(pool) > 10, "the protection must actually widen the pool"
+        # ...and the contract still holds on the way out.
+        assert len(result.chunks) == 10
 
     def test_default_path_is_unchanged(self, monkeypatch):
         """Without the arm the pool is exactly the fusion top_k — the
@@ -293,6 +391,159 @@ class TestSectionArmIsAdditive:
         hybrid.retrieve("What are the penalty provisions under the Companies Act, 2013", top_k=10)
         scope_call = hybrid.dense.calls[1]
         assert scope_call["top_k"] == 20  # max(top_k * 2, 20)
+
+    def test_section_only_arm_keeps_the_narrow_fetch(self, monkeypatch):
+        """The least precise mode must not get the most chunks.
+
+        ``section_only`` matches that section of every instrument in the
+        collection; widening its fetch buys precision loss the reranker then
+        has to undo.
+        """
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "section_arm", True, raising=False)
+        hybrid = _hybrid(dense_results=[_chunk("a-1")])
+        hybrid.retrieve("What is the penalty under section 31?", top_k=10)
+        assert hybrid.dense.calls[1]["top_k"] == 10
+
+
+class TestSectionArmRespectsCallerScope:
+    def test_scope_arm_intersects_the_callers_filters(self, monkeypatch):
+        """The arm must not retrieve outside the caller's payload scope.
+
+        ``run_retrieval_pipeline`` merges QueryParser output and any HTTP
+        ``filters`` into the retriever's filter. Every one of those is flat, so
+        a merge that reads the caller's ``must`` key drops them all.
+        """
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "section_arm", True, raising=False)
+        hybrid = _hybrid(dense_results=[_chunk("a-1")], sparse_results=[_chunk("b-2")])
+        hybrid.retrieve(
+            "Under the Indian Contract Act, 1872 section 73 what remedy applies",
+            top_k=5,
+            filters={"legal_domain": "environment"},
+        )
+        scope_filter = hybrid.dense.calls[1]["filters"]
+        assert {"key": "legal_domain", "match": {"value": "environment"}} in scope_filter["must"]
+        # the base arms still see the caller's filter unchanged
+        assert hybrid.dense.calls[0]["filters"] == {"legal_domain": "environment"}
+
+    def test_scope_arm_filter_is_unpinned_when_the_caller_passes_no_filters(self, monkeypatch):
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "section_arm", True, raising=False)
+        hybrid = _hybrid(dense_results=[_chunk("a-1")])
+        hybrid.retrieve("Under the Indian Contract Act, 1872 section 73 what remedy applies", top_k=5)
+        assert hybrid.dense.calls[1]["filters"]["must"] == [
+            {"key": "section_number", "match": {"value": "73"}},
+        ]
+
+
+class TestProtectedPoolInvariants:
+    """The non-lossy protection must widen the pool without corrupting it."""
+
+    @staticmethod
+    def _overlapping_hybrid(scope_chunks, reranker=None):
+        """Arms that share chunks, the way real dense/sparse/identifier do."""
+        from app.shared.config import cfg
+
+        cfg.section_arm = True
+
+        class _D:
+            def search(self, query, top_k=10, filters=None, **kw):
+                if filters is not None:
+                    return SearchResult(
+                        query=query,
+                        query_type="",
+                        chunks=list(scope_chunks),
+                        total=len(scope_chunks),
+                        source="dense",
+                    )
+                return SearchResult(
+                    query=query,
+                    query_type="",
+                    chunks=[_chunk(f"d-{i}") for i in range(top_k)],
+                    total=top_k,
+                    source="dense",
+                )
+
+        class _S:
+            def retrieve(self, query, top_k=10, filters=None, **kw):
+                half = top_k // 2
+                return SearchResult(
+                    query=query,
+                    query_type="",
+                    chunks=[_chunk(f"d-{i}") for i in range(half)]
+                    + [_chunk(f"s-{i}") for i in range(top_k - half)],
+                    total=top_k,
+                    source="sparse",
+                )
+
+        return HybridRetriever(dense=_D(), sparse=_S(), reranker=reranker)
+
+    _QUERY = "Under the Indian Contract Act, 1872 section 73 what remedy applies"
+
+    def test_protected_chunks_are_deduplicated(self, monkeypatch):
+        """Arms overlap by design; a chunk missed by the cut is in several.
+
+        The same object must not land in the pool twice — ContextBuilder emits
+        one ``[Source n]`` per position, so a repeat shows the same text under
+        two citation labels.
+        """
+        hybrid = self._overlapping_hybrid([_chunk(f"scope-{i}") for i in range(5)])
+        result = hybrid.retrieve(self._QUERY, top_k=10, identifier_query="Indian Contract Act, 1872 section 73")
+        ids = [c.chunk_id for c in result.chunks]
+        assert len(ids) == len(set(ids)), f"duplicate chunks in pool: {ids}"
+        assert len({id(c) for c in result.chunks}) == len(result.chunks)
+
+    def test_protected_pool_is_bounded_at_twice_top_k(self, monkeypatch):
+        """Every extra chunk is another cross-encoder forward pass on the hot
+        path, so the protection is capped rather than unioning every arm."""
+        reranker = _RecordingReranker()
+        hybrid = self._overlapping_hybrid([_chunk(f"scope-{i}") for i in range(20)], reranker=reranker)
+        hybrid.retrieve(
+            self._QUERY,
+            top_k=10,
+            identifier_query="Indian Contract Act, 1872 section 73",
+            form_query="Form VIII",
+        )
+        assert len(reranker.pool) <= 20
+
+    def test_no_reranker_still_honours_top_k(self, monkeypatch):
+        """``retrieve`` documents top_k as the maximum returned. The factory
+        always supplies a reranker, but the constructor permits None."""
+        hybrid = self._overlapping_hybrid([_chunk(f"scope-{i}") for i in range(20)])
+        result = hybrid.retrieve(self._QUERY, top_k=10)
+        assert len(result.chunks) == 10
+
+    def test_a_failed_scope_arm_does_not_widen_the_pool(self, monkeypatch):
+        """``dense.search`` swallows its own exceptions and returns an empty
+        result carrying ``error``, so the arm's ``except`` rarely fires. A
+        missing payload index must not leave the pool enlarged for nothing."""
+        from app.shared.config import cfg
+
+        cfg.section_arm = True
+
+        class _FailingScopeDense(_FixedDense):
+            def search(self, query, top_k=10, filters=None, **kwargs):
+                if filters is not None:
+                    return SearchResult(
+                        query=query,
+                        query_type="",
+                        chunks=[],
+                        total=0,
+                        source="dense",
+                        error="payload index missing",
+                    )
+                return super().search(query, top_k=top_k, filters=filters, **kwargs)
+
+        hybrid = HybridRetriever(
+            dense=_FailingScopeDense([_chunk(f"d-{i}") for i in range(10)]),
+            sparse=_FixedSparse([_chunk(f"s-{i}") for i in range(10)]),
+        )
+        result = hybrid.retrieve(self._QUERY, top_k=10)
+        assert len(result.chunks) == 10
 
 
 class _FixedDense(_RecordingDense):
@@ -329,6 +580,17 @@ class _RankAwareSparse(_RecordingSparse):
     def retrieve(self, query, top_k=10, filters=None, **kwargs):
         self.calls.append({"query": query, "top_k": top_k, "filters": filters})
         return SearchResult(query=query, query_type="", chunks=[], total=0, source="sparse")
+
+
+class _RecordingReranker:
+    """Captures the pool it is asked to rank, then truncates like the real ones."""
+
+    def __init__(self):
+        self.pool: list[RetrievedChunk] = []
+
+    def rerank(self, query, chunks, top_k=None, query_type=None):
+        self.pool = list(chunks)
+        return list(chunks)[:top_k] if top_k is not None else list(chunks)
 
 
 def test_rrf_fusion_is_rank_based():

@@ -14,6 +14,22 @@ from .parsers.section_parser import SectionData, SectionParser
 from .storage.citation import CitationExtractor, LegalCitation
 from .utils.cache import evict_if_full, stable_key
 
+#: A paragraph that is a gazette amendment notification. It quotes the words
+#: being replaced rather than stating a provision, so it must not inherit the
+#: identity of the section it discusses. The leading numeral in these is the
+#: gazette's own item number, never a section, which is why "75. 2021 24 The
+#: Inland (A)In section 63 ..." cannot be read as opening s75.
+AMENDMENT_NOTIFICATION_RE = re.compile(
+    r"(for the words|shall be substituted|the following section shall be substituted"
+    r"|and after the words|in the marginal heading)",
+    re.IGNORECASE,
+)
+
+#: A paragraph that opens a provision with its own marginal note, e.g.
+#: "52. Penalty for misbranded food." Requires the numeral, the period and a
+#: capital or opening quote, so "63(1)" or "2.4.1.3" cannot match.
+LEADING_SECTION_RE = re.compile(r"^(\d{1,3}[A-Z]?)\s*\.\s+(?=[A-Z\u201c\"])")
+
 # Default blend for the overall confidence score (T-29 calibration):
 # 40% structure detection, 35% content quality, 25% citation presence.
 DEFAULT_CONFIDENCE_WEIGHTS: dict[str, float] = {
@@ -294,11 +310,31 @@ class LegalParagraphEngine:
         return structured_output
 
     def _extract_section_from_text(self, text: str) -> str | None:
-        """Extract section number from paragraph text."""
-        section_match = re.search(r"Section\s*(\d+)", text, re.IGNORECASE)
-        if section_match:
-            return section_match.group(1)
-        return None
+        """Extract the section number a paragraph *is*, not one it mentions.
+
+        ``Section\\s*(\\d+)`` matched any in-text reference, so a gazette
+        amendment notification -- "(C) In section 63, for the words X, the
+        words Y shall be substituted" -- was stamped 63, and ``Chunk.
+        from_paragraph`` copies that into ``section_number``. Measured over
+        the live corpus, 141 stamps were backed *only* by amendment prose,
+        and both consumers of the field were misled: ``matches_gold`` credited
+        those notes as gold, and ``section_scope``'s structural arm filtered on
+        and promoted them.
+
+        An amendment note *refers to* a provision; it does not *contain* one,
+        so it gets no section of its own. Genuine marginal notes ("52. Penalty
+        for misbranded food.") are still recognised, by leading numeral.
+
+        Recorded in ``sections_covered`` rather than dropped on the floor: the
+        reference is real, it just is not this chunk's identity.
+        """
+        body = (text or "").strip()
+        if not body:
+            return None
+        if AMENDMENT_NOTIFICATION_RE.search(body):
+            return None
+        leading = LEADING_SECTION_RE.match(body)
+        return leading.group(1) if leading else None
 
     def _extract_clause_from_text(self, text: str) -> str | None:
         """Extract clause number from paragraph text."""

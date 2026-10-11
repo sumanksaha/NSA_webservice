@@ -51,26 +51,33 @@ class TestRLIntegrationFlow:
 
     def test_controller_enabled_when_rl_flag_on(self, test_client):
         """When RAG_RL_ENABLED=true, the controller is active."""
-        from app.rag.rl.controller import get_rl_controller
+        from app.rag.rl.controller import get_rl_controller, reset_rl_controller
+
+        # Re-read the flag for this app rather than inheriting a singleton
+        # built earlier with the opposite setting.
+        reset_rl_controller()
+        test_client.application.config["RAG_RL_ENABLED"] = True
 
         with test_client.application.app_context():
             controller = get_rl_controller()
             assert controller.enabled is True
 
-    def test_controller_disabled_when_rl_flag_off(self, test_client, monkeypatch):
+    def test_controller_disabled_when_rl_flag_off(self, test_client):
         """When RAG_RL_ENABLED=false, the controller returns defaults.
 
-        ``get_rl_controller`` reads the flag through the app.shared.config
-        seam (not ``app.config``), so the test must patch that seam and then
-        drop the process-level singleton — otherwise the controller built by
-        the preceding test is returned again with its flag latched on.
+        ``get_rl_controller`` reads the flag through ``app.shared.config.cfg``,
+        whose ``__getattr__`` prefers ``current_app.config`` over ``os.environ``
+        (app/shared/config.py:950). So the flag is flipped on the app's own
+        config rather than patched onto ``cfg``: ``setattr`` on ``cfg`` would
+        install a real instance attribute that shadows ``__getattr__`` for the
+        rest of the process, silently disabling RL in every later test.
         """
         from app.rag.rl.controller import get_rl_controller, reset_rl_controller
         from app.rag.rl.controller import _DEFAULT_RRF_K
-        from app.shared.config import cfg
 
-        monkeypatch.setattr(cfg, "rl_enabled", False, raising=False)
+        # Drop the process-level singleton so the flag is re-read for this app.
         reset_rl_controller()
+        test_client.application.config["RAG_RL_ENABLED"] = False
 
         with test_client.application.app_context():
             controller = get_rl_controller()
@@ -78,6 +85,7 @@ class TestRLIntegrationFlow:
             # Disabled controller: returns the production defaults, no bandit.
             action = controller.select_params(query="What is Section 55?", query_type="section_lookup")
             assert action.rrf_k == _DEFAULT_RRF_K
+            assert controller.current_policy_stats() == {"enabled": False}
 
     def test_policy_action_space(self):
         """The policy has the expected action space of (top_k, rrf_k) pairs."""

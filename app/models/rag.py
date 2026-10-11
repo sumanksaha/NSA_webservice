@@ -60,6 +60,9 @@ class RAGQueryLog(db.Model):
     error = db.Column(db.Text, nullable=True)
     content_hash = db.Column(db.String(64), nullable=False)  # SHA-256 of query + response
     pipeline = db.Column(db.String(16), nullable=True)  # "legacy" | "agent" (LangGraph M3; A/B rollout §8)
+    # Set by the autoresearch query-log sweep once this row has been evaluated
+    # for research-target signals (keeps the sweep idempotent).
+    research_swept_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
 
     __table_args__ = (
@@ -239,4 +242,89 @@ class RLEGPolicyLog(db.Model):
         db.Index(
             "idx_rl_policy_context", "query_type", "legal_confidence_bucket", "has_identifier", "query_length_bucket"
         ),
+    )
+
+
+class RAGAnswerFeedback(db.Model):
+    """Human rating of one RAG answer (autoresearch input).
+
+    One row per rating event.  ``query`` / ``query_type`` / ``response_text``
+    are denormalized copies of the :class:`RAGQueryLog` row so a rating stays
+    actionable after the query-log retention sweep deletes that row (the
+    ``cleanup_rag_query_logs`` job runs on a 30-day TTL).
+
+    ``query_log_id`` is the precise join back to the logged answer when it is
+    still available; it is nullable because a rater may rate an answer that
+    was never logged (DB write failure is best-effort in
+    :class:`app.rag.retrieval.logger.RetrievalLogger`).
+
+    Consumption: low ratings open (or refresh) a
+    :class:`RAGResearchTarget` via
+    :func:`app.rag.research.failure_queue.enqueue_from_feedback` — the
+    autoresearch input queue.
+    """
+
+    __tablename__ = "rag_answer_feedback"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    query_log_id = db.Column(
+        db.String(36), db.ForeignKey("rag_query_log.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    query = db.Column(db.Text, nullable=False)
+    query_type = db.Column(db.String(32), nullable=True)
+    response_text = db.Column(db.Text, nullable=True)
+    rating = db.Column(db.Integer, nullable=False)  # 1 (worst) .. 5 (best)
+    comment = db.Column(db.Text, nullable=True)
+    # Machine-readable reasons (checkboxes in the UI).  Empty when the rater
+    # only left a rating.  Values live in
+    # ``app.rag.research.failure_queue.FEEDBACK_REASONS``.
+    failure_reasons = db.Column(db.JSON, default=list)
+    pipeline = db.Column(db.String(16), nullable=True)  # "legacy" | "agent"
+    rated_by = db.Column(db.String(255), nullable=True)  # user email/username (best-effort)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+
+    __table_args__ = (
+        db.Index("idx_rag_answer_feedback_created", "created_at"),
+        db.Index("idx_rag_answer_feedback_rating", "rating"),
+    )
+
+
+class RAGResearchTarget(db.Model):
+    """One open research question for the next autoresearch session.
+
+    Deduplicated by ``query_hash`` (SHA-256 over the normalized query): a
+    question that fails repeatedly accumulates ``occurrences`` instead of
+    piling up rows, so the orchestrator can prioritize by frequency.
+
+    ``source`` records what opened the target: ``human_rating`` (a low
+    answer rating), ``detector`` (the failure detector over
+    ``rag_query_log``), or ``eval`` (offline benchmark failures).
+
+    Lifecycle: ``open`` -> ``triaged`` -> ``researching`` -> ``resolved`` |
+    ``rejected``.  ``detail`` is a free-form JSON bag — ratings seen, failure
+    reasons, retrieved/cited chunk ids, provisions named in the query —
+    whatever the producing detector captured.
+    """
+
+    __tablename__ = "rag_research_target"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    query_hash = db.Column(db.String(64), nullable=False, unique=True)  # SHA-256 of the normalized query
+    query = db.Column(db.Text, nullable=False)
+    query_type = db.Column(db.String(32), nullable=True)
+    # Failure classification (see app/rag/research/failure_queue.py).
+    failure_class = db.Column(db.String(32), nullable=False, index=True)
+    # ``evaluation.answer_error_taxonomy`` category, set at triage.
+    taxonomy_category = db.Column(db.String(32), nullable=True)
+    source = db.Column(db.String(16), nullable=False, default="human_rating", index=True)
+    detail = db.Column(db.JSON, default=dict)
+    occurrences = db.Column(db.Integer, nullable=False, default=1)
+    status = db.Column(db.String(16), nullable=False, default="open", index=True)
+    resolution = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+
+    __table_args__ = (
+        db.Index("idx_rag_research_target_created", "created_at"),
+        db.Index("idx_rag_research_target_status", "status"),
     )

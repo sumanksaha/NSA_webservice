@@ -164,31 +164,16 @@ class EvidenceVerifier:
             # textual-overlap check before declaring the claim unverified
             # (a bare "sections cited but no stamp => hallucinated" verdict
             # flagged claims whose evidence simply lacked metadata).
-            best_score, best_chunk = self._best_text_match(claim.text, chunks)
-            if best_chunk is not None and best_score >= self.similarity_threshold:
-                # Entailment gates: string similarity alone is not support.
-                supports, reason = self._chunk_supports_claim(claim, best_chunk)
-                if not supports:
-                    logger.debug(
-                        "Claim rejected by entailment gate (%s) despite fuzzy score %.1f: %s",
-                        reason,
-                        best_score,
-                        claim.text[:120],
-                    )
-                    return EvidenceVerification(
-                        verified=False,
-                        confidence=_UNVERIFIED_CONFIDENCE,
-                        supporting_chunks=[],
-                        method="none",
-                        evidence_snippet="",
-                        reason=reason,
-                    )
+            score, chunk, failed_reason = self._first_supporting(
+                claim, self._ranked_matches(claim.text, chunks),
+            )
+            if chunk is not None:
                 return EvidenceVerification(
                     verified=True,
-                    confidence=self._text_confidence(best_score),
-                    supporting_chunks=[best_chunk.chunk_id],
+                    confidence=self._text_confidence(score),
+                    supporting_chunks=[chunk.chunk_id],
                     method="text",
-                    evidence_snippet=self._snippet(best_chunk.text),
+                    evidence_snippet=self._snippet(chunk.text),
                 )
             return EvidenceVerification(
                 verified=False,
@@ -196,34 +181,24 @@ class EvidenceVerifier:
                 supporting_chunks=[],
                 method="none",
                 evidence_snippet="",
+                reason=failed_reason,
             )
 
         # 2. Textual overlap via rapidfuzz.
-        ranked = self._ranked_matches(claim.text, chunks)
-        if ranked and ranked[0][0] >= self.similarity_threshold:
-            # Entailment gates: a chunk can score highly on ``partial_ratio``
-            # while asserting the opposite polarity or a different figure.
-            # Only a chunk that passes the gates counts as evidence.
-            failed_reason = ""
-            for score, chunk in ranked:
-                if score < self.similarity_threshold:
-                    break
-                supports, reason = self._chunk_supports_claim(claim, chunk)
-                if supports:
-                    return EvidenceVerification(
-                        verified=True,
-                        confidence=self._text_confidence(score),
-                        supporting_chunks=[chunk.chunk_id],
-                        method="text",
-                        evidence_snippet=self._snippet(chunk.text),
-                    )
-                failed_reason = failed_reason or reason
-                logger.debug(
-                    "Fuzzy candidate (score %.1f) rejected by entailment gate (%s): %s",
-                    score,
-                    reason,
-                    claim.text[:120],
-                )
+        score, chunk, failed_reason = self._first_supporting(
+            claim, self._ranked_matches(claim.text, chunks),
+        )
+        if chunk is not None:
+            return EvidenceVerification(
+                verified=True,
+                confidence=self._text_confidence(score),
+                supporting_chunks=[chunk.chunk_id],
+                method="text",
+                evidence_snippet=self._snippet(chunk.text),
+            )
+        if failed_reason:
+            # Every candidate above the threshold was rejected by a gate —
+            # the claim *looked* like its evidence but does not entail it.
             return EvidenceVerification(
                 verified=False,
                 confidence=_UNVERIFIED_CONFIDENCE,
@@ -262,17 +237,48 @@ class EvidenceVerifier:
         # Sort by retrieval score descending so the best chunk is first.
         return sorted(matched, key=lambda c: c.score, reverse=True)
 
-    def _best_text_match(self, claim_text: str, chunks: list[RetrievedChunk]) -> tuple[float, RetrievedChunk | None]:
-        """Find the chunk with the highest ``partial_ratio`` to *claim_text*."""
-        ranked = self._ranked_matches(claim_text, chunks)
-        if not ranked:
-            return 0.0, None
-        return ranked[0]
-
     def _ranked_matches(self, claim_text: str, chunks: list[RetrievedChunk]) -> list[tuple[float, RetrievedChunk]]:
         """All chunks with their ``partial_ratio`` to *claim_text*, best first."""
         scored = [(fuzz.partial_ratio(claim_text, chunk.text), chunk) for chunk in chunks]
         return sorted(scored, key=lambda pair: pair[0], reverse=True)
+
+    def _first_supporting(
+        self,
+        claim: ExtractedClaim,
+        ranked: list[tuple[float, RetrievedChunk]],
+    ) -> tuple[float, RetrievedChunk | None, str]:
+        """Best-ranked chunk that both clears the threshold and passes the gates.
+
+        Both fuzzy verification paths go through here so they share one
+        contract. Gating only the single best match made the two paths
+        disagree: a claim citing a section number was rejected outright when
+        its top fuzzy match failed a gate, even though a lower-ranked chunk
+        stating the right figure would have supported it. Candidates are
+        ranked by similarity, so scanning until the threshold is crossed is
+        also the natural stopping point.
+
+        Returns:
+            ``(score, chunk, "")`` for the first supporting candidate;
+            ``(0.0, None, reason)`` when every candidate above the threshold
+            was rejected (carrying the first failure's reason), or
+            ``(0.0, None, "")`` when nothing reached the threshold — the
+            latter lets the caller fall through to authority support.
+        """
+        failed_reason = ""
+        for score, chunk in ranked:
+            if score < self.similarity_threshold:
+                break
+            supports, reason = self._chunk_supports_claim(claim, chunk)
+            if supports:
+                return score, chunk, ""
+            failed_reason = failed_reason or reason
+            logger.debug(
+                "Fuzzy candidate (score %.1f) rejected by entailment gate (%s): %s",
+                score,
+                reason,
+                claim.text[:120],
+            )
+        return 0.0, None, failed_reason
 
     def _text_confidence(self, best_score: float) -> float:
         """Confidence for a fuzzy (``"text"``) verification.

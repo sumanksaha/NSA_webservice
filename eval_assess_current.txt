@@ -1,0 +1,48 @@
+﻿
+==============================================================================
+SOFT vs BINARY CORRECTNESS, ALL 150 QUESTIONS
+==============================================================================
+source: gen_C_hybrid.jsonl (150) / gen_C_hybrid_section.jsonl (150)
+
+--- arm: C_hybrid  (baseline)
+    failure   n= 89/89  soft mean 0.334  median 0.353  range 0.00-0.62
+               binary   4/89 (  4.5%)   abstained   6  abstention-credited   1
+    control   n= 61/61  soft mean 0.357  median 0.366  range 0.00-0.54
+               binary  15/61 ( 24.6%)   abstained   5  abstention-credited  11
+
+--- arm: C_hybrid_section  (scoped)
+    failure   n= 89/89  soft mean 0.334  median 0.355  range 0.00-0.58
+               binary   3/89 (  3.4%)   abstained   3  abstention-credited   1
+    control   n= 61/61  soft mean 0.333  median 0.371  range 0.00-0.54
+               binary  13/61 ( 21.3%)   abstained  10  abstention-credited   9
+
+==============================================================================
+FAILURE COHORT - HOW CLOSE ARE THE MISSES?
+==============================================================================
+binary-correct 4/89   incorrect 85/89
+
+    0 short but scored wrong        12
+    1 concept short                 33
+    2 concepts short                18
+    3-4 concepts short              21
+    5+ concepts short                1
+
+    graph-plausible reach (1-4 short): 72
+    not reachable by enrichment      : 1
+
+==============================================================================
+RETRIEVAL STATE, SAME QUESTIONS (re-measured post-remediation)
+==============================================================================
+  retrieval.preremediation.jsonl       failure: gold-in-top10 45/89  |  control: gold-in-top10 36/61
+  retrieval.jsonl                      failure: gold-in-top10 45/89  |  control: gold-in-top10 40/61
+
+==============================================================================
+READ-OUT FOR THE GRAPH DECISION
+==============================================================================
+  * soft-vs-binary gap is the head-room: nearly-right answers that
+    fail the gate. That is what more context can move.
+  * 1-4 concepts short is the graph's plausible reach; 5+ is not.
+  * generation is the pre-remediation cache and cannot be refreshed
+    without an LLM budget; retrieval above IS post-remediation.
+
+

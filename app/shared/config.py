@@ -297,6 +297,41 @@ _TABLE: tuple[Setting, ...] = (
         50,
         help="Circuit breaker: cap on ingestion requests emitted per discovery run (prevents runaway fetches).",
     ),
+    Setting(
+        "RAG_FEEDBACK_ENQUEUE_MAX_RATING",
+        "feedback_enqueue_max_rating",
+        int,
+        2,
+        help="Human answer rating (1 worst .. 5 best) at or below which the question is queued as a research target.",
+    ),
+    Setting(
+        "RAG_RESEARCH_SWEEP_ENABLED",
+        "research_sweep_enabled",
+        bool,
+        True,
+        help="Autoresearch session first sweeps rag_query_log for failure signals and queues them as research targets.",
+    ),
+    Setting(
+        "RAG_RESEARCH_SWEEP_MAX_ROWS",
+        "research_sweep_max_rows",
+        int,
+        500,
+        help="Cap on rag_query_log rows evaluated per sweep (oldest-unswept first by creation time).",
+    ),
+    Setting(
+        "RAG_RESEARCH_SESSION_MAX_TARGETS",
+        "research_session_max_targets",
+        int,
+        5,
+        help="Cap on research targets a single autoresearch session will work on.",
+    ),
+    Setting(
+        "RAG_RESEARCH_SESSION_MAX_LLM_CALLS",
+        "research_session_max_llm_calls",
+        int,
+        5,
+        help="Budget cap on LLM generation calls per autoresearch session (circuit breaker).",
+    ),
     # --- Universal multihop (Part B) --------------------------------------
     Setting(
         "ENABLE_MULTIHOP",

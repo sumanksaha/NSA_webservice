@@ -8,6 +8,7 @@ No Qdrant/network required — all verification runs against in-memory
 from __future__ import annotations
 
 import pytest
+from rapidfuzz import fuzz
 
 from app.rag.retrieval.result import Citation, RetrievedChunk
 from app.rag.verification import (
@@ -205,6 +206,52 @@ class TestClaimEntailmentGates:
         ver = EvidenceVerifier().verify_claim(claim, chunks)
         assert not ver.verified
         assert ver.reason == "polarity_mismatch"
+
+    def test_cited_section_fallthrough_scans_past_a_failing_best_match(self):
+        """Both fuzzy paths walk the candidate list, not just the top hit.
+
+        This branch (a claim citing a section no chunk is stamped with) used to
+        gate only the single best fuzzy match, so a claim whose top match
+        failed a gate was rejected even when a lower-ranked chunk stated the
+        asserted figure.
+
+        The decoy must outrank the gold on ``partial_ratio`` or the test
+        proves nothing: with both chunks near-verbatim the gold wins the
+        ranking outright and the old best-only code reaches the same verdict.
+        Here the decoy is a near-verbatim mismatch (Rs. 10,000 -> fails the
+        numeric gate) while the gold is reworded enough to rank second but
+        still states the asserted Rs. 50,000.
+        """
+        chunks = [
+            self._chunk(
+                "Under Section 55, a penalty of Rs. 10,000 may be imposed on the operator.",
+                chunk_id="decoy",
+            ),
+            self._chunk(
+                "Where an offence under Section 55 is committed, a monetary penalty "
+                "of Rs. 50,000 may be imposed.",
+                chunk_id="gold",
+            ),
+        ]
+        claim = ClaimExtractor().extract(
+            "Under Section 55, a penalty of Rs. 50,000 may be imposed on the operator.",
+        )[0]
+        assert claim.section_numbers, "fixture must exercise the cited-section branch"
+
+        # The decoy must be the best fuzzy match, else this does not test the
+        # scan. Assert it rather than trusting the wording above.
+        ranked = sorted(
+            chunks,
+            key=lambda c: fuzz.partial_ratio(claim.text, c.text),
+            reverse=True,
+        )
+        assert ranked[0].chunk_id == "decoy", "fixture no longer exercises the fallthrough"
+
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert ver.verified
+        assert ver.method == "text"
+        assert ver.supporting_chunks == ["gold"]
+        assert ver.reason == ""
 
     # -- Polarity regex coverage ------------------------------------------ #
     @pytest.mark.parametrize(

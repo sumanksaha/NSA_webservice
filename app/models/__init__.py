@@ -40,4 +40,12 @@ from app.models.ocr import (
     OCRCorrection,
     OCRDocument,
 )
-from app.models.rag import LegalChunk, LegalDocument, RAGEvalDataset, RAGEvalResult, RAGQueryLog
+from app.models.rag import (
+    LegalChunk,
+    LegalDocument,
+    RAGAnswerFeedback,
+    RAGEvalDataset,
+    RAGEvalResult,
+    RAGQueryLog,
+    RAGResearchTarget,
+)

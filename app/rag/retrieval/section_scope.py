@@ -103,31 +103,72 @@ def merge_caller_filters(
     ``base`` is the section/act structural arm filter (e.g. ``{"must": [...],
     "should": [...}]}`` from :func:`section_scope_filter` — a section pin plus
     the Act identity). ``caller_filters`` are the payload filters parsed from
-    the query (document type, instrument, authority, etc.) — plus anything the
-    HTTP body supplied. Combining them with AND means the structural arm can
-    never retrieve outside the caller's declared scope: a chunk must satisfy
-    the structural requirement AND all of the caller's payload conditions.
+    the query (section number, subsection, authority) — plus anything the HTTP
+    body supplied. Combining them with AND means the structural arm can never
+    retrieve outside the caller's declared scope: a chunk must satisfy the
+    structural requirement AND all of the caller's payload conditions.
 
-    ``must`` clauses from both sides are concatenated (every item must match).
-    ``should`` clauses are also concatenated: each side's disjunctions are
-    independent, so the union keeps both sides satisfiable without loosening
-    the ``must`` side. The resulting shape stays at the Qdrant model's
-    ``{"must": [...], "should": [...]}`` top-level form.
+    The caller's filters are always a flat ``{field: value}`` dict produced by
+    ``QueryParser`` (or empty), so they are expanded into ``must`` clauses
+    via :meth:`DenseRetriever._build_filter` and stacked onto the base's
+    ``must``. The base's ``should`` (Act identity) is always preserved. If the
+    caller itself pins ``section_number`` (a section query), that clause is
+    authoritative: the base's single-number pin is dropped so that a caller
+    OR-list (e.g. "Sections 55, 56, 58" -> ``["55", "56", "58"]``) does not
+    AND against ``section_number == 55`` and silently match nothing.
+
+    Args:
+        base: The section-scope filter. ``None``/empty is tolerated so a
+            caller with no structural scope can still pass its own filters.
+        caller_filters: The filters ``retrieve()`` was called with, possibly
+            ``None`` or empty.
+
+    Returns:
+        A filter dict; ``{}`` only when there is nothing to express.
     """
+    # Imported lazily: ``hybrid_retriever`` imports this module, so a
+    # module-level import here would be circular.
+    from app.rag.retrieval.dense_retriever import DenseRetriever
+
     base = base or {}
     caller = caller_filters or {}
-    result: dict[str, Any] = {}
-    # Every ``must`` item from both sides must hold together.
-    base_must = base.get("must", [])
-    caller_must = caller.get("must", [])
-    if base_must or caller_must:
-        result["must"] = [*base_must, *caller_must]
-    # Independent disjunctions on each side: union keeps both satisfiable.
-    base_should = base.get("should", [])
-    caller_should = caller.get("should", [])
-    if base_should or caller_should:
-        result["should"] = [*base_should, *caller_should]
-    return result
+    if not caller:
+        return dict(base)
+
+    if _is_shaped_filter(caller):
+        # Already in Qdrant's boolean form. Flattening it onto the base's
+        # top-level ``should`` would turn the caller's AND into an OR, so it
+        # travels as a single nested ``filter`` clause instead.
+        caller_must: list[Any] = [{"filter": caller}]
+    else:
+        caller_must = list(DenseRetriever._build_filter(dict(caller)).get("must", []))
+
+    merged: dict[str, Any] = dict(base)
+    base_must = list(base.get("must", []))
+    if any(_is_section_clause(c) for c in caller_must):
+        # The caller's section pin is authoritative. Drop only the arm's own
+        # section clause -- dropping the whole ``must`` key, as an earlier
+        # revision did, discarded the caller's clauses along with it and left
+        # no ``must`` at all. An OR-list of sections ("Sections 55, 56, 58")
+        # ANDed against a single ``section_number == 55`` matches nothing.
+        base_must = [c for c in base_must if not _is_section_clause(c)]
+    must = base_must + caller_must
+    if must:
+        merged["must"] = must
+    elif "must" in merged:
+        merged.pop("must")
+    # The base's ``should`` (Act identity) is preserved untouched.
+    return merged
+
+
+def _is_shaped_filter(value: Any) -> bool:
+    """True when ``value`` is already a Qdrant boolean filter, not a flat map."""
+    return isinstance(value, dict) and any(k in value for k in ("must", "should", "must_not", "min_should"))
+
+
+def _is_section_clause(clause: Any) -> bool:
+    """True when ``clause`` is a Qdrant condition pinning ``section_number``."""
+    return isinstance(clause, dict) and clause.get("key") == "section_number"
 
 
 def section_scope_meta(query: str) -> dict[str, Any] | None:

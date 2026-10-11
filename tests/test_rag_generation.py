@@ -172,6 +172,48 @@ class TestIndexChunkDropping:
         built = ContextBuilder(max_chunks=2).build("query", chunks, query_type="general")
         assert len(built.citations) == 2
 
+    def test_index_drop_never_removes_a_selected_evidence_chunk(self):
+        """The evidence selector is the downstream, better-informed decision.
+
+        Dropping what it chose would leave ``_pack_by_role`` reordering a set
+        it never receives, so an explicitly selected provision is exempt from
+        the index heuristic — including a short one, which trips the
+        ``_INDEX_MIN_CHARS`` floor.
+        """
+        selected_stub = RetrievedChunk(
+            chunk_id="selected-stub",
+            score=0.4,  # ranks below the unselected chunks
+            text=_THIN_FRAGMENT,
+            section_number="3",
+            document_title="Bengal Act 1944",
+            document_type="act",
+            authority="State",
+        )
+        chunks = [*_make_chunks(2), selected_stub]
+        evidence_set = {"items": [{"chunk_id": "selected-stub", "evidence_type": "primary"}]}
+        built = ContextBuilder(max_chunks=2).build("q", chunks, evidence_set=evidence_set)
+        ids = [c["chunk_id"] for c in built.citations]
+        assert ids[0] == "selected-stub", "a selected provision must lead the pack"
+        assert "c0" in ids
+
+    def test_index_drop_still_applies_to_unselected_chunks_with_an_evidence_set(self):
+        """Exempting selected chunks must not disable the drop for the rest."""
+        chunks = [
+            RetrievedChunk(
+                chunk_id="stub",
+                score=0.99,
+                text=_ARRANGEMENT_STUB,
+                section_number="1",
+                document_title="Water Act 1974",
+                document_type="act",
+                authority="CPCB",
+            ),
+            *_make_chunks(2),
+        ]
+        evidence_set = {"items": [{"chunk_id": "c0", "evidence_type": "primary"}]}
+        built = ContextBuilder(max_chunks=1).build("q", chunks, evidence_set=evidence_set)
+        assert [c["chunk_id"] for c in built.citations] == ["c0"]
+
     def test_truncation_respects_char_budget_with_tags(self):
         built = ContextBuilder(max_context_chars=600, max_chunks=10).build("query", _make_chunks(3))
         assert len(built.context) <= 600

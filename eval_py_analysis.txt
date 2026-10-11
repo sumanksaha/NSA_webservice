@@ -1,0 +1,189 @@
+﻿abstention_rule.py	main=	imports_eval=False
+ab_baseline_citation.py	main=if __name__ == "__main__":	imports_eval=True
+ab_kg_fusion.py	main=if __name__ == "__main__":	imports_eval=True
+ab_p0_1_packing.py	main=if __name__ == "__main__":	imports_eval=True
+ab_targeted_retry.py	main=if __name__ == "__main__":	imports_eval=True
+ab_targeted_retry_answers.py	main=if __name__ == "__main__":	imports_eval=True
+ab_targeted_retry_answers_fast.py	main=if __name__ == "__main__":	imports_eval=True
+ab_window_width.py	main=if __name__ == "__main__":	imports_eval=True
+answer_error_taxonomy.py	main=	imports_eval=False
+answer_quality_headroom.py	main=if __name__ == "__main__":	imports_eval=True
+answer_scoring.py	main=	imports_eval=True
+arms.py	main=	imports_eval=False
+assess_current_stage.py	main=if __name__ == "__main__":	imports_eval=False
+attribute_remediation.py	main=if __name__ == "__main__":	imports_eval=True
+attribute_window_gain.py	main=if __name__ == "__main__":	imports_eval=True
+benchmark.py	main=	imports_eval=True
+bench_p0_1_packing.py	main=if __name__ == "__main__":	imports_eval=True
+build_full_review_worksheet.py	main=	imports_eval=True
+build_stage2_report.py	main=if __name__ == "__main__":	imports_eval=True
+build_train_pool.py	main=if __name__ == "__main__":	imports_eval=False
+calibrate_ce.py	main=if __name__ == "__main__":	imports_eval=True
+ceiling_config.py	main=	imports_eval=True
+ce_rerank_eval.py	main=if __name__ == "__main__":	imports_eval=True
+ce_v2_error_analysis.py	main=if __name__ == "__main__":	imports_eval=True
+ce_v2_eval.py	main=if __name__ == "__main__":	imports_eval=True
+ce_v2_gate.py	main=if __name__ == "__main__":	imports_eval=True
+collection_census.py	main=if __name__ == "__main__":	imports_eval=True
+compare_citation_variants.py	main=if __name__ == "__main__":	imports_eval=False
+config.py	main=	imports_eval=False
+confirm_stamping_root_cause.py	main=if __name__ == "__main__":	imports_eval=False
+corpus_gap_scope.py	main=if __name__ == "__main__":	imports_eval=True
+coverage_audit.py	main=if __name__ == "__main__":	imports_eval=True
+decide_gate_or_answers.py	main=if __name__ == "__main__":	imports_eval=True
+diagnose_gate_length.py	main=if __name__ == "__main__":	imports_eval=True
+diagnose_retrieval_ceiling.py	main=if __name__ == "__main__":	imports_eval=True
+ensure_structural_indexes.py	main=if __name__ == "__main__":	imports_eval=False
+error_dashboard.py	main=if __name__ == "__main__":	imports_eval=False
+evaluate_qa_sample.py	main=if __name__ == "__main__":	imports_eval=True
+evaluate_relabel_truth.py	main=if __name__ == "__main__":	imports_eval=False
+evaluator_v3_component_rule.py	main=if __name__ == "__main__":	imports_eval=False
+eval_e2e_v2.py	main=if __name__ == "__main__":	imports_eval=True
+eval_identifier_classifier.py	main=if __name__ == "__main__":	imports_eval=True
+eval_multihop_step5.py	main=if __name__ == "__main__":	imports_eval=False
+eval_qu_tr_combos.py	main=if __name__ == '__main__':	imports_eval=True
+eval_v2_checkpoint.py	main=if __name__ == "__main__":	imports_eval=True
+evidence_set_selector.py	main=	imports_eval=True
+experiment_a_gold_rank.py	main=if __name__ == "__main__":	imports_eval=True
+experiment_b_topk_eval.py	main=if __name__ == "__main__":	imports_eval=True
+experiment_c_oracle_eval.py	main=if __name__ == "__main__":	imports_eval=True
+experiment_d_reasoning.py	main=if __name__ == "__main__":	imports_eval=False
+experiment_d_reasoning_eval.py	main=if __name__ == "__main__":	imports_eval=True
+experiment_e_citation_verification.py	main=if __name__ == "__main__":	imports_eval=True
+experiment_f_calibration_eval.py	main=if __name__ == "__main__":	imports_eval=True
+extend_amendment_predicate.py	main=if __name__ == "__main__":	imports_eval=True
+failures.py	main=	imports_eval=False
+failure_attribution.py	main=if __name__ == "__main__":	imports_eval=True
+failure_taxonomy.py	main=if __name__ == "__main__":	imports_eval=True
+fetch_ce_v2_gate_assets.py	main=if __name__ == "__main__":	imports_eval=False
+finetune_ce.py	main=if __name__ == "__main__":	imports_eval=False
+fix_cl.py	main=if __name__ == "__main__":	imports_eval=False
+fix_cl2.py	main=if __name__ == "__main__":	imports_eval=False
+fix_phase20.py	main=if __name__ == "__main__":	imports_eval=False
+flip_stability_check.py	main=if __name__ == "__main__":	imports_eval=True
+food_intent_metrics.py	main=	imports_eval=False
+fusion.py	main=if __name__ == "__main__":	imports_eval=True
+gate_fixes.py	main=if __name__ == "__main__":	imports_eval=True
+grading.py	main=	imports_eval=True
+hard_negative_miner.py	main=if __name__ == "__main__":	imports_eval=True
+hard_neg_eval.py	main=if __name__ == "__main__":	imports_eval=True
+harvest_commodity_vocabulary.py	main=if __name__ == "__main__":	imports_eval=False
+inspect_failures.py	main=if __name__ == "__main__":	imports_eval=True
+inspect_window_gain_answers.py	main=if __name__ == "__main__":	imports_eval=True
+kg_effect_on_failures.py	main=if __name__ == "__main__":	imports_eval=True
+llm_ssl_client.py	main=	imports_eval=False
+measure_ensemble_live.py	main=if __name__ == "__main__":	imports_eval=True
+measure_gate_ceiling.py	main=if __name__ == "__main__":	imports_eval=True
+measure_gate_variance.py	main=if __name__ == "__main__":	imports_eval=False
+metrics.py	main=	imports_eval=True
+mine_ce_pairs.py	main=if __name__ == "__main__":	imports_eval=True
+mine_ce_pairs_gate_fix.py	main=	imports_eval=False
+mine_gate_hard_negs.py	main=if __name__ == "__main__":	imports_eval=False
+pairwise_dataset.py	main=if __name__ == "__main__":	imports_eval=False
+pool_depth.py	main=if __name__ == "__main__":	imports_eval=True
+probe_amendment_predicate.py	main=if __name__ == "__main__":	imports_eval=True
+probe_kg.py	main=if __name__ == "__main__":	imports_eval=False
+provision_extraction_eval.py	main=if __name__ == "__main__":  # pragma: no cover - CLI entry point	imports_eval=True
+provision_significance.py	main=	imports_eval=True
+publish_ce_v2_assets.py	main=if __name__ == "__main__":	imports_eval=False
+quantify_answer_failures.py	main=if __name__ == "__main__":	imports_eval=True
+query_expansion.py	main=if __name__ == "__main__":	imports_eval=True
+ranking_failure_dataset.py	main=if __name__ == "__main__":	imports_eval=True
+ranking_loss_trainer.py	main=if __name__ == "__main__":	imports_eval=False
+reeval_89.py	main=if __name__ == "__main__":	imports_eval=True
+report.py	main=	imports_eval=True
+report_ceiling.py	main=if __name__ == "__main__":	imports_eval=True
+report_md.py	main=	imports_eval=True
+reprobe_gold_echo.py	main=if __name__ == "__main__":	imports_eval=True
+rerank_legal.py	main=if __name__ == "__main__":	imports_eval=True
+rerender_d3_answers.py	main=if __name__ == "__main__":	imports_eval=True
+rerun_gold_in_prompt.py	main=if __name__ == "__main__":	imports_eval=True
+rescore_evaluator_v2.py	main=	imports_eval=True
+resolution.py	main=	imports_eval=True
+retrieval_answer_link.py	main=	imports_eval=False
+root_cause.py	main=if __name__ == "__main__":	imports_eval=True
+run_ceiling.py	main=if __name__ == "__main__":	imports_eval=True
+run_evidence_set_selection.py	main=if __name__ == "__main__":	imports_eval=True
+run_food_acceptance_tests.py	main=if __name__ == "__main__":	imports_eval=True
+run_food_answer_eval.py	main=if __name__ == "__main__":	imports_eval=True
+run_food_intent_ablation.py	main=if __name__ == "__main__":	imports_eval=True
+run_generation.py	main=if __name__ == "__main__":	imports_eval=True
+run_kg_contribution.py	main=if __name__ == "__main__":	imports_eval=True
+run_report.py	main=if __name__ == "__main__":	imports_eval=True
+run_retrieval.py	main=if __name__ == "__main__":	imports_eval=True
+run_stage2_accumulator.py	main=if __name__ == "__main__":	imports_eval=True
+score_significance.py	main=if __name__ == "__main__":	imports_eval=False
+select_human_audit_sample.py	main=	imports_eval=True
+show_concept_gaps.py	main=if __name__ == "__main__":	imports_eval=True
+size_missing_provision_scope.py	main=if __name__ == "__main__":	imports_eval=True
+size_reingest_exactly.py	main=if __name__ == "__main__":	imports_eval=True
+split_census_stub_test.py	main=	imports_eval=True
+split_policy.py	main=	imports_eval=True
+stamp_corpus_remediation.py	main=if __name__ == "__main__":	imports_eval=True
+step0_dual_score_widen.py	main=if __name__ == "__main__":	imports_eval=True
+step0_human_review.py	main=if __name__ == "__main__":	imports_eval=True
+step0_label_residual.py	main=if __name__ == "__main__":	imports_eval=True
+step0_qc.py	main=if __name__ == "__main__":	imports_eval=True
+step1_preregister_gates.py	main=if __name__ == "__main__":	imports_eval=True
+step2_safety_properties.py	main=if __name__ == "__main__":	imports_eval=True
+step3_fill_quality.py	main=	imports_eval=False
+step3_gated_generation.py	main=if __name__ == "__main__":	imports_eval=True
+subsection_audit.py	main=if __name__ == "__main__":	imports_eval=True
+substantive_correctness.py	main=if __name__ == "__main__":	imports_eval=True
+sweep_ce_weights.py	main=if __name__ == "__main__":	imports_eval=True
+tabulate_full_review.py	main=	imports_eval=False
+tabulate_human_audit.py	main=	imports_eval=False
+train_legal_ce_gate.py	main=if __name__ == "__main__":	imports_eval=False
+train_legal_ce_v2.py	main=if __name__ == "__main__":	imports_eval=True
+train_legal_ce_v3.py	main=if __name__ == "__main__":	imports_eval=True
+triage_evaluator_v3.py	main=if __name__ == "__main__":	imports_eval=False
+v3_component_rescore.py	main=if __name__ == "__main__":	imports_eval=True
+v55_identifier_route.py	main=if __name__ == "__main__":	imports_eval=True
+v55_rerank.py	main=if __name__ == "__main__":	imports_eval=True
+v5_audit.py	main=if __name__ == "__main__":	imports_eval=True
+v5_routes.py	main=if __name__ == "__main__":	imports_eval=True
+v7_gap_metadata.py	main=if __name__ == "__main__":	imports_eval=True
+validate_section_arm.py	main=if __name__ == "__main__":	imports_eval=True
+verify_finetuned_ce.py	main=if __name__ == "__main__":	imports_eval=True
+verify_remediation_live.py	main=if __name__ == "__main__":	imports_eval=True
+_audit_resolution.py	main=	imports_eval=True
+_debug2.py	main=	imports_eval=True
+_debug3.py	main=	imports_eval=False
+_debug_resolve.py	main=	imports_eval=True
+_debug_stamp.py	main=if __name__ == "__main__":	imports_eval=True
+_debug_stamp2.py	main=if __name__ == "__main__":	imports_eval=True
+_debug_workset.py	main=	imports_eval=True
+_debug_workset2.py	main=	imports_eval=True
+_diag_docids.py	main=if __name__ == "__main__":	imports_eval=True
+_diag_fssai.py	main=if __name__ == "__main__":	imports_eval=True
+_diag_fssai_docs.py	main=if __name__ == "__main__":	imports_eval=False
+_diag_titles.py	main=if __name__ == "__main__":	imports_eval=True
+_diff_rrf.py	main=if __name__ == "__main__":	imports_eval=True
+_dump_registry.py	main=	imports_eval=False
+_extract_v5.py	main=	imports_eval=False
+_gen_c.py	main=if __name__ == "__main__":	imports_eval=False
+_gen_d.py	main=if __name__ == "__main__":	imports_eval=False
+_gen_e.py	main=if __name__ == "__main__":	imports_eval=False
+_gen_rest.py	main=if __name__ == "__main__":	imports_eval=False
+_gen_selector.py	main=if __name__ == "__main__":	imports_eval=False
+_inspect2.py	main=	imports_eval=False
+_inspect3.py	main=	imports_eval=False
+_inspect_data.py	main=	imports_eval=False
+_list_strays.py	main=	imports_eval=False
+_rerank_pre_fix.py	main=if __name__ == "__main__":	imports_eval=True
+_smoke.py	main=	imports_eval=True
+_strata_v3.py	main=if __name__ == "__main__":	imports_eval=True
+_v5p_identifier_probe.py	main=if __name__ == "__main__":	imports_eval=True
+_v5_arm_table.py	main=if __name__ == "__main__":	imports_eval=False
+_v5_deliverables.py	main=if __name__ == "__main__":	imports_eval=False
+_v5_regression_ptk.py	main=if __name__ == "__main__":	imports_eval=True
+_v5_verify_fixed_pool.py	main=if __name__ == "__main__":	imports_eval=True
+_v5_workset_ranks.py	main=if __name__ == "__main__":	imports_eval=True
+_validate_cache.py	main=	imports_eval=False
+_validate_gap7.py	main=if __name__ == "__main__":	imports_eval=True
+_validate_stamp2.py	main=if __name__ == "__main__":	imports_eval=True
+_validate_stamp_fix.py	main=if __name__ == "__main__":	imports_eval=True
+_verify_exhaustive.py	main=if __name__ == "__main__":	imports_eval=True
+_verify_new_resolvable.py	main=if __name__ == "__main__":	imports_eval=True
+_verify_stamps.py	main=	imports_eval=True
+__init__.py	main=	imports_eval=False

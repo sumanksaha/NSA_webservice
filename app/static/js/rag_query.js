@@ -38,6 +38,130 @@
         }
     }
     var _reviewState = null;
+    // ------------------------------------------------------------------ //
+    // Human answer rating (POST /api/rag/feedback)                        //
+    // ------------------------------------------------------------------ //
+    var _lastQuery = "";
+    var _ratingContext = null;
+    var RATING_REASONS = [
+        ["wrong_section", "Wrong section / provision"],
+        ["missed_proviso", "Missed a proviso or exception"],
+        ["definition_anchoring", "Anchored on a definition"],
+        ["conjunction_drift", "Read requirements as alternatives (AND as OR)"],
+        ["penalty_incomplete", "Penalty incomplete (continuing fines omitted)"],
+        ["polarity_inverted", "Polarity inverted (exception as permission)"],
+        ["hallucinated_content", "Contains hallucinated content"],
+        ["missing_citation", "Missing or invalid citations"],
+        ["incomplete", "Answer incomplete"],
+        ["irrelevant_retrieval", "Retrieved context was irrelevant"],
+        ["other", "Other"],
+    ];
+    function ratingWidgetHtml() {
+        var chips = RATING_REASONS.map(function (pair) {
+            return (
+                '<label class="rag-rating-reason"><input type="checkbox" value="' +
+                pair[0] +
+                '" /> ' +
+                pair[1] +
+                "</label>"
+            );
+        }).join("");
+        return (
+            '<div class="rag-rating" id="ragRating">' +
+            '<div class="rag-rating-prompt">Was this answer satisfactory? Low ratings become research questions for the next autoresearch cycle.</div>' +
+            '<div class="rag-rating-actions">' +
+            '<button type="button" class="rag-rate-btn" data-rating="5">' +
+            '<i class="fa-solid fa-thumbs-up"></i> Helpful</button>' +
+            '<button type="button" class="rag-rate-btn rag-rate-btn--bad" data-rating="1">' +
+            '<i class="fa-solid fa-thumbs-down"></i> Not helpful</button>' +
+            "</div>" +
+            '<div class="rag-rating-detail" id="ragRatingDetail" style="display: none;">' +
+            '<div class="rag-rating-chips">' +
+            chips +
+            "</div>" +
+            '<textarea id="ragRatingComment" rows="2" placeholder="Optional: what was wrong with the answer?"></textarea>' +
+            '<button type="button" id="ragRatingSubmit" class="rag-submit-btn">Submit rating</button>' +
+            "</div>" +
+            '<div class="rag-rating-status" id="ragRatingStatus"></div>' +
+            "</div>"
+        );
+    }
+    function wireRating(data) {
+        var widget = document.getElementById("ragRating");
+        if (!widget) return;
+        var ctx = {
+            query: _lastQuery || (data && data.query) || "",
+            log_id: (data && (data.log_id || data.query_log_id)) || null,
+            answer: (data && data.answer) || null,
+            pipeline: (data && data.pipeline) || null,
+        };
+        _ratingContext = ctx;
+        function submitRating(rating) {
+            var statusEl = document.getElementById("ragRatingStatus");
+            var detailEl = document.getElementById("ragRatingDetail");
+            var reasons = [];
+            if (detailEl) {
+                Array.prototype.forEach.call(
+                    detailEl.querySelectorAll('input[type="checkbox"]'),
+                    function (box) {
+                        if (box.checked) reasons.push(box.value);
+                    }
+                );
+            }
+            var commentEl = document.getElementById("ragRatingComment");
+            var body = { rating: rating, query: ctx.query };
+            if (ctx.log_id) body.query_log_id = ctx.log_id;
+            if (ctx.answer) body.response_text = ctx.answer;
+            if (ctx.pipeline) body.pipeline = ctx.pipeline;
+            if (commentEl && commentEl.value.trim()) body.comment = commentEl.value.trim();
+            if (reasons.length) body.failure_reasons = reasons;
+            if (statusEl) statusEl.textContent = "Submitting\u2026";
+            fetch("/api/rag/feedback", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            })
+                .then(function (resp) {
+                    return resp.json().then(function (out) {
+                        return { ok: resp.ok, data: out };
+                    });
+                })
+                .then(function (res) {
+                    if (!res.ok) {
+                        if (statusEl) statusEl.textContent = "Could not submit rating: " + (res.data.error || "error");
+                        return;
+                    }
+                    var msg = res.data.enqueued
+                        ? "Thanks \u2014 this question is queued for the next research cycle."
+                        : "Thanks for the feedback.";
+                    widget.innerHTML = '<div class="rag-rating-status">' + msg + "</div>";
+                })
+                .catch(function () {
+                    if (statusEl) statusEl.textContent = "Network error \u2014 rating not submitted.";
+                });
+        }
+        Array.prototype.forEach.call(widget.querySelectorAll(".rag-rate-btn"), function (btn) {
+            btn.addEventListener("click", function () {
+                var rating = parseInt(btn.getAttribute("data-rating") || "1", 10);
+                Array.prototype.forEach.call(widget.querySelectorAll(".rag-rate-btn"), function (b) {
+                    b.classList.remove("rag-rate-btn--active");
+                });
+                btn.classList.add("rag-rate-btn--active");
+                var detailEl = document.getElementById("ragRatingDetail");
+                if (rating >= 5) {
+                    submitRating(rating); // good answer: one click, no follow-up
+                } else if (detailEl) {
+                    detailEl.style.display = "block";
+                    var submitBtn = document.getElementById("ragRatingSubmit");
+                    if (submitBtn) {
+                        submitBtn.onclick = function () {
+                            submitRating(rating);
+                        };
+                    }
+                }
+            });
+        });
+    }
     function showReview(reviewPayload) {
         var reviewEl = document.getElementById("ragReview");
         var contentEl = document.getElementById("ragReviewContent");
@@ -237,8 +361,10 @@
             agentHtml +
             advisoryHtml +
             chunkHtml +
-            "</div>";
+            "</div>" +
+            ratingWidgetHtml();
         resultsEl.innerHTML = html;
+        wireRating(data);
     }
     var USER_FRIENDLY_ERRORS = {
         400: "Your question could not be processed. Please check the wording and try again.",
@@ -319,6 +445,7 @@
             showStatus(statusEl, err, "error");
             return;
         }
+        _lastQuery = ctx.query;
         setLoading(btn, true);
         showStatus(statusEl, "Querying the legal knowledge base\u2026", "info");
         resultsEl.innerHTML = "";
@@ -412,6 +539,7 @@
                 showStatus(statusEl, "Answer finalized.", "success");
                 var reviewedQuery =
                     _reviewState && _reviewState.review ? _reviewState.review.query || "" : "";
+                _lastQuery = reviewedQuery;
                 renderResponse(out.data);
                 saveHistoryEntry(reviewedQuery, out.data);
             })

@@ -226,16 +226,29 @@ class ContextBuilder:
 
         ranked = sorted(chunks, key=lambda c: c.score, reverse=True)
 
+        # P0-1 roles are resolved first because the index drop below has to
+        # know which chunks the evidence selector explicitly picked.
+        roles: dict[Any, str] = {}
+        if evidence_set:
+            roles = self._roles_from_evidence_set(evidence_set, chunks)
+
         # GIP packing fix: drop index/navigation chunks before selection so the
         # freed slots go to substantive provisions ranked below them. Applied
         # after the answerability gate (the gate has already judged the full
-        # pool) and before role packing, so P0-1 behaviour is unchanged when
-        # *evidence_set* is supplied.
+        # pool) and before role packing, so the ranked order the packer sees is
+        # score order minus index material.
+        #
+        # A chunk the evidence selector *selected* is never dropped. That
+        # selector is the downstream, better-informed decision, and silently
+        # discarding what it chose would leave ``_pack_by_role`` reordering a
+        # set it never receives. ``is_index_chunk`` also fires on anything
+        # under ``_INDEX_MIN_CHARS``, and a short selected provision is exactly
+        # the kind of chunk a role packer is meant to promote.
         dropped_index = 0
         if cfg.context_drop_index_chunks:
             keep: list[RetrievedChunk] = []
             for chunk in ranked:
-                if is_index_chunk(chunk.text):
+                if chunk.chunk_id not in roles and is_index_chunk(chunk.text):
                     dropped_index += 1
                     continue
                 keep.append(chunk)
@@ -249,9 +262,7 @@ class ContextBuilder:
         # P0-1: evidence-set packing.  The answerability gate above has
         # already judged the FULL pool — packing happens strictly after, so
         # filtering can never shrink the set that gate considered.
-        roles: dict[Any, str] = {}
         if evidence_set:
-            roles = self._roles_from_evidence_set(evidence_set, chunks)
             ranked = self._pack_by_role(ranked, roles)
         selected = ranked[: self.max_context_chunks]
 

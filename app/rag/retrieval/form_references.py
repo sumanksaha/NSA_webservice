@@ -36,7 +36,7 @@ _DETECTABLE_FORMS = [
 ]
 
 #: Canonical names for forms as they appear in the FSSAI framework.
-_FORM_NAMES: dict[str, str] = {
+FORM_NAMES: dict[str, str] = {
     "ii": "Form II (receipt)",
     "iii": "Form III (seizure order)",
     "iv": "Form IV (bond)",
@@ -46,70 +46,57 @@ _FORM_NAMES: dict[str, str] = {
     "viii": "Form VIII (appeal to designated officer)",
 }
 
-#: Public alias for the form-name table. tests/test_form_arm_precision.py
-#: and downstream callers import the public name; the private spelling is
-#: kept as an alias so both import styles resolve to the same dict.
-FORM_NAMES = _FORM_NAMES
+#: Pre-rename private alias. ``FORM_NAMES`` is the public name; this alias
+#: keeps older callers (and test modules importing the private name) working.
+_FORM_NAMES = FORM_NAMES
 
 
 #: Regex for standalone "Form NN" mentions (case-insensitive).
+#:
+#: This is the only form matcher. The old ``_BARE_FORM_RE`` fallback
+#: (``\b(ii|iii|iv|v|...)\b``, case-insensitive) fired on any standalone
+#: numeral, so "What is Section X of the Act?" and "Explain clause ix" both
+#: resolved to a form. It bought nothing: every case it was meant to catch --
+#: "give Form V", "Forms V and VIII" -- already contains the word "Form" and
+#: is matched above.
 _FORM_RE = re.compile(
     r"\b(?:form|forms|Form)\s+(ii|iii|iv|v|vi|vii|viii|ix|x)\b",
     re.IGNORECASE,
 )
 
-#: Regex for bare "NN" form references in context like "give Form V" or "Form VIII"
-#: (only when the number is standalone, not part of a section number).
-_BARE_FORM_RE = re.compile(
-    r"\b(ii|iii|iv|v|vi|vii|viii|ix|x)\b",
-    re.IGNORECASE,
-)
-
-
-#: Semantic cues mapping to specific forms (for queries without explicit roman numerals).
-_FORM_CUES: dict[str, str] = {
-    "notice": "v",
-    "seizure": "iii",
-    "bond": "iv",
-    "appeal": "viii",
-    "memorandum": "vi",
-    "analyst": "viia",
-}
-
 
 def detect_form(query: str) -> str | None:
     """Return the canonical form name mentioned in the query, if any.
 
-    Returns the form number in lowercase (e.g. "v") or None if no form
-    reference is detected.
+    Returns the form number in lowercase (e.g. "v") or None if no *explicit*
+    form reference is detected.
+
+    Only an explicit "Form NN" counts. The old keyword arm guessed a form from
+    six common English words -- notice, seizure, bond, appeal, memorandum,
+    analyst -- which carried no information about which form was meant, so
+    every guess was wrong and some were common ("When must the FSO serve
+    notice on the business operator?" -> Form V). Guessing is worse than
+    abstaining here: the form arm then retrieves a confidently wrong document.
     """
     m = _FORM_RE.search(query or "")
     if m:
         return m.group(1).lower()
-    # Also detect bare form references like "give Form V"
-    m = _BARE_FORM_RE.search(query or "")
-    if m:
-        # Only return if it's clearly a form reference (not a section number)
-        # This is a heuristic — should be refined in production
-        return m.group(1).lower()
-    # Semantic fallback: infer form from context keywords
-    lower = (query or "").lower()
-    for cue, form in _FORM_CUES.items():
-        if cue in lower:
-            return form
     return None
 
 
 def form_query(query: str) -> str | None:
     """Build a lexical query targeting the form's chunk.
 
-    Returns a query string like "Form V" that can be used to retrieve
-    chunks mentioning that specific form.
+    Prefers the canonical description from :data:`FORM_NAMES`
+    ("Form VIII (appeal to designated officer)") because that is what the
+    corpus text actually contains -- the bare label "Form VIII" matches every
+    form in the collection. Forms that are detectable but unnamed (``ix``,
+    ``x``) fall back to the bare label so the arm still issues a query.
     """
     form = detect_form(query)
-    if form:
-        return f"Form {form.upper()}"
-    return None
+    if not form:
+        return None
+    return FORM_NAMES.get(form) or f"Form {form.upper()}"
 
 
 # Compatibility alias for tests.
