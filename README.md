@@ -63,6 +63,9 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | **FastAPI Gateway (ASGI)**        | ✅ Phases 1–5 complete                                                                                                                                                                                                                                                        | Coexistence gateway: `asgi.py` hosts FastAPI (uvicorn) + Flask (WSGIMiddleware) in one process; `/api/v2/*` JSON APIs on FastAPI, Jinja2 UI stays on Flask. Security headers + API-key auth middleware. Deployed on Render. 57 tests. Phase 6 (full rewrite) deferred per AGENTS.md §1.2.     |
 | **Google Sheets Sync**            | Optional data synchronization with Google Sheets for external reporting                                                                                                                                                                                                       |
 | **Inspection Module Deepening**   | ✅ Phases D7 (2026-09-11) — 7 deep modules: InspectionCodeGenerator, 3 verification adapters (NominatimGeocoder, IpGeolocationAdapter, LicenseLookupAdapter), 3 photo services (PhotoProcessor, EvidenceStore, OCRDispatcher); CONTEXT.md updated; ADR-0003; 33/38 tests pass |
+| **Schedule & Premises Resolution** | ✅ Complete (2026-10-11) | Alias-aware FSSAI registry search in free text → selection → one Monthly Diary duty slot and one draft Inspection row per premise; PremisesResolver owns registry querying, separating alias street spellings from confusable streets |
+| **Notepad**                        | ✅ Phases 1–2 (2026-10-11) | Notes intake queue with structured seven-lens AI evaluation, sequenced daily plan (least-processing-time-first), and a Legal-RAG Q&A thread (56 tests) |
+| **RAG Answer Feedback & Research** | ✅ Phases 1–2 (2026-10-11) | Human answer ratings feed a deterministic, query-hash-deduplicated failure queue classified into evidence, reasoning, context, verification, evaluation, and pipeline lanes; the autoresearch orchestrator sweeps the query log, re-asks open targets under a session budget, and closes the loop against the frozen gates |
 
 ---
 
@@ -243,7 +246,7 @@ classify ──► retrieve ──► generate ──► verify ──► finali
 
 **Version:** 0.9.1 (Pre‑Production)
 
-The NSA Webservice now offers a comprehensive, end‑to‑end solution for food safety inspections, sample management, adjudication, and reporting. Key capabilities include:
+The platform provides an end‑to‑end solution for food safety inspections, sample management, adjudication, and reporting. The current release is documented in [CHANGELOG.md](CHANGELOG.md); integration activity recorded since the 0.9.1 publication of 2026‑09‑30 — the Schedule and Notepad blueprints, the RAG answer‑feedback and autoresearch loop, and the section/act‑scoped structural retrieval arm — is summarised under Unreleased pending versioned release. Key capabilities include:
 
 - **Inspection Management** with photo verification and geo‑tagging.
 - **Sample Tracking** with unique code generation, lab submission, and analyst reporting.
@@ -261,6 +264,10 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 - **Legal RAG vector search** (694 tests) — full RAG pipeline: corpus/embedding, dense+sparse+hybrid retrieval, reranking, grounded generation, hallucination detection, evaluation, LangGraph self-correcting agent with M5 checkpointing + human-in-the-loop.
 - **Monthly Diary split-duty days + monthly-only Work Diary PDF** — a calendar day holds up to two duty slots (e.g. field work + VVIP duty) via the `/diary/bulk` “+ 2nd duty” sub-row; preview/PDF build Monthly-only with the Date cell merged and Place/Purpose/Activity separate per duty; `purpose=complaint` renders unfiltered with an explicit printed notice (`tests/test_diary.py` 35 + `tests/test_workdiary.py` 44 pass).
 - **Knowledge graph with Neo4j Aura** — entity/relationship extraction from case files with interactive Cytoscape.js visualization and optional Neo4j sync using APOC dynamic labels, uniqueness constraints, and property indexes (Phase 14 complete — 17+15 tests).
+- **Schedule and premises resolution** — free-text FSSAI registry search with alias-aware street matching and confusable-street separation; selected premises record one Monthly Diary duty slot and one draft Inspection each (2026-10-11).
+- **Notepad** — a notes intake queue with structured seven-lens AI evaluation, an effort-sequenced daily plan, and a Legal-RAG Q&A thread on each note (Phases 1–2, 2026-10-11; 56 tests).
+- **RAG answer feedback and autoresearch loop** — human ratings enqueue deduplicated research targets classified by failure lane; the orchestrator sweeps the query log, re-asks open targets under a session budget, and closes the loop against the frozen gates (`RAG_RESEARCH_ENABLED`, default off).
+- **Section/act-scoped structural retrieval** — a deterministic, flag-gated arm (`RAG_SECTION_ARM`) that retrieves structurally authoritative chunks by payload filter and fuses them by reciprocal rank; measured recall@10 = 0.474 against 0.311 for the untuned cross-encoder (`evaluation/out/ceiling_v5/ce_rerank_eval.json`).
 
 | Area                      | Status         | Notes                                                                                                                                                                                                                                                                              |
 | ------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -279,15 +286,19 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 | Backup / Export / Import  | ✅ Complete    | Phase 16 — JSON/ZIP export, case import                                                                                                                                                                                                                                            |
 | OCR Pipeline              | ✅ Complete    | Phases A–E (extraction → review → autopopulation → feedback → bulk upload — 45 tests)                                                                                                                                                                                              |
 | Food Cell (DO Intimation) | ✅ Complete    | Phase 21 – 15 tests                                                                                                                                                                                                                                                                |
-| Legal RAG (Phases 1-5)    | ✅ Complete    | 437 tests — full pipeline incl. generation, verification, eval                                                                                                                                                                                                                     |
+| Legal RAG (Phases 1-5)    | ✅ Complete    | 694 tests — full pipeline incl. generation, verification, eval, plus the opt-in LangGraph agent (M5) and the answer-feedback research loop                                                                                                                                                                                              |
 | Knowledge Graph           | ✅ Complete    | Full KG: corpus ingestion, semantic, hybrid, Neo4j Aura (17+15 tests)                                                                                                                                                                                                              |
 | Evaluation Framework      | ✅ Complete    | 28 modules — retrieval arms, metrics, reports                                                                                                                                                                                                                                      |
 | Benchmark v1.0            | ✅ Frozen      | 150-question multi-domain golden benchmark                                                                                                                                                                                                                                         |
 | Rust PyO3 Normalizers     | ✅ Complete    | PyO3 legal-text normalizers (4 modules)                                                                                                                                                                                                                                            |
 | CI/CD                     | ✅ Complete    | 14 gates (G1–G14): deploy gating, staging env, pre-deploy migrations, health check, full security blocking (Bandit+Safety+pip-audit), coverage gate, Docker path, release automation, Dependabot, workflow hygiene, ce-v2 gate, env parity, deploy serialization, dev-dep scanning |
 | RBAC / Roles              | ⚠️ Partial     | Role/UserRole/Comment models + migration + `is_admin` admin UI done; `@role_required` + comment API/UI + role assignment pending (~30%)                                                                                                                                            |
-| PostgreSQL Migration      | ⚠️ In Progress | Schema ready; Supabase migration prepped — pooler-safe engine options + `scripts/migrate_render_to_supabase.sh` (Render → Supabase)                                                                                                                                                |     |
-| Tests                     | ✅ 90+ modules | ~1,900 test cases (694 RAG + 57 ASGI + 46 CI/CD gates + other), all passing                                                                                                                                                                                                        |
+| PostgreSQL Migration      | 🔄 In Progress | Schema ready; Supabase migration prepared — pooler-safe engine options, `scripts/migrate_render_to_supabase.sh` (Render → Supabase), and a daily keepalive workflow (`.github/workflows/supabase-keepalive.yml`)                                                                                                                  |
+| Schedule & Premises       | ✅ Complete    | Alias-aware premises search with confusable-street separation; selection records diary duty slots and draft inspections (`tests/test_schedule_planner.py`)                                                                                                                                                                                      |
+| Notepad                   | ✅ Complete    | Notes intake queue, seven-lens AI evaluation, sequenced daily plan, Legal-RAG Q&A thread (56 tests)                                                                                                                                                                                                                                              |
+| RAG Feedback & Research   | ✅ Complete    | Answer ratings, deduplicated failure queue, and budget-bounded autoresearch orchestrator (gated by `RAG_RESEARCH_ENABLED`)                                                                                                                                                                                                                       |
+| Structural Retrieval Arm  | ✅ Complete    | Section/act-scoped payload-filter arm fused by reciprocal rank; recall@10 = 0.474 measured against 0.311 (untuned CE) and 0.362 (fine-tuned CE); flag-gated (`RAG_SECTION_ARM`, default off)                                                                                                                                                  |
+| Tests                     | ✅ 90+ modules | ~5,188 collected tests (3,832 fast shard; 1,356 `slow`-marked), all passing (2026-10-11)                                                                                                                                                                                                       |
 | Plugin Architecture       | ✅ Complete    | Registry-based provider plugins (OCR/AI/Rules/PDF) with lazy imports, config-driven selection, all 6 callers refactored (23 tests)                                                                                                                                                 |
 | Petition PDF download     | ✅ Complete    | Validated single-file petition PDF for case files + adjudications (missing-field 400s, section-63 license rule); row buttons are Timeline / Validate / Word Petition / Word Permission / Petition PDF (10 tests)                                                                   |
 | Violation wordings        | ✅ Complete    | Formal observation prose + per-field remediation directives for Improvement Notices; Expired_item polarity fix                                                                                                                                                                     |
@@ -298,16 +309,16 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 
 ### Phase 1 – Hardening (Q3 2026)
 
-- ✅ PostgreSQL production migration (targeted for Q3 2026)
+- 🔄 PostgreSQL production migration — schema ready; Supabase migration prepared (pooler-safe engine options, `scripts/migrate_render_to_supabase.sh`) with a daily keepalive workflow; the Phase 17 remainder (Supabase bridge, conflict resolution, sync-status UI) is outstanding
 - ✅ Background task transport is QStash webhooks — no persistent worker required (Celery removed 2026-09-13)
-- ✅ RBAC implementation (FSO, Admin, Auditor roles) — model scaffolding + migration + `is_admin` admin UI; `@role_required` decorator + comments + role assignment pending (~30% complete)
+- 🔄 RBAC implementation (FSO, Admin, Auditor roles) — model scaffolding, migration, and `is_admin` admin UI complete; the `@role_required` decorator, comment API/UI, and role assignment remain outstanding (~30% complete)
 
 ### Phase 2 – Platform Upgrade (Q4 2026)
 
-- FastAPI migration for async APIs
-- OpenAPI/Swagger documentation
-- Structured logging with `structlog`
-- Monitoring (Prometheus + Grafana) and Sentry error tracking
+- ✅ FastAPI migration for async APIs — coexistence gateway (`asgi.py`, `/api/v2/*`); full async rewrite deferred
+- ✅ OpenAPI/Swagger documentation (flasgger `/apidocs/`)
+- ✅ Structured logging with `structlog`
+- ⬜ Monitoring (Prometheus + Grafana) and Sentry error tracking
 
 ### Phase 3 – Intelligence (Q1 2027)
 
@@ -330,10 +341,10 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 
 ### Phase 1: Hardening (Q3 2026)
 
-- [ ] PostgreSQL production migration
+- [ ] PostgreSQL production migration (Supabase bridge, conflict resolution, and sync-status UI outstanding)
 - [x] ~~Persistent Celery worker deployment~~ — superseded by QStash webhook delivery (no worker, 2026-09-13)
 - [x] RBAC implementation (FSO, Admin, Auditor roles) — partial (models + migration + admin UI done)
-- [ ] TLS fix for KMC scraper
+- [x] TLS fix for KMC scraper — TLS certificate verification enforced on all external lookups (S7, 2026-09)
 - [ ] End-to-end test suite
 - [x] Docker containerization
 
@@ -351,8 +362,8 @@ The NSA Webservice now offers a comprehensive, end‑to‑end solution for food 
 - [x] Neo4j graph database integration (Phase 14 — APOC dynamic labels, constraints, indexes, QStash async sync, 15 tests)
 - [x] Entity relationship queries (Phase 14 — entity/relationship extraction + sync to Aura)
 - [x] Qdrant vector store for semantic search (Phase 1 complete — 282 tests)
-- [ ] LangGraph workflow orchestration
-- [ ] OpenRouter multi-LLM gateway
+- [x] LangGraph workflow orchestration (self-correcting agent pipeline with M5 checkpointing and human-in-the-loop; opt-in via `RAG_USE_AGENT_PIPELINE`)
+- [x] OpenRouter multi-LLM gateway (integrated as the default AI provider; multi-model orchestration remains future scope)
 
 ### Phase 4: Enterprise (Q2 2027)
 
@@ -435,6 +446,10 @@ NSA_webservice/
 │   ├── case_file_generator/    # Case file blueprint
 │   ├── fbo_issue/              # FBO issue tracking blueprint
 │   ├── plugins/                # Phase 20: plugin architecture (base, registry, ocr/ai/rules/pdf plugins)
+│   ├── rag/                    # Legal RAG pipeline (retrieval, generation, verification, agent, research queue)
+│   ├── notepad/                # Notepad blueprint (notes intake, AI evaluation, Legal-RAG Q&A thread)
+│   ├── schedule.py             # Schedule blueprint (premises search → duty + inspection)
+│   ├── diary.py                # Monthly Diary blueprint
 │   ├── sync/                   # Phase 17: Supabase sync blueprint (models, routes, supabase_sync service)
 │   ├── inspection/             # Inspection blueprint
 │   ├── sample/                 # Sample management blueprint
@@ -520,6 +535,13 @@ pytest tests/test_route_collisions.py -v
 | KG tests                          | 8 files, 49 tests                                                                 | Corpus, enricher, expander, provisions, payload, fusion RRF               | ✅ All pass |
 | FSSAI re-ingest tests             | 1 file, 15 tests                                                                  | load_corpus, identity, FSS-scope/backup guards, CLI                       | ✅ All pass |
 | Rust normalizer tests             | 1 file                                                                            | PyO3 legal-text normalizers                                               | ✅ All pass |
+| `test_notepad.py`                 | 40                                                                                | Notes queue, seven-lens AI evaluation, Legal-RAG Q&A routes               | ✅ All pass |
+| `test_notepad_daily_plan.py`      | 5                                                                                 | Daily-plan sequencing and payload validation                             | ✅ All pass |
+| `test_notepad_thread.py`          | 11                                                                                | Legal-RAG Q&A thread model, seam, and routes                             | ✅ All pass |
+| `test_rag_answer_feedback.py`     | 24                                                                                | Answer ratings, failure classification, and queue deduplication          | ✅ All pass |
+| `test_research_orchestrator.py`   | 1 file                                                                            | Autoresearch sweep, drain, and closure under session budgets             | ✅ All pass |
+| `test_schedule_planner.py`        | 1 file                                                                            | Premises search, alias/confusable classification, duty and inspection recording | ✅ All pass |
+| `test_section_scope_arm.py`       | 36                                                                                | Section/act-scoped structural retrieval arm                              | ✅ All pass |
 
 ---
 
@@ -589,7 +611,15 @@ gunicorn --bind 0.0.0.0:10000 app:app
 | `OCR_PROVIDER`            | Phase 20            | Active OCR provider (default: easyocr)                         |
 | `AI_PROVIDER`             | Phase 20            | Active AI provider (default: openrouter)                       |
 | `RULES_PROVIDER`          | Phase 20            | Active rule provider (default: fssai_default)                  |
-| `PDF_PROVIDER`            | Phase 20            | Active PDF provider (default: weasyprint)                      |
+| `PDF_PROVIDER`             | Phase 20            | Active PDF provider (default: weasyprint)                      |
+| `RAG_SECTION_ARM`          | No                  | Section/act-scoped structural retrieval arm (default off)      |
+| `RAG_CONTEXT_DROP_INDEX_CHUNKS` | No             | Remove retrieval-index chunks from the generation context (default on) |
+| `RAG_FEEDBACK_ENQUEUE_MAX_RATING` | No          | Answer rating at or below which a research target is enqueued (1–5, default 2) |
+| `RAG_RESEARCH_ENABLED`     | No                  | Master switch for the autoresearch session loop (default off)  |
+| `RAG_RESEARCH_SWEEP_ENABLED` | No                | Queue unevaluated query-log rows at session start (default on) |
+| `RAG_RESEARCH_SWEEP_MAX_ROWS` | No               | Cap on query-log rows evaluated per sweep (default 500)        |
+| `RAG_RESEARCH_SESSION_MAX_TARGETS` | No         | Research targets worked per session (default 5)                |
+| `RAG_RESEARCH_SESSION_MAX_LLM_CALLS` | No       | LLM generation calls permitted per session (default 5)         |
 
 ---
 
@@ -672,6 +702,8 @@ positives. SARIF results upload to GitHub Code Scanning but remain
 | Version Control     | `/api/version-control` | Version history UI + API                                                                                                                   |
 | Timeline            | `/timeline`            | Case milestone timeline + Gantt                                                                                                            |
 | Food Cell           | `/food-cell`           | DO Intimation workflow (Phase 21)                                                                                                          |
+| Notepad             | `/notepad`             | Notes intake queue, AI evaluation, sequenced daily plan, Legal-RAG Q&A thread                                                              |
+| Schedule            | `/schedule`            | Premises search → selection → diary duty slots and draft inspections                                                                       |
 | **RAG**             | `/rag`                 | RAG health + retrieval + generation + evaluation API (Phases 1-5 complete)                                                                 |
 | **Knowledge Graph** | `/knowledge-graph`     | Entity/relationship graph + Neo4j sync (Phase 14 complete)                                                                                 |
 | Audit               | `/admin`               | Audit log viewer                                                                                                                           |
@@ -783,20 +815,20 @@ Please read [SECURITY.md](SECURITY.md) for security vulnerability reporting and 
 - Database indexes optimization
 - Query performance tuning (N+1 fixes)
 
-### Level 6: API & Architecture ⬜ Planned
+### Level 6: API & Architecture ✅ Complete
 
-- FastAPI migration
-- OpenAPI/Swagger documentation
-- Dependency injection
-- Async request handling
+- FastAPI migration — coexistence gateway (`asgi.py` hosts FastAPI on uvicorn with Flask mounted through `a2wsgi.WSGIMiddleware`); `/api/v2/*` JSON APIs on FastAPI, Jinja2 UI retained on Flask
+- OpenAPI/Swagger documentation (flasgger `/apidocs/`)
+- Security headers and API-key authentication middleware
+- Full asynchronous rewrite deferred (AGENTS.md §1.2)
 
-### Level 7: Observability ⬜ Planned
+### Level 7: Observability 🔄 In Progress
 
-- Structured logging (structlog)
-- Monitoring (Prometheus + Grafana)
-- Error tracking (Sentry)
-- Health check endpoints
-- Distributed tracing
+- ✅ Structured logging (structlog)
+- ✅ Health check endpoints (`GET /health`)
+- ⬜ Monitoring (Prometheus + Grafana)
+- ⬜ Error tracking (Sentry)
+- ⬜ Distributed tracing
 
 ### Level 8: Graph & Knowledge ⬜ Planned
 
@@ -819,13 +851,14 @@ Please read [SECURITY.md](SECURITY.md) for security vulnerability reporting and 
 - ✅ Benchmark v1.0 frozen (150-question multi-domain golden benchmark)
 - 🔄 LLM-powered section suggestion & document drafting (requires OpenRouter gateway)
 
-### Level 10: Autonomy ⬜ Planned
+### Level 10: Autonomy 🔄 In Progress
 
-- LangGraph workflow orchestration
-- OpenRouter multi-LLM gateway
-- Agentic adjudication pipeline
-- Automated document drafting
-- Continuous learning from adjudication outcomes
+- ✅ LangGraph workflow orchestration — self-correcting RAG agent with query rewriting, M5 checkpointing, and human-in-the-loop resume (opt-in via `RAG_USE_AGENT_PIPELINE`)
+- ✅ OpenRouter multi-LLM gateway — integrated as the default AI provider
+- ✅ Autoresearch loop — budget-bounded sweep/drain/closure over stored failure signals, gated by `RAG_RESEARCH_ENABLED`
+- ⬜ Agentic adjudication pipeline
+- ⬜ Automated document drafting
+- ⬜ Continuous learning from adjudication outcomes (awaiting outcome labels)
 
 ---
 
