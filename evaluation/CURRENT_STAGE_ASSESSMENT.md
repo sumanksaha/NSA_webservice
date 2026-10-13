@@ -75,64 +75,25 @@ There is also no gold-echo failure mode to guard against: gold concepts are
 computed only under `evaluation/` and appear nowhere in
 `app/rag/generation/`, so they never enter the prompt.
 
-## 5. KG effect measurement
+## 5. KG effect: offline promise, live ~zero
 
-`evaluation/kg_effect_on_failures.py` ran against the 89 failure cohort with a
-reachable Neo4j instance (Aura `21090cf9`). The KG is the production
-`KGContextExpander`, RRF-fusing expanded provisions into the LLM context without
-re-ranking retrieval.
+Offline (`kg_effect_on_failures`, no LLM): mean ctx coverage 0.444 -> 0.486
+(+0.042), 46/89 positive, 9 crossing 0.5. **Live paired verification
+(`verify_kg_live_llm`, 33 LLM calls, 2026-10-12): soft 0.355 -> 0.347 (delta
+-0.008), binary 1/15 -> 1/15, eliminated 3/15 -> 4/15.** Full write-up in
+`evaluation/KG_STATUS.md`; the short version:
 
-| metric | value |
-|---|---|
-| mean ctx coverage (no KG) | 0.444 |
-| mean ctx coverage (with KG) | 0.486 |
-| **mean delta** | **+0.0418** |
-| questions with positive delta | **46/89** |
-| questions crossing 0.5 threshold | **9** |
-| expansion errors | **0** |
+- One replicated flip (Q016, 2/2, via a fused **gold** s53 identity pointer).
+- One substantial harm (Q014, -0.157: five non-gold stubs evicted real context).
+- Largest offline delta Q076 (+0.44) converted to -0.002 live.
+- Mechanism: fused KG provisions are header-only stubs (identity, no statutory
+  text). Offline IDF coverage counts their rare header tokens as distinctive;
+  live, a section label is not substance — except as a pointer when it names
+  gold.
 
-The KG raises the distinctive coverage of the context that reaches the LLM.
-This is the precondition for the KG helping binary/soft correctness -- not proof,
-since an LLM still has to use it.
-
-### 9 questions crossing the 0.5 coverage threshold
-
-`['Q007', 'Q016', 'Q021', 'Q049', 'Q053', 'Q076', 'Q079', 'Q085', 'Q088']`
-
-These questions' context coverage goes from below to above 0.5 with KG injection.
-
-### What this revises in the earlier assessment
-
-- **Retracted: "the KG has no demonstrated path"** — the earlier analysis used
-  arm C (no KG). The KG is arms D/E/F. The measurement was never run on the
-  failure cohort; the 5-question pilot (`kg_injected_gold: 0`) had retrieval
-  recall 1.0, so the KG couldn't contribute. On the 89 failures (gold-in-top10
-  45/89), the KG *does* add distinctive coverage.
-- **The answers are wrong, not the gate — AND the KG helps.** The two findings
-  are not mutually exclusive. The gate's length asymmetry (jaccard 0.096 vs
-  coverage 0.628) is the fundamental blocker, but the KG *does* add distinctive
-  content the retrieval alone doesn't provide. 46/89 questions see a positive
-  delta, and 9 cross the 0.5 threshold.
-- **What the KG optimisation would target**: increasing distinctive coverage
-  (currently 0.444→0.486 mean) and reducing boilerplate in KG provisions
-  (boilerplate share 0.112 of reference). The 9 questions crossing 0.5 are the
-  lowest-hanging fruit.
-- **What the KG cannot fix**: the gate's length asymmetry (answers 6x reference
-  length), or generate substantive content beyond the KG provisions.
-
-### Updated decision framework
-
-| metric | pass | fail | gap |
-|---|---|---|---|
-| corpus word presence | 0.908 | 0.887 | +0.021 |
-| gold provisions | 0.459 | 0.364 | +0.094 |
-| retrieved context | 0.613 | 0.437 | +0.176 |
-| **the answer itself** | **0.789** | **0.424** | **+0.365** |
-| **KG distinctive coverage** | **varies** | **varies** | **varies** |
-
-The KG is now part of the evidence: it raises distinctive coverage, which is a
-precondition for the LLM to produce correct answers, but it does not by itself
-clear the gate.
+**Decision: do not optimise the graph for correctness; do not run a full
+89x2 sweep.** The legitimate KG item is populating `provision_text` (content,
+not structure), re-verified with the same 30-call harness.
 
 ## 6. Near-miss character of the concept gaps, for the record
 
@@ -177,3 +138,48 @@ Both silently distort a naive roll-up:
   distinctive mass, less than the answer's 0.442. The reference draws on material
   beyond the labelled gold. This should be checked before any further pipeline
   work, because it bounds everything else.
+
+## 10. Model swap assessed: stay on laguna (2026-10-12, 29 LLM calls)
+
+`evaluation/ab_model.py`: 13 QIDs × `apodex/apodex-1.1-mini:free` and
+`nvidia/nemotron-3.5-lightning:free`, paired against cached laguna on identical
+top-20 pools (slugs verified on the models listing first; 0-budget step).
+
+| | laguna | apodex-mini | nemotron-lightning |
+|---|---|---|---|
+| soft mean (13) | 0.457 | 0.424 (−0.033) | 0.400 (−0.058) |
+| binary | 4 | 3 | 1 |
+| eliminated | 6 | 4 | 3 |
+| answer length | 3090 chars | 3784 (+22%) | 3995 (+29%) |
+
+**Do not switch.** Both lose veto items: apodex loses Q052/Q084/Q023
+eliminations and the Q060 abstention credit; nemotron additionally collapses
+Q015 (−0.307, substantive failure pass lost) and Q002's elimination. Only
+bright spots (apodex Q015 elim gain, nemotron Q016 +0.116) don't outweigh them.
+
+Mechanism (read off the answers, 0 extra calls): both models leak
+chain-of-thought into the response (`Here's a thinking process: 1. **Analyze
+User Question**...`). The prompt asks for quotes-then-concise-answer; the
+reasoning trace becomes hundreds of scored tokens that drown jaccard — the
+gate-hostile direction, and the already-measured binding constraint. Q060
+shows the second half: both *answered* an IE question at 3800+ chars instead
+of abstaining, forfeiting the credit laguna holds. This is structural
+(thinking models under a length-punishing gate + citation contract), not
+capability — a swap without a thinking-channel prompt and trace-stripping
+post-processor cannot win. That is a project, not a config change, and it is
+not proposed here.
+
+Haiku 5.5 (`anthropic/claude-haiku-5.5`, 21 calls 2026-10-12) completes the
+picture from the other side and sharpens the real conclusion. Decomposed
+(`decompose_swap.py`, offline), haiku's landed answers run ~800 chars with
+HIGHER jaccard but LOWER coverage than laguna almost everywhere (Q007 cov
+0.43 vs 0.69, Q015 0.75 vs 1.0, Q123 0.22 vs 0.78, Q060 0.18 vs 0.82) — the
+mirror image of laguna's disease. The one exception proves the rule: Q002
+holds coverage 1.0 on both while haiku is shorter (1218 vs 1797), and haiku
+wins that pair outright (0.579 vs 0.552). The ideal point sits *between* the
+models: laguna's coverage at haiku's length. That is a length-targeted laguna
+prompt, not a swap — and it is now the concrete next experiment (near-miss
+set, the 69/82 a coverage-only gate would pass). Separately, haiku returned
+deterministic empty 200s on 5/13 full RAG prompts across retries (Q052 Q047
+Q023 Q020 Q016; trivial probe answers `PONG` fine) — a pipeline
+incompatibility on top of the metric loss. Verdict: stay on laguna.

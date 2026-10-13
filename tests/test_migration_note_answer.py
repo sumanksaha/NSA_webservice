@@ -24,6 +24,7 @@ _COLUMNS = {
     "question",
     "answer",
     "citations",
+    "sub_queries",
     "note_snapshot",
     "groundedness_score",
     "hallucination_detected",

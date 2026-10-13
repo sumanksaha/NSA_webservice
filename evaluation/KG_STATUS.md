@@ -66,12 +66,83 @@ graph is absent. It is ready to run; it needs a reachable Neo4j.
 budget is zero. It is the input to it: if the KG does not raise the context's
 distinctive coverage, no model can convert it into correctness.
 
-## Next steps, in order
+## Live verification (2026-10-12, 33 LLM calls of a 900-call day budget)
 
-1. **Make the graph reachable.** A live Aura instance, or a local Neo4j built
-   from `scripts/build_kg_corpus.py`. Until then nothing about the KG can be
-   measured or optimised, and any KG work would be code review, not measurement.
-2. Run `python -m evaluation.kg_effect_on_failures` on the failure cohort.
-3. Only if `delta` is positive does graph *structure* become worth optimising.
-   If it is not, the defect is in what the graph is pointed at, and adding
-   relationships to it would be tuning a channel that carries nothing.
+`evaluation/verify_kg_live_llm.py` ran the paired live test the offline number
+could not substitute for: same retrieval pool, baseline chunks vs KG-fused
+chunks (production `rrf_fuse_chunks`, 5 KG provisions into top-20), live LLM,
+frozen scorer. Focused set: the 9 offline crossers + 3 high-delta + 3 zero-delta
+controls = 15 QIDs x 2 conditions = 30 calls, plus 1 retry after a 429 and a
+2-call replication = 33 total. Resumable cache at
+`out/.../reeval_89/kg_live_verify.jsonl`.
+
+| | base | KG-fused |
+|---|---|---|
+| soft mean (15 pairs) | 0.355 | 0.347 (delta **-0.008**) |
+| binary | 1/15 | 1/15 (no change) |
+| eliminated | 3/15 | 4/15 (**+1: Q016**) |
+| positive soft delta | — | 6/15 |
+
+The offline mean (+0.042, enriched set) did **not** convert. Live mean delta is
+indistinguishable from zero; variance is Q&A idiosyncrasy (-0.157 to +0.064).
+
+Two cases carry the whole story, and both were autopsied offline
+(`inspect_kg_fusion.py`, 0 LLM calls):
+
+- **Q016 (flip, replicated 2/2).** Gold is s60/s61/**s53**; the KG fused **s53**
+  itself. Base never eliminates (0.339, 0.319); KG eliminates both times
+  (0.403, 0.352). Mechanistically plausible, not just noise.
+- **Q014 (-0.157).** Gold is s59; the KG fused s57/s48/s33/s1/s25 — *none of
+  them gold* — as header-only stubs (`PROVISION fssai:s57 — Clause fssai:s57...
+  Status: current...`, no statutory text). Five stubs displaced five vector
+  chunks in the top-20 and the answer dropped 0.381 -> 0.224.
+
+The mechanism is symmetric and content-free: KG provisions carry **identity**
+(section number, instrument, authority) but **no statutory text**. When the
+identity names gold, the model gets a pointer it can use (Q016). When it does
+not, the stubs evict real context (Q014). This is the same stub-body defect
+`ab_kg_fusion` and the `RAG_KG_FUSION` config comment already document
+(citation recall 0.31 -> 0.10); it reproduces here as correctness variance,
+not gain.
+
+It also explains the offline/live gap: stub headers inject rare-but-contentless
+tokens (instrument titles, `Ministry of Law and Justice`) that IDF weighting
+treats as distinctive coverage. Offline +0.042 was largely header-token
+overlap. Live, a section label is not substance — except as a pointer when it
+names the right section.
+
+Largest offline delta, Q076 (+0.44): live delta **-0.002**. Coverage gain with
+no correctness gain, exactly as the stub mechanism predicts.
+
+### Next level (2026-10-12, +3 LLM calls): corpus backfill for stub bodies
+
+`provisions_to_retrieved_chunks` gained an opt-in `backfill` index,
+`(norm_act, norm_section) -> longest chunk text`, default `None` (existing
+callers byte-identical). Two key-format bugs caught offline before spending:
+`s57`-vs-`57` needed exact-first + digits-fallback lookup order, else 0/5
+stubs fill against a 2176-entry index. Verified: Q014 2->1 stubs (+495 chars),
+Q016 3->1 (+695 chars); unfillable remainders are genuine corpus gaps
+(Q016 s52 operative text — the known procurement case).
+
+Live (`kgb` cond vs cached bases): Q014 0.381 -> **0.241** (backfill mitigates
+plain-kg's 0.224 slightly; off-gold substance still displaces working context
+— backfill upgrades the filler, it does not change what was selected).
+Q016 0.319 -> **0.397, eliminated** — backfilled-KG eliminates 3/3 alongside
+plain-kg 2/2. Verdict unchanged (do not optimise graph for correctness), but
+the backfill is now the standing fix for the stub-body defect whenever KG
+fusion is used at all: stubs that must displace context should at least carry
+text.
+
+## Verdict on the KG question
+
+- **Do not optimise the graph for correctness.** Mean live effect ~0 on an
+  enriched set; one replicated flip against one substantial harm; the channel
+  carries identity pointers, not substance.
+- **Do not expand to a full 89x2 sweep** (~178 calls). It would spend 20% of a
+  day budget to tighten the CI around zero. Poor value.
+- The one legitimate KG work item is the **stub-body defect**: populating
+  `LegalProvision.provision_text` so fused provisions carry statutory text
+  instead of headers. That is a KG *content* fix, not structure, and it should
+  be re-verified with this same 30-call harness before any claim is made.
+- Remaining budget (~867): hold for the gold-labelling check and any
+  concision/prompt experiment, which target larger measured gaps.

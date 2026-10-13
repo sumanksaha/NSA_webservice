@@ -555,6 +555,35 @@ class TestScheduleRoutes:
         assert resp.status_code == 200
         assert b"ANYBELLY" in resp.data
 
+    def test_search_logs_the_lookup_failure(self, schedule_env, monkeypatch):
+        """The route must not swallow ``result.error`` — production diagnosis
+        depends on this line. Observed 2026-10-13: the red 'Lookup failed' box
+        appeared while the server logs stayed completely silent because the
+        failure reason never reached them.
+        """
+        from app.services import premises_resolver as pr
+
+        app, client = schedule_env
+        monkeypatch.setattr(
+            pr,
+            "resolve",
+            lambda q, **_k: ResolveResult(False, error="Supabase is not configured."),
+        )
+        # Spy on the logger — the app's structlog setup makes caplog unreliable
+        # for this logger (see tests/test_rag_ui_gaps.py:262).
+        captured: list[str] = []
+        original_warning = app.logger.warning
+
+        def _spy(msg, *args, **kwargs):
+            captured.append(str(msg))
+            return original_warning(msg, *args, **kwargs)
+
+        monkeypatch.setattr(app.logger, "warning", _spy)
+        resp = client.get("/schedule/search?q=devyani")
+        assert resp.status_code == 200
+        assert b"Lookup failed" in resp.data
+        assert any("Supabase is not configured" in m for m in captured)
+
     def test_confirm_writes_diary_slot_and_inspection(self, schedule_env):
         from app.models import Inspection, WorkDiaryEntry
 

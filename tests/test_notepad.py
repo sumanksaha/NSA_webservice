@@ -6,13 +6,17 @@ Seams under test (agreed 2026 grilling session):
   transitions incl. required implemented_note, author-only controls.
 - Model defaults: is_shared=True, status="new".
 
-Prompt internals and template markup are NOT tested.
+Legal-RAG thread (docs/NOTEPAD_LEGAL_RAG_SPEC.md) extends the seam to the
+detail template's rendered body — the spec's traceability matrix assigns
+FR-12/FR-17…FR-20 and the stale marker to rendered-body assertions
+(`TestDetailThreadUI`). Prompt internals remain untested.
 """
 
 from __future__ import annotations
 
 import io
 import json
+import re
 
 from app.extensions import db
 
@@ -213,6 +217,7 @@ _RAG_RESULT = {
     "llm_model": "legal-ce/2",
     "token_usage": 1234,
     "log_id": "42",
+    "sub_queries": ["What is the penalty under Section 55?", "Who may impose it?"],
 }
 
 
@@ -518,6 +523,7 @@ class TestAsk:
             assert a.provider_model == "legal-ce/2"
             assert a.token_usage == 1234
             assert a.rag_log_id == "42"
+            assert json.loads(a.sub_queries) == _RAG_RESULT["sub_queries"]  # FR-12 persistence
             assert a.note_snapshot == "We seized adulterated milk."
         finally:
             _teardown_test_env(ctx)
@@ -906,5 +912,235 @@ class TestEditRoute:
             assert note.content_text == "kept"
             assert note.is_shared is True
             assert note.status == "new"
+        finally:
+            _teardown_test_env(ctx)
+
+
+class TestDetailThreadUI:
+    """``notepad/detail.html`` thread rendering — Phase 3 (spec §7 UI, FR-12,
+    FR-17…FR-20, §5.4 stale marker). Template assertions on the rendered body."""
+
+    def _seed(self, note, *, hallucination=False, degraded=False, with_sub_queries=True):
+        """Insert ``NoteAnswer`` rows directly, oldest first with distinct timestamps.
+
+        Timestamps sit just *after* the note's insert-time ``updated_at`` with
+        microsecond ordering — so no-edit reads are fresh (§5.4) while an
+        ``edit`` (which bumps ``updated_at`` past them) turns them stale.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        from app.models import NoteAnswer
+
+        base = datetime.now(UTC).replace(tzinfo=None)
+        rows = []
+        for i in (1, 2, 3):
+            rows.append(
+                NoteAnswer(
+                    note_id=note.id,
+                    question=f"question-{i}",
+                    answer=f"answer-{i} grounded in Section 55",
+                    citations=json.dumps(_RAG_RESULT["citations"]),
+                    sub_queries=json.dumps(_RAG_RESULT["sub_queries"] if (with_sub_queries and i == 3) else []),
+                    note_snapshot=note.content_text,
+                    groundedness_score=0.91,
+                    hallucination_detected=hallucination and i == 3,
+                    degraded=degraded and i == 3,
+                    provider_model="legal-ce/2",
+                    token_usage=1234,
+                    rag_log_id=str(i),
+                    created_at=base + timedelta(microseconds=i),
+                )
+            )
+        db.session.add_all(rows)
+        db.session.commit()
+        return rows
+
+    def _get(self, clients, note_id, who="alice"):
+        _, client = clients[who]
+        resp = client.get(f"/notepad/{note_id}")
+        assert resp.status_code == 200
+        return resp.get_data(as_text=True)
+
+    # --- FR-18/FR-19: primary card + collapsed history ------------------- #
+
+    def test_latest_answer_is_the_primary_card(self):
+        _app, clients, ctx = _setup_test_env()
+        try:
+            note = _make_note(clients["alice"][0].id, "statement")
+            self._seed(note)
+
+            body = self._get(clients, note.id)
+
+            # The newest turn sits above the history block, older turns inside it.
+            # (Anchor on the thread's own tag — base.html has <details> of its own.)
+            history_at = body.index('<details class="mb-3">')
+            assert body.index("question-3") < history_at
+            assert history_at < body.index("question-1") < body.index("question-2")
+            assert "Earlier answers (oldest first)" in body
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_answer_card_renders_citations_verification_and_meta(self):
+        """FR-19: question, answer, citations, verification strip, meta line."""
+        _app, clients, ctx = _setup_test_env()
+        try:
+            note = _make_note(clients["alice"][0].id, "statement")
+            self._seed(note)
+
+            body = self._get(clients, note.id)
+
+            assert "question-3" in body and "answer-3 grounded in Section 55" in body
+            # Citations: section, title, authority
+            assert "55" in body and "Food Safety and Standards Act, 2006" in body and "statute" in body
+            # Verification strip + meta line
+            assert "Groundedness: 91%" in body
+            assert "legal-ce/2" in body and "1234 tokens" in body
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_history_details_lists_older_answers_oldest_first(self):
+        _app, clients, ctx = _setup_test_env()
+        try:
+            note = _make_note(clients["alice"][0].id, "statement")
+            self._seed(note)
+
+            body = self._get(clients, note.id)
+
+            details_at = body.index('<details class="mb-3">')
+            assert details_at < body.index("question-1") < body.index("question-2")
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_hallucination_warning_and_degraded_badge_render(self):
+        _app, clients, ctx = _setup_test_env()
+        try:
+            note = _make_note(clients["alice"][0].id, "statement")
+            self._seed(note, hallucination=True, degraded=True)
+
+            body = self._get(clients, note.id)
+
+            assert "may be ungrounded" in body
+            assert "degraded — stub answer" in body
+        finally:
+            _teardown_test_env(ctx)
+
+    # --- FR-12: sub_queries informational -------------------------------- #
+
+    def test_sub_queries_render_informational_on_the_latest_card(self):
+        _app, clients, ctx = _setup_test_env()
+        try:
+            note = _make_note(clients["alice"][0].id, "statement")
+            self._seed(note)
+
+            body = self._get(clients, note.id)
+
+            assert "What is the penalty under Section 55?" in body
+            assert "not your fragments" in body  # clearly distinct from user fragmentation
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_sub_queries_absent_renders_no_block(self):
+        _app, clients, ctx = _setup_test_env()
+        try:
+            note = _make_note(clients["alice"][0].id, "statement")
+            self._seed(note, with_sub_queries=False)
+
+            body = self._get(clients, note.id)
+
+            assert "not your fragments" not in body
+        finally:
+            _teardown_test_env(ctx)
+
+    # --- §5.4 stale marker ----------------------------------------------- #
+
+    def test_stale_marker_shows_after_statement_edit(self):
+        """AC-9: edit bumps updated_at past the latest answer -> marker."""
+        _app, clients, ctx = _setup_test_env()
+        try:
+            note = _make_note(clients["alice"][0].id, "statement")
+            self._seed(note)
+            _, client = clients["alice"]
+            client.post(f"/notepad/{note.id}/edit", data={"content_text": "edited statement"})
+
+            body = self._get(clients, note.id)
+
+            assert "statement edited after this answer — ask again to refresh" in body
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_no_stale_marker_without_an_edit(self):
+        _app, clients, ctx = _setup_test_env()
+        try:
+            note = _make_note(clients["alice"][0].id, "statement")
+            self._seed(note)
+
+            body = self._get(clients, note.id)
+
+            assert "statement edited after this answer" not in body
+        finally:
+            _teardown_test_env(ctx)
+
+    # --- FR-20: primary ask action, demoted lens button ------------------ #
+
+    def test_author_sees_primary_ask_card_and_demoted_lens_button(self):
+        _app, clients, ctx = _setup_test_env()
+        try:
+            note = _make_note(clients["alice"][0].id, "statement")
+
+            body = self._get(clients, note.id)
+
+            assert "Ask Legal RAG" in body
+            assert "Get legal answer" in body
+            assert "Evaluate idea (7 lenses)" in body
+            assert "Evaluate with AI" not in body  # old primary label gone
+            # Demoted lens button is an outline button (regex over the rendered tag).
+            assert re.search(
+                r'class="btn btn-outline-secondary btn-sm">\s*'
+                r'<i class="fa-solid fa-wand-magic-sparkles"></i> Evaluate idea \(7 lenses\)',
+                body,
+            )
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_edit_statement_form_renders_for_author(self):
+        _app, clients, ctx = _setup_test_env()
+        try:
+            note = _make_note(clients["alice"][0].id, "the statement")
+
+            body = self._get(clients, note.id)
+
+            assert f'action="/notepad/{note.id}/edit"' in body
+            assert "Save statement" in body
+            assert "the statement" in body  # textarea pre-filled
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_ask_card_hidden_when_gates_off(self, monkeypatch):
+        from app.shared.config import cfg
+
+        _app, clients, ctx = _setup_test_env()
+        try:
+            note = _make_note(clients["alice"][0].id, "statement")
+            monkeypatch.setattr(cfg, "notepad_ai_enabled", False)
+
+            body = self._get(clients, note.id)
+
+            assert "Get legal answer" not in body
+            assert "Legal RAG is disabled" in body
+        finally:
+            _teardown_test_env(ctx)
+
+    def test_non_author_sees_thread_but_no_actions(self):
+        _app, clients, ctx = _setup_test_env()
+        try:
+            note = _make_note(clients["alice"][0].id, "statement")  # shared
+            self._seed(note)
+
+            body = self._get(clients, note.id, who="bob")
+
+            assert "question-3" in body  # the thread is readable on a shared note
+            assert "Get legal answer" not in body  # ... but no author-only actions
+            assert "Save statement" not in body
+            assert "Evaluate idea" not in body
         finally:
             _teardown_test_env(ctx)

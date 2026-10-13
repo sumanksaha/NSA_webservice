@@ -120,6 +120,7 @@ class NoteAnswer(db.Model):
     question = db.Column(db.Text, nullable=False)
     answer = db.Column(db.Text, nullable=False)
     citations = db.Column(db.Text, nullable=True)  # JSON list of pipeline citation dicts
+    sub_queries = db.Column(db.Text, nullable=True)  # JSON list; internal decomposition (FR-12)
     note_snapshot = db.Column(db.Text, nullable=True)
     groundedness_score = db.Column(db.Float, nullable=True)
     hallucination_detected = db.Column(db.Boolean, nullable=True)

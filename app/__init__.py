@@ -497,5 +497,14 @@ def create_app(db_uri: str | None = None):
     return app
 
 
-# Create the Flask application instance for Gunicorn
-app = create_app()
+# Create the Flask application instance for Gunicorn.
+#
+# Guarded by APP_LAZY_IMPORT so eval harnesses and tests that drive the
+# factory explicitly (create_app(db_uri=<scratch>)) do not pay for — and are
+# not flaked by — a production boot against the real database at import time.
+# 2026-10-12: the startup bootstrap races on healthy DBs (~1 in 4-5 boots,
+# five distinct failure modes); harnesses are DB-free and must not inherit
+# that. Default off: gunicorn (`app:app`) and all existing imports boot
+# exactly as before.
+if os.environ.get("APP_LAZY_IMPORT", "").lower() != "true":
+    app = create_app()

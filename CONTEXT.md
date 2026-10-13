@@ -408,8 +408,31 @@ record (no hash-chained audit). Lifecycle: `new → evaluated → implemented |`
 `dismissed`. Evaluation means one append-only **NoteEvaluation**: an AI-
 generated structured record (implementation plan, risks, game-theory,
 Talebian antifragility, first-principles lenses) stored as JSON; re-runs
-append rather than overwrite. Never abbreviated "DO" — that collides with DO
+append rather than overwrite — now a demoted secondary action. A Note is
+also a **Legal-RAG Q&A thread**: the author asks in the ask box (one
+question per line to fragment it), each fragment goes through the legal RAG
+pipeline (`app/notepad/thread.py`, never the generic AI assistant) and is
+appended as a **Note Answer** turn. Asking never moves the lifecycle status;
+editing the statement never touches recorded answers — the newest card just
+gains a stale marker. Never abbreviated "DO" — that collides with DO
 Intimation.
+
+### Note Answer
+
+One append-only turn in a Note's Legal-RAG Q&A thread (`NoteAnswer`,
+`note_answer`; `app/models/notepad.py`). Exactly one question (the fragment
+the author typed, stored verbatim) → one legal-RAG answer → one row, with
+the statement snapshot at ask time (INV-3: history stays interpretable after
+edits), citations JSON, the pipeline's own internal decomposition
+(`sub_queries`, rendered read-only as informational text — distinct from the
+author's fragmentation), verification signals (groundedness score,
+hallucination flag, `degraded` = circuit-open stub fallback), and
+`rag_log_id` joining back to `rag_query_log` (INV-4). Turns are never
+updated; the thread is append-only and cascades with the Note. Asking is
+author-only and gated by `cfg.notepad_ai_enabled` + `cfg.rag_enabled`;
+follow-ups are rewritten deterministically (statement + last turns + new
+question — no LLM in the rewrite, INV-7). Owner module:
+`app/notepad/thread.py`; spec: `docs/NOTEPAD_LEGAL_RAG_SPEC.md`.
 
 ### Monthly Diary
 

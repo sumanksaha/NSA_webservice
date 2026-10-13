@@ -188,6 +188,7 @@ def _to_answer(
         question=question,
         answer=result.get("answer") or "",
         citations=json.dumps(result.get("citations") or []),
+        sub_queries=json.dumps(result.get("sub_queries") or []),
         note_snapshot=snapshot,
         groundedness_score=result.get("groundedness_score"),
         hallucination_detected=bool(result.get("hallucination_detected")),

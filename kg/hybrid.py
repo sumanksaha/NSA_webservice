@@ -458,6 +458,7 @@ def _dedupe_kg_over_chunks(chunk_lists: list[list[Any]]) -> list[list[Any]]:
 def provisions_to_retrieved_chunks(
     provisions: Iterable[dict[str, Any]],
     limit: int = 5,
+    backfill: dict[tuple[str, str], str] | None = None,
 ) -> list[Any]:
     """Convert KG expansion provisions into :class:`RetrievedChunk` objects.
 
@@ -471,6 +472,12 @@ def provisions_to_retrieved_chunks(
     Args:
         provisions: ``KGContextExpander.expand_chunks()`` provision dicts.
         limit: Maximum provisions converted (keeps the context budget sane).
+        backfill: Optional ``{(norm_act, norm_section): body_text}`` corpus
+            index (see :func:`backfill_key`). A provision whose graph body
+            resolves to a stub (or empty) takes its body from here instead of
+            emitting a header-only block. Default ``None`` preserves existing
+            behaviour exactly — callers that do not pass a corpus see
+            byte-identical output.
 
     Returns:
         List of ``RetrievedChunk`` — empty when no provisions are given.
@@ -487,7 +494,9 @@ def provisions_to_retrieved_chunks(
     real identity — number, instrument, status, domain, authority), but the
     block records that no statutory text was resolved so the missing
     ``provision_text`` is visible in the prompt/audit rather than being
-    mistaken for an empty-evidence verdict.
+    mistaken for an empty-evidence verdict — unless *backfill* supplies the
+    text, in which case the block carries real substance (2026-10-12: live
+    measurement showed fused stubs displacing vector evidence, e.g. Q014).
     """
     from app.rag.retrieval.result import RetrievedChunk
 
@@ -513,8 +522,19 @@ def provisions_to_retrieved_chunks(
             parts.append(f"Domain: {domain}")
         if auth:
             parts.append(f"Authority: {auth}")
+        backfilled_body = None
+        if backfill is not None:
+            for _key in backfill_key_variants(
+                instrument, number,
+                str(p.get("provision_id") or ""),
+            ):
+                if _key in backfill:
+                    backfilled_body = backfill[_key]
+                    break
         if body:
             parts.append(body)
+        elif backfilled_body:
+            parts.append(backfilled_body)
         else:
             parts.append("[No statutory text available for this provision.]")
 
@@ -533,6 +553,44 @@ def provisions_to_retrieved_chunks(
             ),
         )
     return chunks
+
+
+def _norm_text(value: Any) -> str:
+    """Lowercase alphanumeric collapse for cross-source key matching."""
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
+
+
+def backfill_key(instrument: str, number: str, provision_id: str = "") -> tuple[str, str]:
+    """Normalised ``(act, section)`` key joining a KG provision to corpus text.
+
+    ``provision_number`` arrives as ``fssai:s57`` (family:section) while the
+    corpus stamps ``section_number`` as ``57`` and ``act_name`` with different
+    punctuation (``... Act 2006`` vs ``... Act, 2006``). Both sides collapse to
+    alphanumeric-lowercase (``_norm_text``); use :func:`backfill_key_variants`
+    for lookup so the ``s``-prefixed graph form meets the bare corpus form.
+    The ``provision_id`` argument is accepted for future exact-first matching
+    and currently unused.
+    """
+    sec = str(number or "").split(":")[-1].strip().lower()
+    return (_norm_text(instrument), _norm_text(sec))
+
+
+def backfill_key_variants(instrument: str, number: str,
+                          provision_id: str = "") -> list[tuple[str, str]]:
+    """Lookup order for :func:`backfill_key`: exact normalised form first,
+    then the leading-alpha-stripped form (``s57`` -> ``57``).
+
+    The graph names sections ``fssai:s57`` where the corpus stamps ``57``;
+    without the fallback no stub ever matches and the backfill silently covers
+    nothing (caught 2026-10-12: 0/5 stubs filled on Q014/Q016 despite a 2176-
+    entry index). Exact-first so ``57A`` never collides with ``57``.
+    """
+    act, sec = backfill_key(instrument, number, provision_id)
+    bare = re.sub(r"^[^0-9]+", "", sec)
+    variants = [(act, sec)]
+    if bare and bare != sec:
+        variants.append((act, bare))
+    return variants
 
 
 def _unwrap(value: Any) -> Any:

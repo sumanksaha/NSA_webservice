@@ -46,6 +46,11 @@ services:
             fromDatabase:
                 name: nsa-webservice-db
                 property: connectionString
+          # FSSAI registry lookup DSN for the 'Plan a duty' premises search
+          # (app/services/premises_resolver.py). Dashboard-set secret; absent
+          # here the search fails closed with 'Lookup failed' (risk R1).
+          - key: SUPABASE_DB_URL
+            sync: false
           - key: SECRET_KEY
             fromGroup: shared-secrets
           - key: REDIS_URL
@@ -152,6 +157,11 @@ services:
             fromDatabase:
                 name: nsa-webservice-staging-db
                 property: connectionString
+          # FSSAI registry lookup DSN for the 'Plan a duty' premises search
+          # (app/services/premises_resolver.py). Dashboard-set secret; absent
+          # here the search fails closed with 'Lookup failed' (risk R1).
+          - key: SUPABASE_DB_URL
+            sync: false
           - key: SECRET_KEY
             fromGroup: shared-secrets
           - key: REDIS_URL

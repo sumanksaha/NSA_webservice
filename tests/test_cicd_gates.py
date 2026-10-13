@@ -346,6 +346,44 @@ class TestEnvParity:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# R1 — premises-search registry DSN must be declared for every web service
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestPremisesSearchRegistryDsn:
+    """The 'Plan a duty' premises search reads SUPABASE_DB_URL through the
+    resolver engine; when it is absent the route fails closed with the red
+    'Lookup failed' box (observed in production 2026-10-13). Declaring the
+    var in render.yaml keeps it visible to operators instead of silently
+    missing (SCHEDULE_PLANNING_AGENT_IMPLEMENTATION_PLAN.md risk R1).
+    """
+
+    def test_every_web_service_declares_supabase_db_url(self):
+        for svc in _render()["services"]:
+            if svc.get("type") != "web":
+                continue
+            keys = [v.get("key") for v in svc.get("envVars", [])]
+            assert "SUPABASE_DB_URL" in keys, (
+                f"{svc['name']}: SUPABASE_DB_URL must be declared in render.yaml "
+                "— without it the premises search fails closed with 'Lookup failed'"
+            )
+
+    def test_supabase_db_url_value_comes_from_the_dashboard(self):
+        """sync: false — the DSN is a secret and lives in the Render dashboard,
+        never in the repo."""
+        for svc in _render()["services"]:
+            if svc.get("type") != "web":
+                continue
+            for v in svc.get("envVars", []):
+                if v.get("key") == "SUPABASE_DB_URL":
+                    assert v.get("sync") is False, (
+                        f"{svc['name']}: SUPABASE_DB_URL must use sync: false (dashboard-set secret)"
+                    )
+                    assert "value" not in v, "SUPABASE_DB_URL must not carry an inline value"
+                    assert "generateValue" not in v
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # G2 — Staging environment (Render staging service + deploy.yml staging job)
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -449,9 +487,16 @@ class TestReleaseWorkflow:
         assert on["push"]["tags"] == ["v*.*.*"], "Must trigger on version tags"
 
     def test_release_uses_gh_release_action(self):
-        """G8: release.yml must use softprops/action-gh-release@v2 for release creation."""
+        """G8: release.yml must use softprops/action-gh-release for release creation.
+
+        The version pin was originally @v2; the workflow now pins @v3, so this
+        asserts the action family rather than one exact major version — a
+        policy that pins a specific major fails on every legitimate bump.
+        """
         content = _read_text(WORKFLOWS / "release.yml")
-        assert "softprops/action-gh-release@v2" in content, "release.yml must use softprops/action-gh-release@v2"
+        assert re.search(r"softprops/action-gh-release@v[2-9]\b", content), (
+            "release.yml must use softprops/action-gh-release@v2 or newer"
+        )
 
     def test_release_not_placeholder(self):
         """G8: release.yml must not contain placeholder/disabled markers after activation."""
