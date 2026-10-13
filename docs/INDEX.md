@@ -53,3 +53,4 @@ Files the engineering skills read before acting:
 ## Implemented
 
 - `app/services/premises_resolver.py`, `app/services/diary_planner.py`, `app/schedule.py` — **Duty scheduling** ("Plan a duty"): free-text premises search against the FSSAI registry with road-alias expansion and confusable-road separation, then a confirm step that writes the Monthly Diary slot and one draft Inspection per selected premise. Glossary entries: `CONTEXT.md` §`PremisesResolver`, §`DiaryPlanner`, §Duty scheduling.
+- `app/models/auth.py`, `migrations/versions/widen_record_audit_record_id.py`, `app/audit_hooks.py` — **Monthly Diary audit-record overflow fix**: `record_audit.record_id` widened `VARCHAR(50)`→`VARCHAR(255)` so `WorkDiaryEntry`'s composite-key audit identifier no longer aborts the diary save's transaction on Postgres, plus a logged length guard in the audit writer. See [RECORD_AUDIT_RECORD_ID_OVERFLOW_RESEARCH.md](./RECORD_AUDIT_RECORD_ID_OVERFLOW_RESEARCH.md).

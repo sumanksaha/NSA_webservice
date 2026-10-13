@@ -417,12 +417,12 @@ class TestDiaryPlannerInvariants:
         from app.services import diary_planner
 
         diary_planner.record_many(
-            "Officer A", DAY, [{"duty_seq": 2, "activity": "field", "premises": 1, "place": "NSC"}],
+            "Officer A",
+            DAY,
+            [{"duty_seq": 2, "activity": "field", "premises": 1, "place": "NSC"}],
         )
         db.session.commit()
-        assert db.session.get(
-            WorkDiaryEntry, {"fso_name": "Officer A", "work_date": DAY, "duty_seq": 2}
-        ) is None
+        assert db.session.get(WorkDiaryEntry, {"fso_name": "Officer A", "work_date": DAY, "duty_seq": 2}) is None
         first = db.session.get(WorkDiaryEntry, {"fso_name": "Officer A", "work_date": DAY, "duty_seq": 1})
         assert first is not None and first.activity == "field"
 
@@ -440,9 +440,7 @@ class TestDiaryPlannerInvariants:
             ],
         )
         db.session.commit()
-        assert db.session.get(
-            WorkDiaryEntry, {"fso_name": "Officer A", "work_date": DAY, "duty_seq": 2}
-        ) is None
+        assert db.session.get(WorkDiaryEntry, {"fso_name": "Officer A", "work_date": DAY, "duty_seq": 2}) is None
 
     def test_inv2_exclusive_slot_two_loses_to_working_slot_one(self, diary_app):
         from app.extensions import db
@@ -458,9 +456,7 @@ class TestDiaryPlannerInvariants:
             ],
         )
         db.session.commit()
-        assert db.session.get(
-            WorkDiaryEntry, {"fso_name": "Officer A", "work_date": DAY, "duty_seq": 2}
-        ) is None
+        assert db.session.get(WorkDiaryEntry, {"fso_name": "Officer A", "work_date": DAY, "duty_seq": 2}) is None
 
     def test_slots_for_reports_stored_day(self, diary_app):
         from app.extensions import db
@@ -511,16 +507,14 @@ def schedule_env(monkeypatch):
 
     # Stub the registry so no test touches the network (NFR-2).
     monkeypatch.setattr(
-        pr, "resolve",
-        lambda q, **_k: ResolveResult(
-            True, candidates=(_cand(number="12345678901234"),), road_group="nsc_bose"
-        ),
+        pr,
+        "resolve",
+        lambda q, **_k: ResolveResult(True, candidates=(_cand(number="12345678901234"),), road_group="nsc_bose"),
     )
     monkeypatch.setattr(
-        pr, "search_by_fssai",
-        lambda n: ResolveResult(
-            True, candidates=(_cand(number=n),)
-        ),
+        pr,
+        "search_by_fssai",
+        lambda n: ResolveResult(True, candidates=(_cand(number=n),)),
     )
 
     client = app.test_client()
@@ -723,3 +717,67 @@ class TestDiaryAuditTrail:
         from app.models import Adjudication
 
         assert _record_identifier(Adjudication(id=17)) == 17
+
+    def test_long_officer_name_identifier_is_stored_intact(self, audited_app):
+        """Regression for the production 500: a long officer name makes the
+        composite-key audit identifier exceed the old VARCHAR(50).
+
+        ``fso_name=Suman Saha|work_date=2026-03-10|duty_seq=1`` is 51 chars —
+        one over the old limit — so on Postgres the audit insert used to
+        abort the diary save's whole transaction. The column is now
+        VARCHAR(255); the identifier must be stored in full.
+
+        SQLite (the test DB) does not enforce VARCHAR(n), so it cannot
+        reproduce the exact Postgres ``StringDataRightTruncation``; we assert
+        on the identifier length instead as a durable proxy for that error.
+        """
+        from app.extensions import db
+        from app.models import RecordAudit
+        from app.services import diary_planner
+
+        diary_planner.record("Suman Saha", DAY, 1, "field", premises=2)
+        db.session.commit()
+        audit = RecordAudit.query.filter_by(record_type="WorkDiaryEntry").first()
+        assert audit is not None
+        # Full composite key rendered, nothing dropped.
+        assert audit.record_id == f"fso_name=Suman Saha|work_date={DAY}|duty_seq=1"
+        # Over the old VARCHAR(50) limit, but comfortably within VARCHAR(255).
+        assert 50 < len(audit.record_id) <= 255
+
+    def test_overlong_identifier_is_capped_and_logged_not_raised(self, audited_app, monkeypatch):
+        """The length guard's cap branch must truncate + warn, not raise.
+
+        A future identifier format that outgrows the column must never abort
+        the caller's transaction (that was the original production 500), and a
+        genuinely over-long identifier must be logged so it is never silently
+        mutated into something that looks like a real, distinct record."""
+        from app import audit_hooks
+        from app.audit_hooks import _MAX_RECORD_ID_LEN, _record_audit
+        from app.extensions import db
+        from app.models import RecordAudit
+
+        # Spy on the logger (caplog is unreliable here: the app's logging
+        # config can suppress propagation for this logger — same caveat as
+        # tests/test_rag_ui_gaps.py).
+        warnings_seen: list[str] = []
+        original_warning = audit_hooks.logger.warning
+
+        def _spy(msg, *args, **kwargs):
+            warnings_seen.append(str(msg))
+            return original_warning(msg, *args, **kwargs)
+
+        monkeypatch.setattr(audit_hooks.logger, "warning", _spy)
+
+        overlong = "x" * (_MAX_RECORD_ID_LEN + 500)
+        # Must not raise even though the identifier exceeds the column.
+        _record_audit("create", "WorkDiaryEntry", overlong)
+        db.session.commit()
+
+        audit = RecordAudit.query.filter_by(record_type="WorkDiaryEntry").first()
+        assert audit is not None
+        # Stored identifier is capped at the column width, nothing dropped
+        # below the cap.
+        assert audit.record_id == overlong[:_MAX_RECORD_ID_LEN]
+        assert len(audit.record_id) == _MAX_RECORD_ID_LEN
+        # And the truncation was logged so it is not silent.
+        assert any("truncated" in w for w in warnings_seen)
