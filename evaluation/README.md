@@ -114,6 +114,8 @@ Monitor a run: `python -m evaluation.train_legal_ce_v3 --status` (or `--watch`).
 | `failure_attribution.json` | per-qid bucket: `retrieval_rank` / `generation` / `never_retrieved` |
 | `full_review_tabulation.json` | 150/150 human verdicts |
 | `evaluator_v3_candidates.json` | 61 qids needing reference widening |
+| `context_hygiene_bench.json` | amendment-prose packing drop: gold-in-prompt guard + slots reclaimed per cached arm (0 LLM) |
+| `rubric/rubric_summary.json`, `rubric/<tag>_rubric.json` | top-lawyer rubric per cached rerun tag: per-dimension pass rates by cohort and audit action (0 LLM) |
 
 ## Benchmarks
 

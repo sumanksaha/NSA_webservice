@@ -80,6 +80,47 @@ _MASTHEAD_METADATA_RE = re.compile(
 #: nothing a model could cite.
 _INDEX_MIN_CHARS = 60
 
+#: Gazette amendment-notification prose detection (config
+#: ``RAG_CONTEXT_DROP_AMENDMENT_PROSE``, default on).
+#:
+#: The predicate is the stamper's own ``AMENDMENT_NOTIFICATION_RE`` — one
+#: home, imported lazily.  A second copy here would be exactly the
+#: duplication the provision-currency seam was built to prevent, and the
+#: engine import stays lazy so a deployment without the package still boots
+#: (same pattern as ``app/services/legal_engine.get_legal_engine``).
+_amendment_re: re.Pattern[str] | None = None
+_amendment_re_resolved = False
+
+
+def _resolve_amendment_re() -> re.Pattern[str] | None:
+    """The engine's amendment regex, or ``None`` when the engine is absent."""
+    global _amendment_re, _amendment_re_resolved
+    if not _amendment_re_resolved:
+        _amendment_re_resolved = True
+        try:
+            from legal_paragraph_detection_engine.src.legal_engine import AMENDMENT_NOTIFICATION_RE
+
+            _amendment_re = AMENDMENT_NOTIFICATION_RE
+        except Exception as exc:  # pragma: no cover - packaging-dependent
+            logger.debug("amendment regex unavailable (%s); amendment drop disabled", exc)
+            _amendment_re = None
+    return _amendment_re
+
+
+def is_amendment_prose(text: str) -> bool:
+    """True when *text* is a gazette amendment notification.
+
+    Such a chunk *refers to* a provision ("In section 63, for the words
+    X, the words Y shall be substituted") without containing one — it
+    carries the reference of an operative clause but none of its
+    content, so a packed window slot spent on it is a slot the answer
+    cannot cite.  This is the same defect class the stamper fix removed
+    from ``section_number`` (poisoned stamps 141 -> 0, no gold unit lost,
+    ``evaluation/FINDINGS_89_STATUS.md``).
+    """
+    rx = _resolve_amendment_re()
+    return bool(rx and rx.search(text or ""))
+
 
 def is_index_chunk(text: str) -> bool:
     """True when *text* is navigation/heading material, not a provision.
@@ -243,12 +284,17 @@ class ContextBuilder:
         # discarding what it chose would leave ``_pack_by_role`` reordering a
         # set it never receives. ``is_index_chunk`` also fires on anything
         # under ``_INDEX_MIN_CHARS``, and a short selected provision is exactly
-        # the kind of chunk a role packer is meant to promote.
+        # the kind of chunk a role packer is meant to promote. Amendment prose
+        # (``is_amendment_prose``) is exempt the same way.
         dropped_index = 0
-        if cfg.context_drop_index_chunks:
+        drop_index = bool(cfg.context_drop_index_chunks)
+        drop_amendment = bool(cfg.context_drop_amendment_prose)
+        if drop_index or drop_amendment:
             keep: list[RetrievedChunk] = []
             for chunk in ranked:
-                if chunk.chunk_id not in roles and is_index_chunk(chunk.text):
+                if chunk.chunk_id not in roles and (
+                    (drop_index and is_index_chunk(chunk.text)) or (drop_amendment and is_amendment_prose(chunk.text))
+                ):
                     dropped_index += 1
                     continue
                 keep.append(chunk)
@@ -257,7 +303,7 @@ class ContextBuilder:
             if keep:
                 ranked = keep
                 if dropped_index:
-                    logger.debug("Dropped %d index chunks before packing", dropped_index)
+                    logger.debug("Dropped %d index/amendment chunks before packing", dropped_index)
 
         # P0-1: evidence-set packing.  The answerability gate above has
         # already judged the FULL pool — packing happens strictly after, so

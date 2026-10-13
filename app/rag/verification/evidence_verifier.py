@@ -12,16 +12,18 @@ This replaces Phase 2's heuristic claim-flagging in ``ResponseSanitizer``
 with a claim-level evidence check.
 
 Because ``partial_ratio`` cannot distinguish an inverted proposition from a
-grounded one, every *fuzzy* verification additionally passes two
-claim-level entailment gates (:meth:`EvidenceVerifier._chunk_supports_claim`):
-a **polarity** gate (a prohibiting claim needs prohibiting evidence, a
-permitting claim needs permitting evidence) and a **numeric entailment**
-gate (every amount/percentage the claim asserts must be stated by the
-evidence).  A chunk that fails a gate is not evidence — the claim is
-rejected with the failing gate recorded in ``EvidenceVerification.reason``.
-This is P1 item 5.5 of ``RAG_ANSWER_QUALITY_IMPROVEMENT_ANALYSIS.md`` and
-mirrors the reason codes from
-:func:`app.rag.verification.hardened_scorer.verify_claim_strict`.
+grounded one, every verification passes two claim-level entailment gates
+(:meth:`EvidenceVerifier._chunk_supports_claim`): a **polarity** gate (a
+prohibiting claim needs prohibiting evidence, a permitting claim needs
+permitting evidence) and a **numeric entailment** gate (every
+amount/percentage the claim asserts must be stated by the evidence).  A chunk
+that fails a gate is not evidence — the claim is rejected with the failing
+gate recorded in ``EvidenceVerification.reason``.  The gates apply to the
+section-stamp path as well as the fuzzy path: a stamp is metadata, and an
+amendment notification quoting a section's words carries the stamp without
+entailing the claim. This is P1 item 5.5 of
+``RAG_ANSWER_QUALITY_IMPROVEMENT_ANALYSIS.md`` and mirrors the reason codes
+from :func:`app.rag.verification.hardened_scorer.verify_claim_strict`.
 """
 
 from __future__ import annotations
@@ -41,6 +43,11 @@ from app.rag.verification.claim_extractor import (
 )
 
 logger = logging.getLogger(__name__)
+
+#: Tracking for claim rejections so deployment can detect a spike in
+#: polarity/numeric gate rejections on the section-stamp path (W5 deploy safety).
+#: Keys are "polarity_mismatch" or "numeric_mismatch" with int counts.
+_REJECTION_STATS: dict[str, int] = {}
 
 #: Prohibition language ("no person shall sell", "shall not be added").
 #:
@@ -110,9 +117,10 @@ class EvidenceVerification:
         method: How the claim was verified
             (``"section"`` | ``"text"`` | ``"none"``).
         evidence_snippet: The best-matching chunk text (truncated).
-        reason: Entailment-gate verdict for fuzzy (``"text"``) matches —
-            ``""`` when the gates passed, otherwise ``"polarity_mismatch"``
-            or ``"numeric_mismatch"``.  Mirrors the reason codes returned by
+        reason: Entailment-gate verdict — ``""`` when the gates passed,
+            otherwise ``"polarity_mismatch"`` or ``"numeric_mismatch"``.
+            Applies to both the section-stamp and fuzzy (``"text"``)
+            verification paths.  Mirrors the reason codes returned by
             :func:`app.rag.verification.hardened_scorer.verify_claim_strict`.
 
     """
@@ -150,22 +158,33 @@ class EvidenceVerifier:
         # 1. Section-number match — highest confidence.
         if claim.section_numbers:
             matched = self._match_sections(claim.section_numbers, chunks)
-            if matched:
-                best = matched[0]
-                return EvidenceVerification(
-                    verified=True,
-                    confidence=_SECTION_MATCH_CONFIDENCE,
-                    supporting_chunks=[best.chunk_id],
-                    method="section",
-                    evidence_snippet=self._snippet(best.text),
-                )
-            # No chunk carries the cited section stamp — but the evidence may
-            # still *contain* the cited provision text.  Fall through to the
+            # The stamp is a metadata match, not an entailment: an amendment
+            # notification quoting the section's words, or a mis-stamped
+            # chunk, carries ``section_number`` without supporting the
+            # claim (P1 item 5.5). Run the same polarity/numeric gates the
+            # fuzzy path applies, and take the first matched chunk that
+            # passes them rather than blindly trusting ``matched[0]``.
+            gate_reason = ""
+            for best in matched:
+                supports, reason = self._chunk_supports_claim(claim, best)
+                if supports:
+                    return EvidenceVerification(
+                        verified=True,
+                        confidence=_SECTION_MATCH_CONFIDENCE,
+                        supporting_chunks=[best.chunk_id],
+                        method="section",
+                        evidence_snippet=self._snippet(best.text),
+                    )
+                gate_reason = gate_reason or reason
+            # No stamped chunk entailed the claim — fall through to the
             # textual-overlap check before declaring the claim unverified
             # (a bare "sections cited but no stamp => hallucinated" verdict
-            # flagged claims whose evidence simply lacked metadata).
+            # flagged claims whose evidence simply lacked metadata). The
+            # recorded reason carries the gate failure when the fuzzy pass
+            # also finds nothing, so a rejected section match stays visible.
             score, chunk, failed_reason = self._first_supporting(
-                claim, self._ranked_matches(claim.text, chunks),
+                claim,
+                self._ranked_matches(claim.text, chunks),
             )
             if chunk is not None:
                 return EvidenceVerification(
@@ -175,18 +194,20 @@ class EvidenceVerifier:
                     method="text",
                     evidence_snippet=self._snippet(chunk.text),
                 )
+            EvidenceVerifier._record_rejection(gate_reason or failed_reason)
             return EvidenceVerification(
                 verified=False,
                 confidence=_UNVERIFIED_CONFIDENCE,
                 supporting_chunks=[],
                 method="none",
                 evidence_snippet="",
-                reason=failed_reason,
+                reason=gate_reason or failed_reason,
             )
 
         # 2. Textual overlap via rapidfuzz.
         score, chunk, failed_reason = self._first_supporting(
-            claim, self._ranked_matches(claim.text, chunks),
+            claim,
+            self._ranked_matches(claim.text, chunks),
         )
         if chunk is not None:
             return EvidenceVerification(
@@ -199,6 +220,7 @@ class EvidenceVerifier:
         if failed_reason:
             # Every candidate above the threshold was rejected by a gate —
             # the claim *looked* like its evidence but does not entail it.
+            EvidenceVerifier._record_rejection(failed_reason)
             return EvidenceVerification(
                 verified=False,
                 confidence=_UNVERIFIED_CONFIDENCE,
@@ -292,6 +314,19 @@ class EvidenceVerifier:
     # ------------------------------------------------------------------ #
     # Claim-level entailment gates (V2 plan item 5.5)
     # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _record_rejection(reason: str) -> None:
+        """Count an entailment-gate rejection by reason code.
+
+        Deploy-safety observability for the W5 gates: a spike in
+        ``polarity_mismatch`` or ``numeric_mismatch`` rejections on
+        the section-stamp path signals that the new gates are
+        rejecting claims the legacy path verified, so the regression
+        is detectable from metrics rather than answer-quality drift.
+        """
+        if reason in ("polarity_mismatch", "numeric_mismatch"):
+            _REJECTION_STATS[reason] = _REJECTION_STATS.get(reason, 0) + 1
 
     @staticmethod
     def _asserted_numerics(text: str) -> set[str]:

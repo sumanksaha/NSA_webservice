@@ -66,13 +66,25 @@
 ---
 
 ### P1-5: Strengthen claim verification & fix empty-claim loophole
-**Status:** 🔄 In Progress (scorer fix landed; verify_claim polarity check open)  
+**Status:** ✅ Code present (both gates enforced on fuzzy and section-match paths)  
 **Files:** `verification/scorer.py`, `verification/evidence_verifier.py`, `verification/hallucination_detector.py`  
 **Verification & Status:**
 - `GroundednessScorer.score()` now returns 0.50 claim_ratio for empty claims (was 1.0)
 - `detail["empty_claims"]` flag added for observability
 - Score for empty-claims-on-nonempty-response: 0.70 (0.6×0.50 + 0.4×1.0)
-- **Open:** Enforce `_PROHIBITION_RE`/`_PERMISSION_RE` and `_AMOUNT_RE`/`_PERCENT_RE` comparison in `EvidenceVerifier.verify_claim()`
+- `_PROHIBITION_RE`/`_PERMISSION_RE` and `_AMOUNT_RE`/`_PERCENT_RE` enforced in `EvidenceVerifier.verify_claim()` on BOTH the fuzzy paths and the section-stamp path: a stamp is metadata, and a gazette amendment note stamped with the cited section carries the stamp without entailing the claim. A poisoned stamp now falls through to the fuzzy path instead of verifying at 0.85 confidence (top-lawyer plan W5, 2026-10-13; 5 new tests in `tests/test_hallucination_detector.py`)
+
+---
+
+### W1-W5: Top-lawyer answer-quality program
+**Status:** 🔄 In Progress (W1/W2/W5 landed with offline verification; W3/W4 code present, flag-off, live A/B reserved)  
+**Files:** `evaluation/rubric_top_lawyer.py`, `evaluation/bench_context_hygiene.py`, `generation/prompt_template.py`, `generation/grounded_service.py`, `generation/context_builder.py`, `evaluation/ab_baseline_citation.py`  
+**Verification & Status:**
+- W1 (measurement): `python -m evaluation.rubric_top_lawyer --rescore <tags>` scores cached answers 0-LLM on four dimensions (provision_check / reasoning_depth / abstention_discipline / presentation) sliced by the audit's own model_action. Baseline scorecard: failure-cohort provision_check 0.67, abstention_discipline 0.62 (23% false abstentions); 12 unit tests
+- W2 (packing hygiene): `RAG_CONTEXT_DROP_AMENDMENT_PROSE` (default on) drops gazette amendment prose from the window. Offline bench on three cached arms: gold-in-prompt unchanged (95/95, 91/91, 92/92), ~160 slots reclaimed; 7 new tests
+- W5 (verification): commit-level entailment gates on the section-match path (P1-5 closure)
+- W3 (two-pass): `ENABLE_STRUCTURED_REASONER` on the default path renders the answer from a reasoner IRAC IR in a legal-memo prompt (`grounded_qa_structured`); fail-closed to the single-pass template on any reasoner failure; +1 LLM call per query; IR exposed in `debug["structured_argument"]`; 4 new tests. **Live A/B not yet run — flag stays off until the rubric + citation gates + 3 replicates clear**
+- W4 (query-type directives): `RAG_QUERY_TYPE_DIRECTIVES` appends one per-type directive before `Question:`; candidates `cand_cond_*` registered in `ab_baseline_citation` with a `--qtype` population filter; default off, shipped prompt byte-identical; 4 new tests
 
 ---
 
@@ -101,12 +113,14 @@
 ---
 
 ### P1-7b: Downstream generation prompt conditioning (60/89 failure bottleneck)
-**Status:** 🔄 In Progress / Planned
+**Status:** 🔄 In Progress (W3/W4 extend the conditioning beyond prompt wording)
 **Files:** `generation/prompt_template.py`, `generation/grounded_service.py`  
 **Notes:**
 - 60 of 89 failures have gold evidence in prompt; widening context yielded citations but flat accuracy
 - Prompt conditioning: mandate quoting qualifying conditions and provisos before conclusions
 - Directs Issue-Rule-Application structure in grounded prompts
+- W3 (2026-10-13): the reasoning is now built out-of-band by `StructuredReasoner` (IRAC-shaped IR, own LLM call, fail-closed) and the final answer is rendered from it as a legal memo — the emitted-scratchpad route was superseded because it conflicts with the 1024-token answer budget
+- W4: per-type directives plumbed and registered as A/B candidates, flag-gated pending live measurement
 
 ---
 
@@ -168,6 +182,7 @@
 
 ## Summary
 - **Complete (code + tests):** 9 items (P0-1, P0-3, P1-4, P1-5, P1-6, P1-7, P2-8, P2-9, P2-10)
+- **W1-W5 top-lawyer program (2026-10-13):** W1 rubric harness + W2 amendment-prose packing (both verified offline, default-on) and W5 verifier gates are landed; W3/W4 are code-complete behind flags pending a reserved-budget live A/B scored by the W1 rubric
 - **Code present, flag off by design:** 3 items (P3-11, P3-12 — infrastructure/labels dependent)
 - **Blocked:** 1 item (P0-2, awaiting source PDF for OCR re-extract)
 

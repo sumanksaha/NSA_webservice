@@ -229,7 +229,26 @@ _TABLE: tuple[Setting, ...] = (
         "structured_reasoner",
         bool,
         False,
-        help="Structured legal-reasoning IR before answer generation (roadmap Phase 3, opt-in).",
+        help=(
+            "Structured legal-reasoning IR before answer generation (roadmap Phase 3, opt-in). "
+            "Consumed by the agent graph's structured_reasoner node and, since the top-lawyer "
+            "plan (W3), by the default generation path as a two-pass flow: the IRAC-shaped IR "
+            "is built in its own LLM call and the final answer is rendered from it. Fail-closed "
+            "— a reasoner failure degrades to the single-pass template."
+        ),
+    ),
+    Setting(
+        "RAG_QUERY_TYPE_DIRECTIVES",
+        "query_type_directives",
+        bool,
+        False,
+        help=(
+            "Append one query-type conditioned directive to the grounded prompt "
+            "(penalty -> full penalty structure; exception -> quote the proviso; "
+            "procedure -> authority/deadline/Form). Opt-in A/B lever: the shipped "
+            "template is byte-identical when off. Measure with "
+            "evaluation/ab_baseline_citation.py --qtype <type> before enabling."
+        ),
     ),
     Setting(
         "ENABLE_LEGAL_AUDITOR",
@@ -700,6 +719,21 @@ _TABLE: tuple[Setting, ...] = (
             "Measured: they consumed 16.9% of admitted slots (158/933) on the gold-in-prompt "
             "failure slice (evaluation/out/ceiling_v5/gip_window_content.txt) while carrying "
             "no provision text."
+        ),
+    ),
+    Setting(
+        "RAG_CONTEXT_DROP_AMENDMENT_PROSE",
+        "context_drop_amendment_prose",
+        bool,
+        True,
+        help=(
+            "Drop gazette amendment-notification prose before packing. Such chunks *refer to* "
+            "a provision ('In section 63, for the words X ... shall be substituted') without "
+            "containing one, so they spend window slots without citable content — the same "
+            "defect class the stamper fix removed from section_number (evaluation/"
+            "FINDINGS_89_STATUS.md: poisoned stamps 141 -> 0, no gold unit lost). Predicate is "
+            "the engine's AMENDMENT_NOTIFICATION_RE (one home, no second regex). Default on; "
+            "an all-amendment window falls back to unfiltered rather than going empty."
         ),
     ),
     # --- Runtime / plugins ------------------------------------------------------

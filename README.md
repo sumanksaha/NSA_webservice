@@ -614,6 +614,8 @@ gunicorn --bind 0.0.0.0:10000 app:app
 | `PDF_PROVIDER`             | Phase 20            | Active PDF provider (default: weasyprint)                      |
 | `RAG_SECTION_ARM`          | No                  | Section/act-scoped structural retrieval arm (default off)      |
 | `RAG_CONTEXT_DROP_INDEX_CHUNKS` | No             | Remove retrieval-index chunks from the generation context (default on) |
+| `RAG_CONTEXT_DROP_AMENDMENT_PROSE` | No          | Remove gazette amendment-notification prose from the generation context (default on) |
+| `RAG_QUERY_TYPE_DIRECTIVES` | No                 | Append one query-type conditioned directive to the grounded prompt (default off, A/B lever) |
 | `RAG_FEEDBACK_ENQUEUE_MAX_RATING` | No          | Answer rating at or below which a research target is enqueued (1–5, default 2) |
 | `RAG_RESEARCH_ENABLED`     | No                  | Master switch for the autoresearch session loop (default off)  |
 | `RAG_RESEARCH_SWEEP_ENABLED` | No                | Queue unevaluated query-log rows at session start (default on) |

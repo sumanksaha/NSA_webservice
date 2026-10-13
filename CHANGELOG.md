@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2026-10-13) — Top-lawyer RAG answer-quality program
+
+- **Failure-mode rubric harness** (`evaluation/rubric_top_lawyer.py`): scores
+  cached generation runs (0 LLM calls) on four dimensions —
+  `provision_check` (gold authority named), `reasoning_depth` (gold-concept
+  coverage + penalty-structure completeness), `abstention_discipline`
+  (abstains exactly when the reference expects it), and `presentation`
+  (memo structure, no completeness claim while concepts are missing) —
+  reported per dimension, per cohort (failure vs control) and per the human
+  audit's `model_action`, so a lever aimed at one slice is distinguishable
+  from noise and from regression on another. Baseline scorecard:
+  provision_check 0.67, abstention_discipline 0.62 (23% false abstentions) on
+  the 60-qid failure cohort.
+- **Amendment-prose packing hygiene** (`RAG_CONTEXT_DROP_AMENDMENT_PROSE`,
+  default on): gazette amendment notifications ("In section 63, for the words
+  X, the words Y shall be substituted") are dropped before packing — they
+  carry the reference of an operative clause but none of its content. The
+  predicate is the engine's own `AMENDMENT_NOTIFICATION_RE` (lazily imported,
+  one home). Offline bench on three cached arms
+  (`evaluation/bench_context_hygiene.py`): gold-in-prompt unchanged (95/95,
+  91/91, 92/92), ~160 window slots reclaimed.
+- **Two-pass structured answering** (`grounded_qa_structured`): when
+  `ENABLE_STRUCTURED_REASONER` is on, the default generation path builds the
+  IRAC-shaped IR out of band in its own LLM call and renders the final answer
+  from it as a legal memo (Issue / Rule / Application / Conclusion) with the
+  citation contract intact. Fail-closed: any reasoner failure degrades to the
+  shipped single-pass template. Flag off pending a reserved-budget live A/B;
+  the IR is exposed in `debug["structured_argument"]` for the rubric.
+- **Query-type conditioned directives** (`RAG_QUERY_TYPE_DIRECTIVES`, default
+  off): one additive directive per classified question type (penalty → full
+  penalty structure; exception → quote the proviso; procedure → authority,
+  deadline, Form). The classified type already reached `generate()` but the
+  rendered prompt was query-type-blind. Per-type candidates `cand_cond_*` are
+  registered in `evaluation/ab_baseline_citation.py` with a new `--qtype`
+  population filter so each directive is measured on its own slice.
+
+### Changed (2026-10-13)
+
+- `EvidenceVerifier.verify_claim()` now applies the polarity and
+  numeric-entailment gates on the **section-stamp path** as well as the fuzzy
+  paths (closes P1-5): a section stamp is metadata, and a gazette amendment
+  note stamped with the cited section carries the stamp without entailing the
+  claim. A poisoned stamp falls through to the fuzzy path instead of verifying
+  at 0.85 confidence; the failing gate reason is recorded on rejection.
+
 ### Current Status
 
 Version 0.9.1 (published 2026-09-30) is the most recent documented release. The

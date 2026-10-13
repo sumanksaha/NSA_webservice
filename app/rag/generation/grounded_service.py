@@ -9,6 +9,8 @@ is lazy, and failures in any stage degrade gracefully.
 
 Pipeline:
     1. Build context        — ContextBuilder
+    1b. Reason (optional)   — StructuredReasoner IRAC-shaped IR (flag-gated;
+                              the answer is then rendered from it, two-pass)
     2. Render prompt         — PromptTemplate
     3. Call LLM              — GroundedLLMClient
     4. Extract citations     — CitationTracker
@@ -31,6 +33,7 @@ from app.rag.generation.prompt_template import PromptTemplate
 from app.rag.generation.sanitizer import ResponseSanitizer, SanitizedResponse
 from app.rag.retrieval.result import RAGResponse, RetrievedChunk
 from app.rag.verification.token_counter import TokenCounter
+from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
 
@@ -125,8 +128,16 @@ class GroundedGenerationService:
         # 1. Build context
         built = self._build_context(query, chunks, query_type, evidence_set)
 
+        # 1b. Optional two-pass structured reasoning (W3).  When
+        # ``ENABLE_STRUCTURED_REASONER`` is on, the IRAC-shaped IR is built
+        # first, in its own LLM call, and the answer is rendered from it
+        # (``grounded_qa_structured``).  Fail-closed: any reasoner failure
+        # degrades to the single-pass template, so the answer never depends
+        # on the extra call succeeding.
+        reasoning = self._reason(query, built) if cfg.structured_reasoner else None
+
         # 2. Render prompt
-        system_prompt, user_prompt = self._render_prompt(query, built)
+        system_prompt, user_prompt = self._render_prompt(query, built, reasoning=reasoning, query_type=query_type)
 
         # 3. Call LLM
         llm_response = self._call_llm(system_prompt, user_prompt)
@@ -142,7 +153,9 @@ class GroundedGenerationService:
         self._log_generation(query_log_id, query, llm_response, sanitized, total_latency_ms, built)
 
         # 7. Assemble response
-        return self._assemble_response(query, query_type, chunks, llm_response, sanitized, total_latency_ms, built)
+        return self._assemble_response(
+            query, query_type, chunks, llm_response, sanitized, total_latency_ms, built, reasoning=reasoning
+        )
 
     def generate_with_prompts(
         self,
@@ -213,14 +226,51 @@ class GroundedGenerationService:
             logger.warning("ContextBuilder failed: %s", exc)
             return BuiltContext(context="", citations=[], chunk_count=0, truncated=True)
 
-    def _render_prompt(self, query: str, built: BuiltContext) -> tuple[str, str]:
+    def _render_prompt(
+        self,
+        query: str,
+        built: BuiltContext,
+        reasoning: Any | None = None,
+        query_type: str = "",
+    ) -> tuple[str, str]:
         try:
+            if reasoning is not None:
+                return self.prompt_template.render(
+                    "grounded_qa_structured",
+                    query=query,
+                    context=built.context,
+                    extra_vars={"reasoning": reasoning.model_dump_json()},
+                )
+            # W4: query-type directives are appended only when the operator
+            # enables them (cfg.query_type_directives); the default render is
+            # byte-identical to the shipped template.
+            if query_type and cfg.query_type_directives:
+                return self.prompt_template.render_default(query, built.context, query_type=query_type)
             return self.prompt_template.render_default(query, built.context)
         except Exception as exc:
             logger.warning("PromptTemplate failed: %s", exc)
             system_prompt = "Answer the following question."
             user_prompt = f"Question: {query}"
             return system_prompt, user_prompt
+
+    def _reason(self, query: str, built: BuiltContext) -> Any | None:
+        """Build the structured legal IR for the two-pass path (W3).
+
+        Returns ``None`` — never raises — when the flag's promise cannot be
+        kept: no context to reason over, or the reasoner itself failed (its
+        own fail-closed path returns an empty skeleton, which still renders
+        a valid structured prompt; only a crash degrades to single-pass).
+        """
+        if not built.context:
+            return None
+        try:
+            from app.rag.generation.structured_reasoner import StructuredReasoner
+
+            reasoner = StructuredReasoner(llm_client=self.llm_client)
+            return reasoner.reason(query, built.context)
+        except Exception as exc:
+            logger.warning("StructuredReasoner unavailable: %s", exc)
+            return None
 
     def _call_llm(self, system_prompt: str, user_prompt: str) -> GroundedLLMResponse:
         try:
@@ -300,6 +350,7 @@ class GroundedGenerationService:
         sanitized: SanitizedResponse,
         total_latency_ms: int,
         built: BuiltContext,
+        reasoning: Any | None = None,
     ) -> RAGResponse:
         """Build the final :class:`RAGResponse`."""
         usage = llm_response.usage
@@ -307,6 +358,16 @@ class GroundedGenerationService:
         # Use TokenCounter for real context length (LLM client stub returns
         # placeholder token counts).
         real_context_tokens = self.token_counter.estimate(built.context) if built.context else 0
+
+        # W3: the structured IR rides along in debug so the rubric harness
+        # can read the reasoning dimensions without an extra LLM call, and
+        # so a two-pass answer is auditable after the fact.
+        structured_argument = None
+        if reasoning is not None:
+            try:
+                structured_argument = reasoning.model_dump()
+            except Exception as exc:  # pragma: no cover - pydantic models dump
+                logger.debug("structured argument dump failed: %s", exc)
 
         return RAGResponse(
             query=query,
@@ -334,5 +395,6 @@ class GroundedGenerationService:
                 "truncated": built.truncated,
                 "invalid_citation_count": len(sanitized.invalid_citations),
                 "error": llm_response.error,
+                "structured_argument": structured_argument,
             },
         )

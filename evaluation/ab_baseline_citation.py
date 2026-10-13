@@ -25,6 +25,7 @@ Population: qids where the baseline top-10 window contains >= 1 gold chunk
 Usage:
     python -m evaluation.ab_baseline_citation --variant new --limit 60
     python -m evaluation.ab_baseline_citation --variant legacy --limit 60
+    python -m evaluation.ab_baseline_citation --variant cand_cond_penalty --qtype penalty --limit 20
 """
 
 from __future__ import annotations
@@ -252,11 +253,50 @@ _CANDIDATES: dict[str, str] = {
     ),
 }
 
+
+#: W4 — query-type conditioned candidates.  Each is the shipped conditioning
+#: block plus ONE per-type directive, so a live run restricted to that
+#: question type (``--qtype penalty``) measures the directive on the slice it
+#: targets.  The wording is imported from the shipped directive table
+#: (``app/rag/generation/prompt_template.QUERY_TYPE_DIRECTIVES``) so the
+#: candidate and the flag-gated product behaviour cannot drift.
+def _type_candidate(directive: str) -> str:
+    return (
+        "Relevant legal context:\n"
+        "<legal_context>\n"
+        "{context}\n"
+        "</legal_context>\n\n"
+        "First quote the passages that bear on the question, then answer "
+        "the question using those quotes, citing specific sources with "
+        "[n] markers.\n"
+        "Before answering, go through every numbered source in the context and "
+        "note the ones that bear on the question, including any that add a "
+        "condition, exception, threshold or definition the answer depends on.\n"
+        "Answer every part the question names, each with its own [n] citations. "
+        "If one part is not covered by the context, answer the other parts and "
+        "say which part is uncovered rather than declining the whole question; "
+        "before stating that the context does not address something, point to "
+        "the numbered sources you checked for it.\n"
+        "For each material legal proposition, name the exact provision you rely "
+        "on (Act and section) beside its [n] citation.\n" + directive + "\n\n"
+        "Question: {query}\n"
+        "Answer:"
+    )
+
+
+def _query_type_candidates() -> dict[str, str]:
+    """One registered candidate per measurable query type."""
+    from app.rag.generation.prompt_template import QUERY_TYPE_DIRECTIVES
+
+    return {f"cand_cond_{qtype}": _type_candidate(text) for qtype, text in sorted(QUERY_TYPE_DIRECTIVES.items())}
+
+
 #: All variants this harness can render: name -> (system, user_template).
 VARIANTS: dict[str, tuple[str, str]] = {
     "legacy": (LEGACY_SYSTEM_PROMPT, LEGACY_USER_TEMPLATE),
     "spec1_reverted": (LEGACY_SYSTEM_PROMPT, SPEC1_REVERTED_USER_TEMPLATE),
     **{name: (LEGACY_SYSTEM_PROMPT, tpl) for name, tpl in _CANDIDATES.items()},
+    **{name: (LEGACY_SYSTEM_PROMPT, tpl) for name, tpl in _query_type_candidates().items()},
 }
 
 #: Abstention phrasing SPEC-1 forbids when quote-able text is in the window.
@@ -269,20 +309,27 @@ _MARKER_RE = re.compile(r"\[(\d+)\]")
 
 
 def _select_population(
-    payload_index: dict, questions: dict, recs: dict, limit: int
+    payload_index: dict, questions: dict, recs: dict, limit: int, qtype: str = ""
 ) -> list[tuple[str, str, list, set]]:
-    """Qids whose BASELINE window already contains gold (the measurable slice)."""
+    """Qids whose BASELINE window already contains gold (the measurable slice).
+
+    *qtype* optionally restricts the population to questions whose benchmark
+    ``question_type`` carries it — the W4 slice for a per-type directive, so
+    the directive is measured on the questions it was written for.
+    """
     from evaluation.resolution import matches_gold as _mg
 
     picked: list[tuple[str, str, list, set]] = []
     for qid in sorted(recs):
         if qid not in questions:
             continue
-        q = questions[qid]
+        question = questions[qid]
+        if qtype and qtype.lower() not in [str(t).lower() for t in (question.question_types or [])]:
+            continue
         chunks = _chunks_for([str(c) for c in (recs[qid].get("chunk_ids") or [])], payload_index)
         if len(chunks) < 2:
             continue
-        units = q.recall_units()
+        units = question.recall_units()
         if not units:
             continue
         family_map = FamilyMap()
@@ -290,7 +337,7 @@ def _select_population(
         gold = {c.chunk_id for c in pool if any(_mg(payload_index.get(c.chunk_id, {}), u, family_map) for u in units)}
         if not gold:
             continue  # citation_recall undefined for this qid
-        picked.append((qid, recs[qid].get("query") or q.question, pool, gold))
+        picked.append((qid, recs[qid].get("query") or question.question, pool, gold))
         if len(picked) >= limit:
             break
     return picked
@@ -382,6 +429,7 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=60)
     ap.add_argument("--variant", default="legacy", choices=[*sorted(VARIANTS), "shipped"])
     ap.add_argument("--qids", default="")
+    ap.add_argument("--qtype", default="", help="restrict the population to this benchmark question_type (W4 slice)")
     ap.add_argument("--tag", default="", help="suffix the output file, for independent replicates")
     args = ap.parse_args()
 
@@ -395,14 +443,17 @@ def main() -> int:
     recs = {r["question_id"]: r for r in _load_jsonl(RAW_DIR / f"{ARM}.jsonl")}
     print(f"load done questions={len(questions)} recs={len(recs)}", flush=True)
 
-    tasks = _select_population(payload_index, questions, recs, args.limit)
+    tasks = _select_population(payload_index, questions, recs, args.limit, args.qtype)
     if args.qids:
         want = {q.strip() for q in args.qids.split(",") if q.strip()}
         tasks = [t for t in tasks if t[0] in want]
     if not tasks:
         print("no baseline-gold qids found", file=sys.stderr)
         return 1
-    print(f"population n={len(tasks)} (baseline window contains gold) variant={args.variant}", flush=True)
+    print(
+        f"population n={len(tasks)} (baseline window contains gold) variant={args.variant} qtype={args.qtype or 'any'}",
+        flush=True,
+    )
 
     gate = Semaphore(MAX_WORKERS)
     results: list[dict] = []
