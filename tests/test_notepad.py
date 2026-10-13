@@ -215,7 +215,7 @@ _RAG_RESULT = {
     "hallucination_detected": False,
     "debug": {},
     "llm_model": "legal-ce/2",
-    "token_usage": 1234,
+    "token_usage": {"prompt": 1039, "completion": 485, "total": 1524},
     "log_id": "42",
     "sub_queries": ["What is the penalty under Section 55?", "Who may impose it?"],
 }
@@ -521,7 +521,7 @@ class TestAsk:
             assert a.hallucination_detected is False
             assert a.degraded is False
             assert a.provider_model == "legal-ce/2"
-            assert a.token_usage == 1234
+            assert a.token_usage == 1524
             assert a.rag_log_id == "42"
             assert json.loads(a.sub_queries) == _RAG_RESULT["sub_queries"]  # FR-12 persistence
             assert a.note_snapshot == "We seized adulterated milk."
