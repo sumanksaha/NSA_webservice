@@ -271,6 +271,71 @@ _TABLE: tuple[Setting, ...] = (
         False,
         help="Evidence Task planning for task-aware retrieval (default off).",
     ),
+    # --- Decision pathway (alternate, default off; plan: rag-decision-pathway) ---
+    Setting(
+        "RAG_DECISION_PATH",
+        "decision_path",
+        bool,
+        False,
+        help=(
+            "Alternate pathway: a typed decision model (default typesafe/jev-1.13, "
+            "Decisions API — one call, one noul question per candidate) selects the "
+            "evidence set; generation packs it role-ordered and Laguna answers. "
+            "Default off — baseline unchanged when unset."
+        ),
+    ),
+    Setting(
+        "RAG_DECISION_SHADOW",
+        "decision_shadow",
+        bool,
+        False,
+        help="Compute + log decision_trace without serving the selection (calibration / A-B).",
+    ),
+    Setting(
+        "RAG_DECISION_MODEL",
+        "decision_model",
+        str,
+        "typesafe/jev-1.13",
+        help=(
+            "Decision model id — must be sanctioned (ALLOWED_DECISION_MODELS: "
+            "typesafe/jev-1.13, inception/mercury-decide:free); anything else refuses "
+            "and fails closed to the heuristic selector. Sanctioned models speak "
+            "OpenRouter's Decisions API directly (no backend routing); "
+            "typesafe/jev-router is banned — it routed to deepseek."
+        ),
+    ),
+    Setting(
+        "RAG_DECISION_TIMEOUT",
+        "decision_timeout",
+        float,
+        10.0,
+        help="Per-call decision-model chat timeout in seconds (fail-closed to the heuristic selector).",
+    ),
+    Setting(
+        "RAG_DECISION_THRESHOLD",
+        "decision_threshold",
+        float,
+        0.5,
+        help="P(keep) threshold for the decision selection (sweep 0.3/0.5/0.7 offline).",
+    ),
+    Setting(
+        "RAG_DECISION_TOP_K",
+        "decision_top_k",
+        int,
+        6,
+        help="Max chunks kept by the decision selection (up to 100 candidates are scored).",
+    ),
+    Setting(
+        "RAG_DECISION_RESERVOIR",
+        "decision_reservoir",
+        int,
+        50,
+        help=(
+            "Candidate reservoir the decision model scores: the merged pool is deduped by "
+            "chunk_id then legal unit (best score represents the unit) and truncated to "
+            "this size before scoring."
+        ),
+    ),
     # --- Autonomous research (Phase 1+: corpus discovery + gap analysis) ---
     Setting(
         "RAG_TARGETED_RETRY_V2",
@@ -853,6 +918,51 @@ _TABLE: tuple[Setting, ...] = (
         True,
         opt_in=False,
         help="Kill switch for the FBO auditor CAPA agent (LLM spend). 503 when off.",
+    ),
+    # --- Probabilistic photo-evidence assessment (ADR-0011) -------------------
+    Setting(
+        "PHOTO_SCORING_ENABLED",
+        "photo_scoring_enabled",
+        bool,
+        False,
+        help="Score photo evidence with a decision model at upload time (LLM spend). 503 when off.",
+    ),
+    Setting(
+        "PHOTO_SCORING_MODEL",
+        "photo_scoring_model",
+        str,
+        "inception/mercury-decide:free",
+        help="Decision model scoring photo evidence. Must accept image parts in `state`.",
+    ),
+    Setting(
+        "PHOTO_SCORING_ENDPOINT",
+        "photo_scoring_endpoint",
+        str,
+        "https://openrouter.ai/api/v1/systemone",
+        help="Decisions endpoint. Auth uses AI_ASSISTANT_API_KEY (same OpenRouter key).",
+    ),
+    Setting(
+        "PHOTO_SCORING_THRESHOLD",
+        "photo_scoring_threshold",
+        float,
+        0.70,
+        help="p_violation at or above which a checklist item is suggested to the FSO. Advisory only.",
+    ),
+    Setting(
+        "PHOTO_SCORING_TIMEOUT",
+        "photo_scoring_timeout",
+        float,
+        60.0,
+        help="Per-call timeout in seconds for image fetch + decision call.",
+    ),
+    Setting(
+        "PHOTO_SCORING_MAX_BYTES",
+        "photo_scoring_max_bytes",
+        int,
+        # Matches app/utils/storage.MAX_FILE_SIZE, so a photo that stored
+        # successfully is never permanently unscoreable. Keep the two in step.
+        5 * 1024 * 1024,
+        help="Reject evidence larger than this before inlining it as a base64 data URL.",
     ),
     # --- Entity–provision-aware food retrieval (2026-09-28) --------------------
     Setting(

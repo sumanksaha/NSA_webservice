@@ -9,9 +9,12 @@ When the ``OPENROUTER_API_KEY`` environment variable is unset (or
 ``RAG_USE_STUB_LLM=true``), a deterministic stub is used so the
 pipeline can be tested without network access.
 
-The default model is ``poolside/laguna-s-2.1:free`` (OpenRouter free tier).
-The ``RAG_LLM_MODEL`` env var overrides it so you can switch providers without
-code changes (e.g. ``RAG_LLM_MODEL=google/gemini-2.0-flash-exp:free``).
+The model is restricted to ``poolside/laguna-s-2.1:free`` (Poolside
+Laguna S 2.1 via OpenRouter) by ``app.shared.llm_client.ALLOWED_MODELS`` —
+a ``RAG_LLM_MODEL`` value outside the allow-list raises instead of
+silently switching providers.  Real calls additionally require the
+``LLM_ENABLED=true`` kill switch and a positive ``MAX_LLM_CALLS`` budget
+(see :mod:`app.shared.llm_client`); otherwise ``call()`` serves the stub.
 """
 
 from __future__ import annotations
@@ -98,7 +101,14 @@ class GroundedLLMClient:
         base_url: str | None = None,
         stub_response: str | None = None,
     ) -> None:
+        from app.shared.llm_client import ALLOWED_MODELS
+
         self.model = model or os.environ.get("RAG_LLM_MODEL") or self.DEFAULT_MODEL
+        if self.model not in ALLOWED_MODELS:
+            raise RuntimeError(
+                f"Model '{self.model}' is not in the allow-list "
+                f"{sorted(ALLOWED_MODELS)}. Refusing to construct an LLM client."
+            )
         self._api_key = api_key or os.environ.get("OPENROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY")
         self._base_url = base_url or os.environ.get("OPENAI_BASE_URL") or self.DEFAULT_BASE_URL
         self._stub = stub_response or os.environ.get("RAG_STUB_RESPONSE")
@@ -115,11 +125,14 @@ class GroundedLLMClient:
     def use_stub(self) -> bool:
         """Whether calls are served by the deterministic stub.
 
-        True when no API key is configured or ``RAG_USE_STUB_LLM=true``.
-        Ops signal: ``/api/rag/health`` reports this as ``llm.mode`` so
-        deployments can assert live-LLM operation (RAG UI audit gap #2).
+        True when the LLM kill switch is off (``LLM_ENABLED=false``), no API
+        key is configured, or ``RAG_USE_STUB_LLM=true``.  Ops signal:
+        ``/api/rag/health`` reports this as ``llm.mode`` so deployments can
+        assert live-LLM operation (RAG UI audit gap #2).
         """
-        return self._use_stub
+        from app.shared.llm_client import llm_enabled
+
+        return self._use_stub or not llm_enabled()
 
     def call(
         self,
@@ -143,8 +156,20 @@ class GroundedLLMClient:
             A :class:`GroundedLLMResponse`.
 
         """
-        if self._use_stub:
+        if self.use_stub:
+            # Kill switch off (LLM_ENABLED=false), stub flag set, or no API
+            # key: deterministic canned answer, zero network calls.
             return self._stub_call()
+
+        # Real path: enforce the per-run budget and log the outgoing request.
+        from app.shared.llm_client import _increment_call_count, _log_llm_call
+
+        _increment_call_count()
+        _log_llm_call(
+            provider="openrouter",
+            model=self.model,
+            call_site=f"{self.__class__.__module__}.{self.__class__.__name__}.call",
+        )
 
         return self._real_call(
             system_prompt,
@@ -237,6 +262,19 @@ class GroundedLLMClient:
                     usage = data.get("usage", {})
 
                     latency = time.perf_counter() - start
+                    # Call accounting: record the provider-reported token usage.
+                    from app.shared.llm_client import _log_llm_call
+
+                    _log_llm_call(
+                        provider="openrouter",
+                        model=self.model,
+                        call_site=f"{self.__class__.__module__}.{self.__class__.__name__}._real_call",
+                        outcome="response",
+                        prompt_tokens=usage.get("prompt_tokens", 0),
+                        completion_tokens=usage.get("completion_tokens", 0),
+                        total_tokens=usage.get("total_tokens", 0),
+                    )
+
                     return GroundedLLMResponse(
                         text=text,
                         model=self.model,

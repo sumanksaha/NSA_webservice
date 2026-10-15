@@ -556,13 +556,13 @@ def expand_query_node(state: dict[str, Any]) -> dict[str, Any]:
     terminates.
     """
     start = time.monotonic()
-    from app.rag.generation.llm_client import GroundedLLMClient
+    from app.shared.llm_client import get_llm_client
 
     original = state.get("query") or ""
     expanded = original
     detail: dict[str, Any] = {"changed": False}
     try:
-        client = GroundedLLMClient()
+        client = get_llm_client()
         resp = client.call(
             "You are a legal-retrieval query rewriter.",
             (

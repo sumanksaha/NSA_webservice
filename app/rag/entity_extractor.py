@@ -215,9 +215,9 @@ class LegalEntityExtractor:
             self._llm = False
             return None
         try:
-            from app.rag.generation.llm_client import GroundedLLMClient
+            from app.shared.llm_client import get_llm_client
 
-            self._llm = GroundedLLMClient()
+            self._llm = get_llm_client()
         except Exception as exc:
             logger.warning("LegalEntityExtractor LLM fallback unavailable: %s", exc)
             self._llm = False

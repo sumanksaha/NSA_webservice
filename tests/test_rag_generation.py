@@ -13,6 +13,8 @@ from __future__ import annotations
 import hashlib
 import typing
 
+import pytest
+
 from app.rag.generation import (
     CitationTracker,
     ContextBuilder,
@@ -634,17 +636,16 @@ class TestGroundedLLMClient:
         """The default model is poolside/laguna-s-2.1:free."""
         assert GroundedLLMClient().model == "poolside/laguna-s-2.1:free"
 
-    def test_model_explicit_arg_overrides(self):
-        """An explicit model arg overrides the default."""
-        assert (
-            GroundedLLMClient(model="meta-llama/llama-3.3-70b-instruct:free").model
-            == "meta-llama/llama-3.3-70b-instruct:free"
-        )
+    def test_model_not_allowed_arg_raises(self):
+        """Only the Laguna allow-list model may be constructed (no silent switch)."""
+        with pytest.raises(RuntimeError, match="allow-list"):
+            GroundedLLMClient(model="meta-llama/llama-3.3-70b-instruct:free")
 
-    def test_model_env_var_overrides_default(self, monkeypatch):
-        """RAG_LLM_MODEL env var overrides the default model."""
-        monkeypatch.setenv("RAG_LLM_MODEL", "openai/gpt-4o-mini")
-        assert GroundedLLMClient().model == "openai/gpt-4o-mini"
+    def test_model_env_var_rejects_disallowed(self, monkeypatch):
+        """A disallowed RAG_LLM_MODEL raises instead of switching providers."""
+        monkeypatch.setenv("RAG_LLM_MODEL", "deepseek/deepseek-v4.1-flash")
+        with pytest.raises(RuntimeError, match="allow-list"):
+            GroundedLLMClient()
 
 
 class TestLLMRateLimitRetry:

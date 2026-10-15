@@ -132,9 +132,9 @@ def health():
     """
     llm_info: dict = {"mode": "unknown", "model": None}
     try:
-        from app.rag.generation.llm_client import GroundedLLMClient
+        from app.shared.llm_client import get_llm_client
 
-        client = GroundedLLMClient()
+        client = get_llm_client()
         llm_info = {"mode": "stub" if client.use_stub else "live", "model": client.model}
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("health: LLM mode probe failed: %s", exc)

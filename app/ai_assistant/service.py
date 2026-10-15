@@ -96,8 +96,15 @@ class AIAssistantService:
     # ------------------------------------------------------------------ #
 
     def is_enabled(self) -> bool:
-        """Return ``True`` when the service has the minimum config to call an LLM."""
-        return bool(self._provider and self._api_key)
+        """Return ``True`` when the service may call an LLM.
+
+        Requires the configured provider + API key AND the app-wide kill
+        switch (``LLM_ENABLED=true``); when disabled the routes already
+        translate this to 503.
+        """
+        from app.shared.llm_client import llm_enabled
+
+        return bool(self._provider and self._api_key and llm_enabled())
 
     @property
     def tokens_used(self) -> int:
@@ -286,13 +293,32 @@ class AIAssistantService:
         return headers
 
     def _get_model(self) -> str:
-        """Return the model identifier, using provider-appropriate defaults."""
+        """Return the model identifier for this assistant request.
+
+        Provider-appropriate default: ``gpt-4o-mini`` for the OpenAI
+        provider, ``poolside/laguna-s-2.1:free`` for OpenRouter (the
+        project's answer model); an explicit ``AI_ASSISTANT_MODEL`` override
+        is honoured as-is.
+
+        The spend controls that gate this surface — the ``LLM_ENABLED`` kill
+        switch, the ``MAX_LLM_CALLS`` budget, and request/response
+        accounting — are enforced in :meth:`_post_messages` via
+        :mod:`app.shared.llm_client`.  The Laguna-only answer-model
+        ``ALLOWED_MODELS`` allow-list is intentionally applied only on the
+        RAG answer path (:func:`get_llm_client` / ``GroundedLLMClient``):
+        the assistant is a separate chat surface and must remain usable with
+        provider-specific models (e.g. ``gpt-4o-mini``), so it is *not*
+        restricted to Laguna — a stray model never silently switches backend
+        providers because there is no fallback logic; failures surface.
+        """
         if self._model:
-            return self._model
-        if self._provider == "openai":
-            return "gpt-4o-mini"
-        # Default to the project's sole model (OpenRouter free tier)
-        return "poolside/laguna-s-2.1:free"
+            model_id = self._model
+        elif self._provider == "openai":
+            model_id = "gpt-4o-mini"
+        else:
+            # Default to the project's answer model (OpenRouter free tier).
+            model_id = "poolside/laguna-s-2.1:free"
+        return model_id
 
     def complete_json(
         self,
@@ -310,13 +336,84 @@ class AIAssistantService:
         unparsed prose as fact); ``RuntimeError`` propagates when disabled.
         """
         raw, _ = self._request(user_prompt, max_tokens, system_prompt=system_prompt, temperature=temperature)
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError as err:
-            raise ValueError("AI did not return valid JSON") from err
-        if not isinstance(data, dict):
-            raise ValueError("AI did not return a JSON object")
-        return data
+        return parse_json_object(raw)
+
+    def complete_json_with_model(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        model: str,
+        max_tokens: int = 2048,
+        temperature: float = 0.1,
+        timeout: float = 30.0,
+    ) -> tuple[dict[str, Any], str | None]:
+        """Complete against an explicitly chosen model; return ``(parsed_object, resolved_model)``.
+
+        The text-mode counterpart to :meth:`complete_json_vision` — used when
+        a caller pins a model other than the configured default (an
+        inspection probe or a chat-type decision-model call).  For router
+        models the served model differs from the requested one, so the
+        resolved model is returned for the audit trail.  Raises ``ValueError`` when the provider does
+        not return a JSON object (fail-closed — callers must not treat
+        unparsed prose as a score) and ``RuntimeError`` when disabled or
+        after retries are exhausted.
+        """
+        content, _tokens, resolved = self._post_messages(
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=max_tokens,
+            temperature=temperature,
+            model=model,
+            timeout=timeout,
+        )
+        return parse_json_object(content), resolved
+
+    def complete_json_vision(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        image_url: str,
+        *,
+        model: str | None = None,
+        max_tokens: int = 2000,
+        temperature: float = 0.1,
+        timeout: float = 90.0,
+    ) -> tuple[dict[str, Any], str | None]:
+        """Complete with an image attached; return ``(parsed_object, resolved_model)``.
+
+        The multimodal counterpart to :meth:`complete_json`. ``image_url`` may be
+        an ``https://`` URL or a ``data:image/...;base64,...`` URI. Returns the
+        **resolved** model as the second element: for router models (a
+        router id selects a backend per request, e.g. ``jev-router``-style
+        meta-models) the served model differs from the requested one, and
+        callers that persist scores need both to reproduce one later.
+
+        Raises ``ValueError`` when the provider does not return a JSON object
+        (fail-closed — callers must not render unparsed prose as fact) and
+        ``RuntimeError`` when disabled or after retries are exhausted. The
+        default timeout is longer than the text path's because a vision call
+        over a real photograph measured ~14s.
+        """
+        content, tokens, resolved = self._post_messages(
+            [
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": user_prompt},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                },
+            ],
+            max_tokens=max_tokens,
+            temperature=temperature,
+            model=model,
+            timeout=timeout,
+        )
+        return parse_json_object(content), resolved
 
     def _request(
         self,
@@ -326,25 +423,72 @@ class AIAssistantService:
         system_prompt: str | None = None,
         temperature: float = 0.1,
     ) -> tuple[str, int]:
-        """Send a chat completion request and return (content, tokens_used).
+        """Send a text chat completion request and return (content, tokens_used).
 
         Retries with exponential backoff on 429/503 (3 attempts).
         Raises ``RuntimeError`` if the service is not enabled or the request
         fails after retries.
         """
+        content, tokens, _resolved = self._post_messages(
+            [
+                {"role": "system", "content": system_prompt or _SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return content, tokens
+
+    def _post_messages(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        max_tokens: int,
+        temperature: float,
+        model: str | None = None,
+        timeout: float = 30.0,
+    ) -> tuple[str, int, str | None]:
+        """Post a full ``messages`` array; return ``(content, tokens, resolved_model)``.
+
+        The single transport for every call this service makes — text and
+        vision alike — so retry, token accounting, and the
+        ``content is None`` reasoning-field fallback have exactly one
+        implementation. ``model`` overrides the configured default (the photo
+        scorer pins its own vision model). ``resolved_model`` is what the
+        provider reports it actually served, which differs from the request
+        when the endpoint is a router; ``None`` when the provider omits it.
+        """
+        # --- Enforce the hard kill switch at call time (defense in depth;
+        # is_enabled() already gates the routes to 503). --- #
+        from app.shared.llm_client import _increment_call_count, _log_llm_call, llm_enabled
+
+        if not llm_enabled():
+            raise RuntimeError(
+                "LLM calls are DISABLED by the hard kill switch "
+                "(LLM_ENABLED=false). Set LLM_ENABLED=true to re-enable."
+            )
+
         if not self.is_enabled():
             raise RuntimeError("AI Assistant is not configured (missing API key or provider)")
 
         url = self._build_url()
         headers = self._get_headers()
-        model = self._get_model()
+        # Default-model resolution validates against the Laguna allow-list
+        # (_get_model); an explicitly pinned model (decision pathway) carries
+        # its own allow-list, enforced by the caller.
+        model_id = model or self._get_model()
+
+        # --- Call accounting: budget + request log --- #
+        _increment_call_count()
+        _log_llm_call(
+            provider=self._provider or "unknown",
+            model=model_id,
+            call_site=f"{self.__class__.__module__}.{self.__class__.__name__}._post_messages",
+        )
 
         body: dict[str, Any] = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system_prompt or _SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
+            "model": model_id,
+            "messages": messages,
             "max_tokens": max_tokens,
             "temperature": temperature,
         }
@@ -352,7 +496,7 @@ class AIAssistantService:
         last_exc: Exception | None = None
         for attempt in range(3):
             try:
-                with httpx.Client(timeout=30.0) as client:
+                with httpx.Client(timeout=timeout) as client:
                     resp = client.post(url, headers=headers, json=body)
                     resp.raise_for_status()
                     data = resp.json()
@@ -364,7 +508,15 @@ class AIAssistantService:
                         content = data["choices"][0]["message"].get("reasoning") or ""
                     tokens = data.get("usage", {}).get("total_tokens", 0)
                     self._tokens_used += tokens
-                    return content, tokens
+                    # Call accounting: record the provider-reported tokens.
+                    _log_llm_call(
+                        provider=self._provider or "unknown",
+                        model=data.get("model") or model_id,
+                        call_site=f"{self.__class__.__module__}.{self.__class__.__name__}._post_messages",
+                        outcome="response",
+                        total_tokens=tokens,
+                    )
+                    return content, tokens, data.get("model") or None
             except httpx.HTTPError as exc:
                 last_exc = exc
                 status = getattr(exc, "response", None)
@@ -400,6 +552,39 @@ ACTION_METHODS: dict[str, str] = {
 #: Actions whose results are ``list[str]`` — serialized to a JSON string for
 #: transport (the historical response contract consumed by the UI).
 _LIST_RESULT_ACTIONS = frozenset({"detect_contradictions", "suggest_annexures"})
+
+
+def parse_json_object(content: str) -> dict[str, Any]:
+    """Parse *content* into a JSON object, tolerating markdown code fences.
+
+    Chat backends vary in how they wrap JSON — several wrap it in
+    ```` ```json ... ``` ```` fences (observed with router-resolved
+    backends) — ``json.loads`` alone fails at char 0 on those.  Strips a
+    leading/prose-embedded fence first; then fails closed with the
+    established messages (``ValueError`` — callers must never treat
+    unparsed prose as a score/fact).
+    """
+    text = (content or "").strip()
+    if not text.startswith("```"):
+        start = text.find("```")
+        if start != -1:
+            text = text[start:]
+    if text.startswith("```"):
+        # Drop the opening fence line, then cut at the closing fence
+        # (prose may follow the block).
+        nl = text.find("\n")
+        text = text[nl + 1 :] if nl != -1 else ""
+        end = text.find("```")
+        if end != -1:
+            text = text[:end]
+        text = text.strip()
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as err:
+        raise ValueError("AI did not return valid JSON") from err
+    if not isinstance(data, dict):
+        raise ValueError("AI did not return a JSON object")
+    return data
 
 
 def dispatch_ai_action(

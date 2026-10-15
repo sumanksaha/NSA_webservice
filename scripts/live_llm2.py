@@ -17,6 +17,10 @@ from dotenv import load_dotenv
 
 load_dotenv(ROOT / ".env", override=True)
 
+# LIVE SPEND — requires the LLM kill switch to be armed explicitly:
+#   LLM_ENABLED=true MAX_LLM_CALLS=5
+if os.getenv("LLM_ENABLED", "false").strip().lower() != "true":
+    raise SystemExit("refusing: LLM disabled (set LLM_ENABLED=true and MAX_LLM_CALLS first)")
 KEY = os.getenv("OPENROUTER_API_KEY", "")
 MODEL = os.getenv("RAG_LLM_MODEL", "poolside/laguna-s-2.1:free")
 QUERY = "How can the FBO appeal to the designated officer?"

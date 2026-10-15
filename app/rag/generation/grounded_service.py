@@ -34,6 +34,7 @@ from app.rag.generation.sanitizer import ResponseSanitizer, SanitizedResponse
 from app.rag.retrieval.result import RAGResponse, RetrievedChunk
 from app.rag.verification.token_counter import TokenCounter
 from app.shared.config import cfg
+from app.shared.llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ class GroundedGenerationService:
         generation_logger: GenerationLogger | None = None,
         token_counter: TokenCounter | None = None,
     ) -> None:
-        self.llm_client = llm_client or GroundedLLMClient()
+        self.llm_client = llm_client or get_llm_client()
         self.context_builder = context_builder or ContextBuilder()
         self.prompt_template = prompt_template or PromptTemplate()
         self.citation_tracker = citation_tracker or CitationTracker()

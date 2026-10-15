@@ -21,6 +21,14 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+#: Prompt shapes must match :class:`StructuredLegalArgument` exactly: ``reason``
+#: fail-closes to an empty skeleton on any validation error, so a key the model
+#: renders in the wrong shape silently disables two-pass reasoning.  Both shapes
+#: below were learned from live output (2026-10-14, ``poolside/laguna-s-2.1``):
+#: the model emitted ``definitions_applied`` as an array of definitions and
+#: ``exceptions_considered`` as an array of strings, which the ``dict``/``dict``
+#: fields reject — while ``condition_evaluations``, whose per-entry keys this
+#: prompt spells out, parsed fine.
 REASONER_SYSTEM_PROMPT = (
     "You are a legal reasoning assistant specialised in Indian law. "
     "Given the question and the legal evidence below, produce a structured "
@@ -28,12 +36,27 @@ REASONER_SYSTEM_PROMPT = (
     "issue, applicable_provisions, definitions_applied, legal_rules, "
     "exceptions_considered, condition_evaluations, cross_references_followed, "
     "conflicts_or_hierarchy, derived_conclusion, supporting_citations, "
-    "uncertainties. Each condition_evaluations entry has condition_id, "
+    "uncertainties. Shapes: issue and derived_conclusion are strings; "
+    "applicable_provisions, legal_rules, cross_references_followed, "
+    "conflicts_or_hierarchy, supporting_citations and uncertainties are arrays "
+    "of strings; definitions_applied is an OBJECT mapping each defined term to "
+    "its definition text, never an array; exceptions_considered is an array of "
+    "OBJECTS with rule, exception and applies keys, never bare strings. "
+    "Each condition_evaluations entry has condition_id, "
     "condition_text, fact_reference, status "
     "(one of satisfied, not_satisfied, unknown) and explanation. "
     "If a required condition has no supporting fact, mark it unknown — "
     "never assume it satisfied. Output JSON only."
 )
+
+
+#: Output budget for the reasoner call.  1024 (the pre-W3 default) truncated
+#: the IR on every live call tried: a complete argument for a 4.5k-token
+#: evidence prompt measures 1486 completion tokens, so the JSON was cut
+#: mid-array, validation failed, and the pipeline silently shipped the
+#: fail-closed skeleton instead of two-pass reasoning.  3072 keeps headroom
+#: over the measured size while still bounding a runaway generation.
+DEFAULT_MAX_TOKENS = 3072
 
 
 class ConditionEvaluation(BaseModel):
@@ -80,12 +103,12 @@ class StructuredReasoner:
         self,
         llm_client: Any | None = None,
         temperature: float = 0.1,
-        max_tokens: int = 1024,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> None:
         if llm_client is None:
-            from app.rag.generation.llm_client import GroundedLLMClient
+            from app.shared.llm_client import get_llm_client
 
-            llm_client = GroundedLLMClient()
+            llm_client = get_llm_client()
         self.llm_client = llm_client
         self.temperature = temperature
         self.max_tokens = max_tokens

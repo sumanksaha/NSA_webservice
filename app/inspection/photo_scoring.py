@@ -325,6 +325,15 @@ class PhotoEvidenceScorer:
     # -- scoring ---------------------------------------------------------- #
     def score_url(self, image_url: str) -> ScoringResult:
         """Fetch and score a remote image. Never raises for provider/parse problems."""
+        # --- Enforce kill switch at call time --- #
+        from app.shared.llm_client import llm_enabled
+
+        if not llm_enabled():
+            return _failed(
+                "LLM calls are DISABLED by the hard kill switch (LLM_ENABLED=false). "
+                "Set LLM_ENABLED=true to re-enable.",
+            )
+
         cfg = self._settings()
         model, endpoint = cfg["model"], cfg["endpoint"]
 
@@ -361,6 +370,17 @@ class PhotoEvidenceScorer:
 
         try:
             import httpx
+
+            from app.shared.llm_client import _increment_call_count, _log_llm_call
+
+            # Budget + audit log for this real LLM (decision) call; a
+            # budget failure raises and is recorded via _failed() below.
+            _increment_call_count()
+            _log_llm_call(
+                provider="openrouter",
+                model=model,
+                call_site="app.inspection.photo_scoring.PhotoEvidenceScorer.score_url",
+            )
 
             with httpx.Client(timeout=cfg["timeout"]) as c:
                 resp = c.post(endpoint, headers=headers, json=payload)
