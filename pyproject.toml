@@ -100,7 +100,7 @@ ocr = [
 ]
 embeddings = [
   "sentence-transformers>=3.0.0",  # RAG embedding model (RAG_EMBEDDING_MODEL)
-  "fastembed>=0.4.0",              # BM25 sparse embeddings for hybrid retrieval (RAG_SPARSE_MODEL)
+  "fastembed>=1.0.0",              # BM25 sparse embeddings for hybrid retrieval (RAG_SPARSE_MODEL)
 ]
 # NOTE: expanded to the union of the ocr + embeddings extras. PEP 621 treats
 # bare names in an extra (e.g. "ocr") as *package* requirements, not as
@@ -109,8 +109,13 @@ all = [
   "easyocr>=1.7.0",                # from [ocr]
   "opencv-python-headless>=4.9.0", # from [ocr]
   "sentence-transformers>=3.0.0",  # from [embeddings]
-  "fastembed>=0.4.0",              # from [embeddings]
+  "fastembed>=1.0.0",              # from [embeddings]
 ]
+# CPU-only sparse (BM25) retrieval for Render (env: python 3.12-3.15).
+# fastembed>=1.0 ships onnxruntime-only wheels (no torch) for CPython 3.10-3.15;
+# the app only uses SparseTextEmbedding + the `Qdrant/bm25` model (stable 0.8-1.x).
+sparse = ["fastembed>=1.0.0"]
+
 dev = [
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
