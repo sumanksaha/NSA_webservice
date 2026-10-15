@@ -84,6 +84,30 @@ def _enrich_evidence_set(query: str, result: Any) -> dict[str, Any]:
     return data
 
 
+def _enrich_decision_trace(query: str, result: Any) -> dict[str, Any]:
+    """Decision-pathway trace (RAG_DECISION_SHADOW / RAG_DECISION_PATH).
+
+    Runs the decision model (default ``typesafe/jev-1.13``) over the
+    ranked pool and returns the trace carrying the selected ``EvidenceSet``
+    dict under ``evidence_set``.  Shadow mode computes and logs it without
+    serving; the served path reuses it in ``run_generation_pipeline`` so
+    the decision call is made once per retrieval.  Fail-closed inside
+    ``select_decision_set`` — this stage never raises.
+    """
+    from app.rag.retrieval.decision_selector import select_decision_set
+
+    evidence_set, trace = select_decision_set(query, result.chunks)
+    if evidence_set is not None:
+        trace["evidence_set"] = evidence_set
+    logger.info(
+        "apply_stages: decision trace source=%s kept=%d abstain=%s",
+        trace.get("source"),
+        len(trace.get("kept") or []),
+        trace.get("abstain"),
+    )
+    return trace
+
+
 # ---------------------------------------------------------------------------
 # Enrich functions — lazy imports keep boots lightweight.
 # ---------------------------------------------------------------------------
@@ -197,6 +221,13 @@ def _evidence_plan_flag() -> bool:
     return bool(cfg.evidence_plan)
 
 
+def _decision_trace_flag() -> bool:
+    """Feature flag for the decision-pathway trace stage (shadow or served)."""
+    from app.rag.retrieval.decision_selector import decision_enabled
+
+    return decision_enabled()
+
+
 POST_RETRIEVAL_STAGES: list[RetrievalStage] = [
     RetrievalStage(
         name="legal_identity",
@@ -236,6 +267,14 @@ POST_RETRIEVAL_STAGES: list[RetrievalStage] = [
         enrich=_enrich_multi_domain_trace,
         output_key="multi_domain_trace",
         default={},
+        isolate=True,
+    ),
+    RetrievalStage(
+        name="decision_trace",
+        is_enabled=_decision_trace_flag,
+        enrich=_enrich_decision_trace,
+        output_key="decision_trace",
+        default=None,
         isolate=True,
     ),
 ]

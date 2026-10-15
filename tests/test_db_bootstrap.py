@@ -141,3 +141,72 @@ def test_bootstrap_boots_fresh_database(tmp_path, boot_env):
 
     app = create_app(db_uri=f"sqlite:///{db_path}")
     assert app is not None
+
+
+def _admin_count(db_path: str) -> int:
+    import sqlite3
+
+    conn = sqlite3.connect(db_path)
+    try:
+        return conn.execute("SELECT COUNT(*) FROM user").fetchone()[0]
+    finally:
+        conn.close()
+
+
+def test_bootstrap_sequential_boots_idempotent(tmp_path, monkeypatch):
+    """N sequential boots: all succeed, exactly one admin row.
+
+    Guards the 2026-10-12 flake family from the single-process side — a
+    second boot must observe the first boot's schema, never a stale
+    snapshot (``no such table``) nor re-create (``already exists``).
+    Seeding stays ON here (unlike boot_env) because exactly-once admin is
+    part of the assertion.
+    """
+    monkeypatch.delenv("SKIP_ADMIN_SEED", raising=False)
+
+    from app import create_app
+
+    db_path = str(tmp_path / "seq.db")
+    for _ in range(3):
+        assert create_app(db_uri=f"sqlite:///{db_path}") is not None
+    assert _admin_count(db_path) == 1
+
+
+def test_bootstrap_concurrent_boots_single_admin(tmp_path, monkeypatch):
+    """Concurrent boots (web + worker shape): all succeed, exactly one admin.
+
+    Threads share the process but take separate connections — the SQLite
+    equivalent of two gunicorn workers racing create_all/seed. The file lock
+    serialises them; without it this flakes with duplicate-CREATE or
+    missing-table errors (the 2026-10-12 P1).
+    """
+    import concurrent.futures
+
+    monkeypatch.delenv("SKIP_ADMIN_SEED", raising=False)
+
+    from app import create_app
+
+    db_path = str(tmp_path / "race.db")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+        apps = list(ex.map(lambda _: create_app(db_uri=f"sqlite:///{db_path}"), range(4)))
+    assert all(a is not None for a in apps)
+    assert _admin_count(db_path) == 1
+
+
+def test_lazy_import_skips_module_boot():
+    """APP_LAZY_IMPORT=true: importing app must not boot the real database.
+
+    Runs in a subprocess so the module-level guard is evaluated fresh (the
+    parent process has app imported already). No DB is touched — the assertion
+    is only that no `app` instance is created at import time.
+    """
+    import subprocess
+    import sys
+
+    code = (
+        "import os; os.environ['APP_LAZY_IMPORT']='true';"
+        "import app;"
+        "print('LAZY_OK' if not hasattr(app, 'app') else 'LAZY_BOOT')"
+    )
+    p = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=240)
+    assert "LAZY_OK" in p.stdout, p.stdout + p.stderr

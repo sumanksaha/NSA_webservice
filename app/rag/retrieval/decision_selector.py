@@ -8,13 +8,15 @@ Alternate pathway (plan step 1, default off; ``RAG_DECISION_PATH`` /
     threshold τ + top-k + legal-unit dedupe → ``EvidenceSet`` dict →
     ContextBuilder role-pack → Laguna answer
 
-The sanctioned decision models (``typesafe/jev-1.13``,
-``inception/mercury-decide:free``) are **typed decision models** served
-directly by their own provider over OpenRouter's Decisions API
-(``POST /api/alpha/decisions``: ``state`` + typed questions → calibrated
-probabilities, output tokens free).  There is no backend routing on that
-surface, so a sanctioned call can never land on a banned backend.  The
-former default ``typesafe/jev-router`` is BANNED (2026-10-15): it was a
+The sanctioned decision model (``typesafe/jev-1.13``) is a **typed
+decision model** served directly by its own provider over OpenRouter's
+Decisions API (``POST /api/alpha/decisions``: ``state`` + typed
+questions → calibrated probabilities, output tokens free).  There is no
+backend routing on that surface, so a sanctioned call can never land on
+a banned backend.  Dropped 2026-10-15 after the head-to-head sweep:
+``inception/mercury-decide:free`` (f1 0.0521 vs 0.0763, gold-in-prompt
+41.1% vs 60.3%, 2.5x slower; it remains the PHOTO-SCORING default, a
+separate allow-list).  Banned the same day: ``typesafe/jev-router``, a
 meta-router whose policy resolved most of our scoring requests to the
 banned ``deepseek/deepseek-v4.1-flash``, spending real money on every
 call until it exhausted the key's daily budget.
@@ -60,10 +62,13 @@ logger = logging.getLogger(__name__)
 #: Hard cap on candidates sent per decision call (100 × 400-char snippets
 #: ≈ 12k input tokens; the chat transport renders them into one index-keyed
 #: score map, the Decisions API asks one ``noul`` question per candidate).
-#: The only decision models sanctioned for this pathway (plan §3.4; user
-#: decision 2026-10-15): the **direct** Jev decision model and Mercury
-#: Decide's free tier — both typed decision models served by their own
-#: provider over the Decisions API, no backend routing possible.
+#: The only decision model sanctioned for this pathway (plan §3.4; user
+#: decision 2026-10-15): the **direct** Jev decision model — a typed
+#: decision model served by its own provider over the Decisions API, no
+#: backend routing possible.  ``inception/mercury-decide:free`` was
+#: dropped the same day after the head-to-head (jev won f1 at every tau;
+#: gold-in-prompt 60.3% vs 41.1%; 2.5x faster) — it remains solely the
+#: photo-scoring default (``PHOTO_SCORING_MODEL``, a separate list).
 #:
 #: ``typesafe/jev-router`` is BANNED: a meta-router whose policy resolved
 #: most of our requests to the banned ``deepseek/deepseek-v4.1-flash``
@@ -71,7 +76,7 @@ logger = logging.getLogger(__name__)
 #: unsanctioned ``RAG_DECISION_MODEL`` now REFUSES to construct —
 #: :func:`select_decision_set` fails closed to the heuristic selector,
 #: so a banned model can never serve or spend.
-ALLOWED_DECISION_MODELS = ("typesafe/jev-1.13", "inception/mercury-decide:free")
+ALLOWED_DECISION_MODELS = ("typesafe/jev-1.13",)
 
 #: Decisions API (typed state + questions → calibrated probabilities).
 DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"

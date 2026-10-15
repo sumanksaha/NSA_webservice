@@ -26,6 +26,14 @@ Usage:
     python -m evaluation.ab_baseline_citation --variant new --limit 60
     python -m evaluation.ab_baseline_citation --variant legacy --limit 60
     python -m evaluation.ab_baseline_citation --variant cand_cond_penalty --qtype penalty --limit 20
+
+W4 (query-type directives) A/B — both arms render the shipped template, the
+treatment toggles ``RAG_QUERY_TYPE_DIRECTIVES`` so every qid gets the directive
+its own classified type maps to (and qids of un-directived types are a built-in
+parallel control within the same run):
+
+    python -m evaluation.ab_baseline_citation --variant shipped --limit 200 --tag w4_ctrl
+    RAG_QUERY_TYPE_DIRECTIVES=true python -m evaluation.ab_baseline_citation --variant shipped --limit 200 --tag w4_treat
 """
 
 from __future__ import annotations
@@ -343,20 +351,26 @@ def _select_population(
     return picked
 
 
+def render_prompt_for(svc: Any, template: str | None, query: str, built: Any, query_type: str) -> tuple[str, str]:
+    """Render (system, user) for one harness record.
+
+    ``template is None`` means ``--variant shipped``: defer to the service's
+    own renderer so the run is exactly what production ships — including the
+    W4 query-type directive when ``RAG_QUERY_TYPE_DIRECTIVES`` is on.  Any
+    other template is a frozen candidate rendered verbatim against the same
+    assembled context, so only the wording differs between arms.
+    """
+    if template is None:
+        return svc._render_prompt(query, built, query_type=query_type)
+    return LEGACY_SYSTEM_PROMPT, template.format(context=built.context, query=query)
+
+
 def _run_one(task, payload_index, questions, template: str | None) -> dict[str, Any]:
     from app.rag.generation.grounded_service import GroundedGenerationService
 
     qid, qtext, pool, gold = task
     svc = GroundedGenerationService()
     svc.llm_client = SSLBypassLLMClient(model=os.environ.get("RAG_LLM_MODEL", ""))
-    if template is not None:
-        # Faithful variant render: identical assembled context (built.context),
-        # only the user-template wording differs.
-        def _render(query: str, built: Any) -> tuple[str, str]:
-            return LEGACY_SYSTEM_PROMPT, template.format(context=built.context, query=query)
-
-        svc._render_prompt = _render  # type: ignore[method-assign]
-
     qt = (
         (questions[qid].question_types or ["general"])[0]
         if getattr(questions[qid], "question_types", None)
@@ -364,7 +378,7 @@ def _run_one(task, payload_index, questions, template: str | None) -> dict[str, 
     )
     try:
         built = svc.context_builder.build(qtext, pool, query_type=qt)
-        sys_p, user_p = svc._render_prompt(qtext, built)
+        sys_p, user_p = render_prompt_for(svc, template, qtext, built, qt)
         llm = svc._call_llm(sys_p, user_p)
         answer = getattr(llm, "text", "") or ""
         tracked = svc._extract_citations(llm, pool, built)
@@ -424,6 +438,43 @@ KEYS = (
 )
 
 
+def _run_flags() -> dict[str, str]:
+    """The env knobs that change what each row renders (the arm identity).
+
+    Population filters (``--limit``/``--qids``/``--qtype``) are deliberately
+    not part of this: they only choose *which* rows run, and every row renders
+    its own prompt, so widening the population on resume is safe.
+    """
+    keys = (
+        "RAG_QUERY_TYPE_DIRECTIVES",
+        "ENABLE_STRUCTURED_REASONER",
+        "RAG_LLM_MODEL",
+    )
+    return {k: os.environ.get(k, "") for k in keys}
+
+
+def load_prior(out_file: Path, flags: dict[str, str]) -> dict[str, dict]:
+    """Rows already scored under the *same* flags, keyed by qid.
+
+    Lets ``--tag`` double as a resume token: a 429 mid-run writes what it has,
+    and re-invoking the identical command tops up only the missing qids instead
+    of paying for the whole arm again. A row written under a different flag set
+    is rejected rather than silently mixed into the arm.
+    """
+    if not out_file.exists():
+        return {}
+    try:
+        data = json.loads(out_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if data.get("flags", flags) != flags:
+        raise SystemExit(
+            f"{out_file.name}: written with flags {data.get('flags')}, now {flags}. "
+            "One --tag == one config; use a fresh --tag for a different arm."
+        )
+    return {r["qid"]: r for r in data.get("records", []) if r.get("m") and (r.get("answer") or "").strip()}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=60)
@@ -433,8 +484,10 @@ def main() -> int:
     ap.add_argument("--tag", default="", help="suffix the output file, for independent replicates")
     args = ap.parse_args()
 
-    # "shipped" renders whatever prompt_template.py currently holds (no override);
-    # every other name renders the frozen control or a named candidate.
+    # "shipped" renders whatever prompt_template.py currently holds (no override)
+    # — query_type passed through, so RAG_QUERY_TYPE_DIRECTIVES=true renders the
+    # W4 product prompt; every other name renders the frozen control or a named
+    # candidate (candidates ignore query_type: their wording is frozen).
     template = None if args.variant == "shipped" else VARIANTS[args.variant][1]
 
     print("LOAD questions", flush=True)
@@ -455,15 +508,24 @@ def main() -> int:
         flush=True,
     )
 
+    out_file = OUT_DIR / f"baseline_citation_{args.variant}{('_' + args.tag) if args.tag else ''}.json"
+    # One tag == one config: a re-invocation must not silently mix arms.
+    flags = _run_flags()
+    prior = load_prior(out_file, flags)
+    todo = [t for t in tasks if t[0] not in prior]
+    reused = [prior[t[0]] for t in tasks if t[0] in prior]
+    if prior:
+        print(f"resume: {out_file.name} holds {len(prior)} ok rows, {len(todo)} still to run", flush=True)
+
     gate = Semaphore(MAX_WORKERS)
-    results: list[dict] = []
+    results: list[dict] = list(reused)
 
     def one(t):
         with gate:
             return _run_one(t, payload_index, questions, template)
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-        for fut in as_completed([ex.submit(one, t) for t in tasks]):
+        for fut in as_completed([ex.submit(one, t) for t in todo]):
             try:
                 results.append(fut.result())
             except Exception as exc:
@@ -487,6 +549,10 @@ def main() -> int:
         "aggregate": agg,
         "citation_recall_ge_0.5_share": round(recall_ge_half, 4),
         "per_question": {r["qid"]: r["m"] for r in good},
+        # Full rows so a re-invocation with the same --tag resumes instead of
+        # re-burning the arm (see load_prior).
+        "records": [{"qid": r["qid"], "answer": r["answer"], "m": r["m"]} for r in good],
+        "flags": flags,
         "limitations": [
             "Live single-model run on the free tier; partial rate-limit losses skew coverage.",
             "citation_recall is only defined where the baseline window holds gold, so this "
@@ -494,7 +560,6 @@ def main() -> int:
         ],
     }
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    out_file = OUT_DIR / f"baseline_citation_{args.variant}{('_' + args.tag) if args.tag else ''}.json"
     out_file.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print("=" * 72)

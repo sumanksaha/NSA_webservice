@@ -35,6 +35,7 @@ Files the engineering skills read before acting:
 - [ADR-0008: Calibratable confidence](./adr/0008-advisor-calibratable-confidence.md) - Isotonic/PAVA confidence for the FSO advisory
 - [ADR-0009: Tiered provision extraction engine](./adr/0009-tiered-provision-extraction-engine.md) - Tiered statutory provision extraction
 - [ADR-0010: Shadow verifier threshold calibration](./adr/0010-shadow-verifier-threshold-calibration.md) - Threshold calibration for the shadow verifier
+- [ADR-0011: Probabilistic photo-evidence assessment](./adr/0011-photo-evidence-assessment.md) - A vision model scores a premises photo per checklist item; the score is advisory and the FSO confirms
 
 ## Additional Resources
 

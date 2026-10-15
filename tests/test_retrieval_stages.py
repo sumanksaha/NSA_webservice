@@ -37,9 +37,9 @@ QUERY = "what is Section 55?"
 class TestStageDefinition:
     def test_stages_are_ordered_list_of_retrieval_stage(self):
         assert isinstance(POST_RETRIEVAL_STAGES, list)
-        # Five since 6c34530 added ``multi_domain_trace``; the four-stage
-        # assertion outlived it and shipped red.
-        assert len(POST_RETRIEVAL_STAGES) == 5
+        # Six since the decision-pathway trace (plan step 1) joined; the
+        # five-stage assertion outlived it and shipped red.
+        assert len(POST_RETRIEVAL_STAGES) == 6
         assert all(isinstance(s, RetrievalStage) for s in POST_RETRIEVAL_STAGES)
 
     def test_stage_names_are_deterministic(self):
@@ -50,6 +50,7 @@ class TestStageDefinition:
             "evidence_selector",
             "evidence_plan",
             "multi_domain_trace",
+            "decision_trace",
         ]
 
     def test_output_keys_match_original_contract(self):
@@ -61,6 +62,7 @@ class TestStageDefinition:
             "evidence_set",
             "retrieval_plan",
             "multi_domain_trace",
+            "decision_trace",
         ]
 
 
@@ -75,6 +77,7 @@ class TestApplyStagesNoChunks:
             "evidence_set": None,
             "retrieval_plan": {},
             "multi_domain_trace": {},
+            "decision_trace": None,
         }
 
 

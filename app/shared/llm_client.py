@@ -16,8 +16,10 @@ Fail-closed controls (both default to "no calls"):
 * ``ALLOWED_MODELS`` — the answer model may only be
   ``poolside/laguna-s-2.1:free`` (Poolside Laguna S 2.1 via OpenRouter).
   Any other id raises; there is no fallback provider or model.  (Decision
-  models — ``typesafe/jev-1.13`` / ``inception/mercury-decide:free`` — keep
-  their own allow-list in ``app.rag.retrieval.decision_selector``.)
+  models keep their own allow-list in ``app.rag.retrieval.decision_selector``
+  — today ``typesafe/jev-1.13`` only; ``inception/mercury-decide:free`` was
+  dropped 2026-10-15 after the head-to-head and remains solely the
+  photo-scoring default, a separate list.)
 """
 
 from __future__ import annotations

@@ -21,7 +21,13 @@ TIMEOUT_S = 60.0
 
 
 class SSLBypassLLMClient(GroundedLLMClient):
-    """GroundedLLMClient that disables TLS verification for httpx calls."""
+    """GroundedLLMClient that disables TLS verification for httpx calls.
+
+    Kill-switch note: this subclass rides the base ``call()`` seam, so it
+    inherits the allow-list, the budget, and the no-op stub — construction
+    also validates the model (an eval that sets ``RAG_LLM_MODEL`` to a
+    non-allowlisted id raises before spending).
+    """
 
     def _real_call(self, system_prompt, user_prompt, *, temperature, max_tokens, **extra):
         start = time.perf_counter()
@@ -70,7 +76,9 @@ class SSLBypassLLMClient(GroundedLLMClient):
             except Exception as exc:
                 last_exc = exc
                 if attempt < MAX_ATTEMPTS - 1:
-                    time.sleep(2**attempt)
+                    # 429/rate-limit needs longer than generic transient backoff.
+                    rate_limited = "429" in str(exc) or "rate" in str(exc).lower()
+                    time.sleep((15 * (2**attempt)) if rate_limited else 2**attempt)
 
         return GroundedLLMResponse(
             error=f"LLM request failed after {MAX_ATTEMPTS} attempts: {last_exc}",

@@ -264,6 +264,47 @@ constitutes an observed **violation**. The same item set and flag semantics
 apply to non-sample Adjudications; the checklist is captured at inspection
 time regardless of whether a sample was drawn.
 
+The 12 items are **not one vocabulary but two polarities**, which is the single
+most error-prone fact about them: the 10 in `CHECKLIST_RULES` are violations when
+stored `"no"`, while `artificial_colour` and `Expired_item` (in
+`SPECIAL_VIOLATION_RULES`) are violations when stored `"yes"`. `derive_violations`
+reads both. Any code that reasons over checklist items must go through that
+polarity rather than assuming `"no"`.
+
+### Evidence Assessment
+
+One append-only probabilistic scoring of a photo **Evidence** row
+(`EvidenceAssessment`, `evidence_assessment`; ADR-0011). A **decision model**
+looks at the captured premises photograph and returns, per **candidate answer**,
+the probability that the violation is present.
+
+Four properties are load-bearing:
+
+- **Advisory.** An assessment never writes a checklist value. The FSO confirms.
+- **Uniform polarity.** `p_violation` always means "this violation is present",
+  including for the two inverted items. The conversion to a stored form value
+  happens once, in `form_value_for_violation()`
+  (`app/inspection/photo_scoring.py`).
+- **Gated.** Every call asks one extra question first — is this even a photograph
+  of a premises interior? A `noul` must answer true/false, so without the gate the
+  model interpolates: fed a drawing it reported an uncovered-utensil violation at
+  0.867. Below the gate threshold nothing is scored at all.
+- **Absent ≠ zero.** A gated, failed, or missing probability is stored `None`,
+  never `0.0` — because `0.0` is a compliance finding ("the premises were clean")
+  and `None` is a gap in the evidence.
+
+Scored at capture (between the storage upload and the `Evidence` insert, so a
+photo is never stored without its assessment) and re-runnable afterwards against a
+photo read back from Cloudinary/R2. Only the **photo-visible subset** (10 of 12)
+is scored: `Pest_report` and `Water_report` ask whether a *document* was
+produced, which a photograph cannot establish.
+
+Each row records `provider_model` and `resolved_model` separately: the requested
+`inception/mercury-decide:free` was served by a dated build
+(`inception/mercury-decide-20260930`), and only the second one pins a score to an
+exact model.
+
+
 ### Improvement Notice (u/s 32, FSS Act)
 
 The statutory document directing an FBO to take corrective action by a

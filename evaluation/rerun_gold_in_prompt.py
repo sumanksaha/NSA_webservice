@@ -82,6 +82,61 @@ def load_complement() -> list[dict]:
     ]
 
 
+def citation_metrics(cited_ids, gold_admitted_ids) -> dict:
+    """Generation-side citation gate: cite the gold that actually reached the prompt.
+
+    ``ab_baseline_citation`` measures this on the baseline-gold general slice;
+    this measures it on whatever population the rerun replays, using the same
+    definition (``|cited & gold| / |gold|``) so the two are comparable.  Pure —
+    no LLM, no I/O — so a cached run can be re-scored at any time.
+    """
+    cited = {str(c) for c in (cited_ids or [])}
+    gold = {str(g) for g in (gold_admitted_ids or [])}
+    gold_cited = cited & gold
+    n_gold, n_cited = len(gold), len(cited)
+    return {
+        "gold_admitted": n_gold,
+        "gold_cited": len(gold_cited),
+        "distinct_cited": n_cited,
+        "recall": round(len(gold_cited) / n_gold, 4) if n_gold else None,
+        "precision": round(len(gold_cited) / n_cited, 4) if n_cited else None,
+        "has_citation": int(bool(cited)),
+        "cited_chunk_ids": sorted(cited),
+    }
+
+
+def structured_summary(resp) -> dict | None:
+    """Compact W3 reasoner diagnostics from ``RAGResponse.debug`` (0 LLM).
+
+    ``None`` when the single-pass path ran (no IR built).  ``fallback`` is the
+    signal that matters for interpreting a W3 arm: ``StructuredReasoner.reason``
+    never raises, so a failed or unparseable reasoner call still renders the
+    structured prompt — over an empty skeleton, with the failure recorded in
+    ``uncertainties``.
+    """
+    sd = (getattr(resp, "debug", None) or {}).get("structured_argument")
+    if not isinstance(sd, dict):
+        return None
+    uncertainties = [str(u) for u in (sd.get("uncertainties") or [])]
+    return {
+        "n_provisions": len(sd.get("applicable_provisions") or []),
+        "n_rules": len(sd.get("legal_rules") or []),
+        "n_conditions": len(sd.get("condition_evaluations") or []),
+        "n_uncertainties": len(uncertainties),
+        "fallback": any(("reasoning unparseable" in u) or ("reasoning unavailable" in u) for u in uncertainties),
+    }
+
+
+def flags_used() -> dict:
+    """Provenance recorded on every record: which W3/W4 flags this run saw."""
+    from app.shared.config import cfg
+
+    return {
+        "structured_reasoner": bool(cfg.structured_reasoner),
+        "query_type_directives": bool(cfg.query_type_directives),
+    }
+
+
 def run_one(qid: str, arms: dict, payload_index: dict, question, service) -> dict:
     """Generate one answer through the production path and grade it."""
     from evaluation.answer_scoring import score_answer
@@ -99,20 +154,27 @@ def run_one(qid: str, arms: dict, payload_index: dict, question, service) -> dic
         return {"qid": qid, "error": "no chunks for arm", "binary_correct": 0}
 
     # Gold still admitted to the packed window? Guards against packing fixes
-    # that drop gold while "fixing" something else.
+    # that drop gold while "fixing" something else.  The admitted gold set is
+    # also the denominator of the citation gate below — of the gold that
+    # reached the prompt, how much did the answer actually cite?
     gold_in_prompt = False
+    gold_admitted: set[str] = set()
     try:
         fm = FamilyMap()
         built = ContextBuilder(query_type=qt).build(question.question, chunks, qt)
         admitted = {c.get("chunk_id") for c in built.citations}
         units = question.recall_units()
-        gold_in_prompt = any(
-            cid in payload_index and any(matches_gold(payload_index[cid], u, fm) for u in units) for cid in admitted
-        )
+        gold_admitted = {
+            cid
+            for cid in admitted
+            if cid in payload_index and any(matches_gold(payload_index[cid], u, fm) for u in units)
+        }
+        gold_in_prompt = bool(gold_admitted)
     except Exception as exc:
         logging.getLogger(__name__).warning("gold check failed for %s: %s", qid, exc)
 
     t0 = time.monotonic()
+    resp = None
     try:
         resp = service.generate(question.question, chunks, query_type=qt)
         answer = resp.answer or ""
@@ -121,6 +183,7 @@ def run_one(qid: str, arms: dict, payload_index: dict, question, service) -> dic
         answer, err = "", f"{type(exc).__name__}: {exc}"
 
     scored = score_answer(answer, question.acceptable_conclusion, question.insufficient_evidence, None)
+    cited_ids = [c.chunk_id for c in (getattr(resp, "citations", None) or [])]
     return {
         "qid": qid,
         "binary_correct": int(scored["binary_correct"]),
@@ -131,10 +194,62 @@ def run_one(qid: str, arms: dict, payload_index: dict, question, service) -> dic
         "abstained": bool(answer.strip() and "not in" in answer.lower()[:400]) or len(answer.strip()) < 20,
         "answer_length": len(answer),
         "gold_in_prompt": int(bool(gold_in_prompt)),
+        "citation": citation_metrics(cited_ids, gold_admitted),
+        "structured": structured_summary(resp),
+        "flags": flags_used(),
         "latency_s": round(time.monotonic() - t0, 2),
         "error": err,
         "answer": answer,
     }
+
+
+def citation_summary(rows: list[dict]) -> dict | None:
+    """Aggregate the per-record citation gate over one run (0 LLM).
+
+    Macro (per-question mean) and micro (pooled gold-cited / gold-admitted)
+    are both reported — with a 60-question population and gold sets of very
+    different sizes, either one alone can be moved by a couple of qids.
+    """
+    per_record = [r["citation"] for r in rows if isinstance(r.get("citation"), dict)]
+    if not per_record:
+        return None
+    recalls = [c["recall"] for c in per_record if c.get("recall") is not None]
+    gold_admitted = sum(c["gold_admitted"] for c in per_record)
+    gold_cited = sum(c["gold_cited"] for c in per_record)
+    return {
+        "n": len(per_record),
+        "mean_recall": round(sum(recalls) / len(recalls), 4) if recalls else None,
+        "micro_recall": round(gold_cited / gold_admitted, 4) if gold_admitted else None,
+        "gold_admitted_total": gold_admitted,
+        "gold_cited_total": gold_cited,
+        "no_citation": sum(1 for c in per_record if not c.get("has_citation")),
+        "mean_distinct_cited": round(sum(c["distinct_cited"] for c in per_record) / len(per_record), 4),
+    }
+
+
+def structured_summary_of_run(rows: list[dict]) -> dict | None:
+    """W3 arm health: how many records carry a reasoner IR, and how many fell
+    back to the fail-closed skeleton (reasoner call failed or JSON unparseable)."""
+    per_record = [r["structured"] for r in rows if isinstance(r.get("structured"), dict)]
+    if not per_record:
+        return None
+    return {
+        "n": len(per_record),
+        "n_fallback": sum(1 for s in per_record if s.get("fallback")),
+        "mean_provisions": round(sum(s["n_provisions"] for s in per_record) / len(per_record), 2),
+        "mean_conditions": round(sum(s["n_conditions"] for s in per_record) / len(per_record), 2),
+        "mean_uncertainties": round(sum(s["n_uncertainties"] for s in per_record) / len(per_record), 2),
+    }
+
+
+def run_flags(rows: list[dict]) -> list[dict]:
+    """Distinct flag sets seen in a run (provenance for a cached tag)."""
+    seen: list[dict] = []
+    for row in rows:
+        flags = row.get("flags")
+        if flags and flags not in seen:
+            seen.append(flags)
+    return seen
 
 
 def adjudicate_tags(tags: list[str], cohort: str = "failures") -> None:
@@ -312,7 +427,12 @@ def main() -> int:
             if line.strip():
                 rec = json.loads(line)
                 done[rec["qid"]] = rec
-    todo = [t for t in targets if t["qid"] not in done]
+    # Resumable: cached successes are never re-billed, but a record that came
+    # back with an LLM error is retried (its line is superseded by the retry's,
+    # since readers take the last record per qid).  A failed call is otherwise
+    # frozen into the tag and silently biases the arm against the qids that
+    # happened to 429.
+    todo = [t for t in targets if t["qid"] not in done or done[t["qid"]].get("error")]
     print(f"cached: {len(done)} | to run: {len(todo)}", flush=True)
 
     from app.rag.generation import GroundedGenerationService
@@ -320,6 +440,13 @@ def main() -> int:
     from evaluation.llm_ssl_client import SSLBypassLLMClient
     import app.rag.generation.prompt_template as pt
     from app.shared.config import cfg
+
+    # Same knob as ab_baseline_citation: the free tier's upstream shared pool
+    # 429s intermittently, and retries there are unbilled — absorb them here
+    # instead of freezing an error record into the tag.
+    import evaluation.llm_ssl_client as _llm_ssl
+
+    _llm_ssl.MAX_ATTEMPTS = max(1, int(os.environ.get("RAG_LLM_MAX_ATTEMPTS", "3") or 3))
 
     if args.legacy_template:
         from evaluation.ab_baseline_citation import _CANDIDATES
@@ -378,12 +505,27 @@ def main() -> int:
     errors = [r["qid"] for r in rows if r.get("error")]
     missing_gold = [r["qid"] for r in rows if r.get("gold_in_prompt") == 0]
 
+    citation = citation_summary(rows)
+    if citation is not None:
+        citation["by_audit_action"] = {}
+        for action in sorted({r.get("audit_action") or "unknown" for r in rows}):
+            block = citation_summary([r for r in rows if (r.get("audit_action") or "unknown") == action])
+            if block:
+                citation["by_audit_action"][action] = {
+                    "n": block["n"],
+                    "mean_recall": block["mean_recall"],
+                    "micro_recall": block["micro_recall"],
+                }
+
     summary = {
         "tag": args.tag,
         "n_targets": n,
         "n_fixed": fixed,
         "n_remaining": n - fixed,
         "by_audit_action": by_action,
+        "flags": run_flags(rows),
+        "citation": citation,
+        "structured": structured_summary_of_run(rows),
         "errors": errors,
         "gold_dropped_from_prompt": missing_gold,
     }
@@ -397,6 +539,21 @@ def main() -> int:
         print(f"  ERRORS ({len(errors)}): {', '.join(errors)}", flush=True)
     if missing_gold:
         print(f"  gold dropped from prompt ({len(missing_gold)}): {', '.join(missing_gold)}", flush=True)
+    if citation:
+        print(
+            f"  citation gate: macro_recall={citation['mean_recall']} micro_recall={citation['micro_recall']} "
+            f"gold_cited={citation['gold_cited_total']}/{citation['gold_admitted_total']} "
+            f"no_citation={citation['no_citation']}",
+            flush=True,
+        )
+    if summary.get("structured"):
+        s = summary["structured"]
+        print(
+            f"  reasoner IR: n={s['n']} fallback={s['n_fallback']} provisions={s['mean_provisions']} conds={s['mean_conditions']}",
+            flush=True,
+        )
+    if summary.get("flags"):
+        print(f"  flags: {summary['flags']}", flush=True)
     print(f"results: {out_path}", flush=True)
     return 0
 

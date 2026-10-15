@@ -183,3 +183,54 @@ set, the 69/82 a coverage-only gate would pass). Separately, haiku returned
 deterministic empty 200s on 5/13 full RAG prompts across retries (Q052 Q047
 Q023 Q020 Q016; trivial probe answers `PONG` fine) — a pipeline
 incompatibility on top of the metric loss. Verdict: stay on laguna.
+
+## 11. Phase 1: length-targeted prompt moves length, not correctness (2026-10-14, 39 calls)
+
+`evaluation/prompt_length_ab.py`: same model (laguna), same top-20 pools, only
+a length+completeness contract added to the system prompt (user template
+byte-identical, citation contract untouched). 18 near-miss QIDs (1–2 concepts
+short, gold in window, soft 0.31–0.45) + 5 veto QIDs under the new prompt.
+
+| 18 pairs | base | concise |
+|---|---|---|
+| soft mean | 0.358 | 0.358 (**−0.0004**) |
+| binary | 0 | 0 |
+| eliminated | 3 | 3 (Q053 flipped True, Q085 unflipped True→False) |
+| answer length | 3835 | **2685 (−30%)** |
+
+Manipulation check passed decisively — the model obeys the instruction — but
+go-criteria (≥3 eliminations, 0 flips) failed on both halves: net elim 0 with
+one unflip, and the fragile Q052 pass broke under over-shortening (1083 chars,
+soft 0.284 — coverage starvation, the haiku disease in miniature). Per the
+pre-registered plan: stopped, no prompt rollout.
+
+Refinement v2 (`concise2`, same harness): per-section budgets (cap Step-1
+quotes at ~800 chars, protect the Step-2 answer) plus conditional application
+(skip when base passes or runs short — 7 spared including all 4 passing
+vetoes and Q052). 12 pairs: soft 0.362→0.354 (−0.009), elim 0→0, binary 0→0,
+length −43%, veto clean. Cleaner null than v1 (no flips either way), same
+verdict. Two QIDs (Q036, Q109) stayed 429-blocked through three rounds; even
+two straight flips could not have reached the ≥3 bar, so the direction is
+verdict-locked, not data-starved.
+
+Two asymmetries worth keeping: Q060's abstention survives length pressure
+(elim+bin True at 2919 chars — the abstention path is robust to this prompt),
+and the one flip (Q053, +0.083) came with length going UP (3561→3799), i.e.
+not via the instructed mechanism. Shortening is reliable; converting is not —
+third confirmation (after KG coverage and retry recovery) that context-side
+improvements do not convert on these answers.
+
+Variant v3 (`synthesis`, audit-driven): the gold-labelling audit first caught
+two instrument artifacts (191/255 null-section blob slots; fssai:498's 762
+chunks topping every reference by mass) before the window-constrained verdict
+settled at 21 GOLD_OK / 6 SYNTHESIS / 54 RETRIEVAL / 4 CORPUS_GAP. The
+synthesis clause (cite 2+ distinct sources when passages span provisions) ran
+on the 6 SYNTHESIS QIDs with conditional sparing: 4 pairs, soft 0.360→0.355,
+elim 0→0, veto clean (Q015 bin held at soft 0.621 — its best recorded score).
+Same verdict, third variant. Combined prompt record: 34 pairs, net +1/−2
+eliminations, mean delta about 0. The audit's durable outputs are the 4
+CORPUS_GAP QIDs (Q010 Q102 Q120 Q139: true content absence — procurement/label
+decisions) and the reframing that gold-stamp presence is not window-text
+coverage on 54 QIDs, which bounds but does not revive any retrieval-side
+treatment. Prompt work is now closed pending the audit's remaining question
+(the CORPUS_GAP procurement decision).

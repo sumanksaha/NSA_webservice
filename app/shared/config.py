@@ -298,7 +298,7 @@ _TABLE: tuple[Setting, ...] = (
         "typesafe/jev-1.13",
         help=(
             "Decision model id — must be sanctioned (ALLOWED_DECISION_MODELS: "
-            "typesafe/jev-1.13, inception/mercury-decide:free); anything else refuses "
+            "typesafe/jev-1.13); anything else refuses "
             "and fails closed to the heuristic selector. Sanctioned models speak "
             "OpenRouter's Decisions API directly (no backend routing); "
             "typesafe/jev-router is banned — it routed to deepseek."

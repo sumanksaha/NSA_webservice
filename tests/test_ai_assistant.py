@@ -310,12 +310,54 @@ class TestCompleteJson:
             with pytest.raises(ValueError, match="JSON object"):
                 svc.complete_json("sys", "user")
 
+    def test_markdown_fenced_json_parses(self, svc_enabled):
+        """Router backends wrap JSON in ``` fences — parsed, not failed."""
+        svc = svc_enabled
+        mock_resp = _mock_httpx_response('```json\n{"plan_id": "CAPA-2"}\n```')
+
+        with mock.patch("httpx.Client.post", return_value=mock_resp):
+            assert svc.complete_json("sys", "user") == {"plan_id": "CAPA-2"}
+
+    def test_prose_plus_fenced_json_parses(self, svc_enabled):
+        """A fence embedded after prose is located and parsed."""
+        svc = svc_enabled
+        mock_resp = _mock_httpx_response('Here you go:\n```json\n{"plan_id": "CAPA-3"}\n```\nDone.')
+
+        with mock.patch("httpx.Client.post", return_value=mock_resp):
+            assert svc.complete_json("sys", "user") == {"plan_id": "CAPA-3"}
+
     def test_disabled_raises(self, svc_enabled):
         """Disabled service raises RuntimeError via _request."""
         svc = svc_enabled
         svc._api_key = ""
         with pytest.raises(RuntimeError):
             svc.complete_json("sys", "user")
+
+
+class TestParseJsonObject:
+    """parse_json_object: fence-tolerant, fail-closed (router backends vary)."""
+
+    def test_plain_object(self):
+        from app.ai_assistant.service import parse_json_object
+
+        assert parse_json_object('{"a": 1}') == {"a": 1}
+
+    def test_fenced_object(self):
+        from app.ai_assistant.service import parse_json_object
+
+        assert parse_json_object('```json\n{"a": 1}\n```') == {"a": 1}
+
+    def test_empty_content_raises(self):
+        from app.ai_assistant.service import parse_json_object
+
+        with pytest.raises(ValueError, match="valid JSON"):
+            parse_json_object("")
+
+    def test_non_dict_raises(self):
+        from app.ai_assistant.service import parse_json_object
+
+        with pytest.raises(ValueError, match="JSON object"):
+            parse_json_object("[1, 2]")
 
 
 class TestServiceErrors:

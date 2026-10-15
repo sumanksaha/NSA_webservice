@@ -18,6 +18,7 @@ from app.models.document import (
     CaseFile,
     Entity,
     Evidence,
+    EvidenceAssessment,
     Relationship,
     TimelineEvent,
     Version,

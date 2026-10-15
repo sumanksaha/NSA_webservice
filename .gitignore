@@ -171,6 +171,7 @@ data/postgresql/
 instance/*.db
 instance/*.db-journal
 instance/*.db.backup_*
+instance/*.bootstrap.lock
 instance/*.sqlite
 *.sqlite
 *.sqlite3

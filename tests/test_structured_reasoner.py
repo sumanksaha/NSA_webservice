@@ -18,6 +18,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import pytest
 
 from app.rag.generation.structured_reasoner import (
+    DEFAULT_MAX_TOKENS,
     StructuredLegalArgument,
     StructuredReasoner,
     build_reasoning_prompt,
@@ -81,6 +82,45 @@ class TestBuildReasoningPrompt:
         assert "Is a licence needed?" in user
         assert "Section 31 text here." in user
         assert "JSON" in system
+
+    def test_prompt_pins_every_field_shape(self):
+        # reason() fail-closes to a skeleton on any validation error, so a
+        # shape the prompt does not pin is a shape the model is free to get
+        # wrong.  Both keys asserted here were emitted in the wrong shape by
+        # the live model (2026-10-14) and silently disabled two-pass reasoning.
+        system, _ = build_reasoning_prompt("Q", "ctx")
+        assert "definitions_applied is an OBJECT mapping" in system
+        assert "never an array" in system
+        assert "exceptions_considered is an array of OBJECTS" in system
+        assert "never bare strings" in system
+
+    def test_prompt_still_pins_condition_entry_keys(self):
+        system, _ = build_reasoning_prompt("Q", "ctx")
+        for key in ("condition_id", "condition_text", "fact_reference", "status", "explanation"):
+            assert key in system
+
+
+class TestReasonerCallBudget:
+    """The IR must fit the token budget, or the IR is never built."""
+
+    def test_default_budget_covers_a_complete_ir(self):
+        # Measured 2026-10-14: a complete argument for a 4.5k-token evidence
+        # prompt is 1486 completion tokens, which the old 1024 default cut
+        # mid-JSON on every call (fallback skeleton, always).
+        assert DEFAULT_MAX_TOKENS >= 2048
+        assert StructuredReasoner(llm_client=FakeLLM(VALID_ARGUMENT_JSON)).max_tokens == DEFAULT_MAX_TOKENS
+
+    def test_reason_passes_budget_and_temperature_to_the_client(self):
+        seen: dict = {}
+
+        class _Recorder(FakeLLM):
+            def call(self, system_prompt: str, user_prompt: str, **kwargs: object) -> object:
+                seen.update(kwargs)
+                return super().call(system_prompt, user_prompt, **kwargs)
+
+        StructuredReasoner(llm_client=_Recorder(VALID_ARGUMENT_JSON)).reason("Q?", "ctx")
+        assert seen["max_tokens"] == DEFAULT_MAX_TOKENS
+        assert seen["temperature"] == 0.1
 
 
 class TestStructuredReasoner:

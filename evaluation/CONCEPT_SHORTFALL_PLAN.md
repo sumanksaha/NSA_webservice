@@ -132,6 +132,20 @@ theories: the bootstrap executes creation more than once (or against two
 engines), i.e. the check-then-act itself races. Repro rate is roughly 1 in 4-5
 boots; harnesses mitigate with the scratch-DB seam plus re-launch.
 
+Fixed 2026-10-14 (`app/db_bootstrap.py`, `tests/test_db_bootstrap.py`,
+`.gitignore`): cross-process file lock around the whole bootstrap (sibling
+`<db>.bootstrap.lock`, best-effort, never blocks boot); fresh inspector per
+read (the reused inspector returned pre-DDL snapshots); race-safe admin seed
+(rollback + warn on collision instead of 500ing the boot); pid + redacted-URI
+logging at start; fail-loud schema check untouched. 9/9 bootstrap tests pass
+(6 pre-existing + sequential-idempotency + 4-thread concurrent single-admin +
+lazy-import guard). Real-DB boots 2/2 clean post-fix. Review note: the first
+version of the lock contextmanager swallowed body exceptions (`generator
+didn't stop after throw()`, fail-loud tests caught it — the except path now
+only covers pre-yield setup). Pre-existing files touched by earlier sessions
+were left alone; change set is the three files above (APP_LAZY_IMPORT guard
+was already in HEAD).
+
 ## 8. Interim veto-guard readings (live, top-20 windows)
 Q015 bin=True held (elim flickers False on one run — concepts_missing varies
 run to run at temp 0.1; the *substantive* pass is stable, the elimination flag

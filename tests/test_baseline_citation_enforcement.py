@@ -21,6 +21,11 @@ Do not re-add a hard quote gate without re-running the A/B.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+import pytest
+
 from app.rag.generation.prompt_template import (
     DOMAIN_SYSTEM_PROMPTS,
     GROUND_QA_SYSTEM_PROMPT,
@@ -217,6 +222,155 @@ class TestSpec1Candidates:
         lowered = GROUND_QA_USER_TEMPLATE.lower()
         for phrase in ("at least one verbatim", "you must follow these steps", "produced zero quotes"):
             assert phrase not in lowered, f"shipped template re-gained {phrase!r}"
+
+
+class TestShippedVariantRender:
+    """``--variant shipped`` must be exactly what production ships.
+
+    W4 (query-type directives) is measured through this harness, so the
+    shipped render has to pass ``query_type`` through: with
+    ``RAG_QUERY_TYPE_DIRECTIVES`` on, every qid gets the directive its own
+    classified type maps to, and qids of un-directived types stay byte-identical
+    (their own parallel control).  Frozen candidates must ignore ``query_type``
+    — their wording is the thing under test, so it cannot be edited by a flag.
+    """
+
+    @staticmethod
+    def _svc_and_context():
+        from app.rag.generation.context_builder import BuiltContext
+        from app.rag.generation.grounded_service import GroundedGenerationService
+
+        return GroundedGenerationService(), BuiltContext(
+            context="[1] Section 31 of the FSS Act says X.",
+            citations=[],
+            chunk_count=1,
+        )
+
+    def test_shipped_renders_the_type_directive_when_flagged(self, monkeypatch):
+        from app.rag.generation.prompt_template import QUERY_TYPE_DIRECTIVES
+        from evaluation.ab_baseline_citation import render_prompt_for
+
+        monkeypatch.setenv("RAG_QUERY_TYPE_DIRECTIVES", "true")
+        svc, built = self._svc_and_context()
+        _, user = render_prompt_for(svc, None, "what is the penalty?", built, "penalty")
+
+        directive = QUERY_TYPE_DIRECTIVES["penalty"]
+        assert directive in user, "shipped variant dropped the W4 directive"
+        # Inserted as an instruction, not as trailing content after "Answer:".
+        assert user.index(directive) < user.index("Question:")
+
+    def test_shipped_is_byte_identical_when_the_flag_is_off(self, monkeypatch):
+        from evaluation.ab_baseline_citation import render_prompt_for
+
+        monkeypatch.delenv("RAG_QUERY_TYPE_DIRECTIVES", raising=False)
+        svc, built = self._svc_and_context()
+
+        _, default_render = render_prompt_for(svc, None, "q", built, "")
+        _, with_type = render_prompt_for(svc, None, "q", built, "penalty")
+
+        assert with_type == default_render, "query_type changed the prompt while the flag is off"
+
+    def test_shipped_leaves_un_directived_types_alone(self, monkeypatch):
+        from app.rag.generation.prompt_template import QUERY_TYPE_DIRECTIVES
+        from evaluation.ab_baseline_citation import render_prompt_for
+
+        monkeypatch.setenv("RAG_QUERY_TYPE_DIRECTIVES", "true")
+        svc, built = self._svc_and_context()
+
+        _, un_directived = render_prompt_for(svc, None, "q", built, "authority")
+        for text in QUERY_TYPE_DIRECTIVES.values():
+            assert text not in un_directived
+
+    def test_frozen_candidate_ignores_query_type(self, monkeypatch):
+        from evaluation.ab_baseline_citation import LEGACY_SYSTEM_PROMPT, VARIANTS, render_prompt_for
+
+        monkeypatch.setenv("RAG_QUERY_TYPE_DIRECTIVES", "true")
+        svc, built = self._svc_and_context()
+        system, user = render_prompt_for(svc, VARIANTS["cand_cond_penalty"][1], "q", built, "obligation")
+
+        assert system == LEGACY_SYSTEM_PROMPT
+        assert user == VARIANTS["cand_cond_penalty"][1].format(context=built.context, query="q")
+
+
+class TestResume:
+    """``--tag`` doubles as a resume token: a 429 mid-run must not cost the arm.
+
+    The free tier fails in bursts, so re-invoking the identical command has to
+    top up only the missing qids. The guard matters more than the cache: a tag
+    written under a different flag set is one arm mixing with another, so it
+    must refuse rather than resume.
+    """
+
+    @staticmethod
+    def _write(tmp_path, payload: dict) -> Path:
+        out = Path(tmp_path) / "baseline_citation_shipped_w4_treat.json"
+        out.write_text(json.dumps(payload), encoding="utf-8")
+        return out
+
+    @staticmethod
+    def _flags(**over):
+        from evaluation.ab_baseline_citation import _run_flags
+
+        flags = _run_flags()
+        flags.update(over)
+        return flags
+
+    def test_missing_file_resumes_nothing(self, tmp_path):
+        from evaluation.ab_baseline_citation import load_prior
+
+        out = Path(tmp_path) / "nope.json"
+        assert load_prior(out, self._flags()) == {}
+
+    def test_ok_rows_are_reused_by_qid(self, tmp_path):
+        from evaluation.ab_baseline_citation import load_prior
+
+        flags = self._flags()
+        out = self._write(
+            tmp_path,
+            {
+                "flags": flags,
+                "records": [
+                    {"qid": "Q007", "answer": "a", "m": {"citation_recall": 1.0}},
+                    {"qid": "Q040", "answer": "", "m": {"citation_recall": 0.0}},
+                ],
+            },
+        )
+        prior = load_prior(out, flags)
+
+        # A blank answer is a failed generation: it must be re-run, not reused.
+        assert set(prior) == {"Q007"}
+        assert prior["Q007"]["m"]["citation_recall"] == 1.0
+
+    def test_rows_without_records_key_yield_nothing(self, tmp_path):
+        from evaluation.ab_baseline_citation import load_prior
+
+        flags = self._flags()
+        out = self._write(tmp_path, {"variant": "shipped", "per_question": {"Q007": {}}})
+        assert load_prior(out, flags) == {}
+
+    def test_flag_mismatch_refuses_to_mix_arms(self, tmp_path):
+        from evaluation.ab_baseline_citation import load_prior
+
+        out = self._write(tmp_path, {"flags": self._flags(RAG_QUERY_TYPE_DIRECTIVES="true")})
+        with pytest.raises(SystemExit, match="fresh --tag"):
+            load_prior(out, self._flags(RAG_QUERY_TYPE_DIRECTIVES=""))
+
+    def test_corrupt_output_resumes_nothing(self, tmp_path):
+        from evaluation.ab_baseline_citation import load_prior
+
+        out = Path(tmp_path) / "baseline_citation_shipped.json"
+        out.write_text("{not json", encoding="utf-8")
+        assert load_prior(out, self._flags()) == {}
+
+    def test_arm_identity_covers_both_w3_and_w4_flags(self):
+        from evaluation.ab_baseline_citation import _run_flags
+
+        flags = _run_flags()
+        assert "RAG_QUERY_TYPE_DIRECTIVES" in flags
+        assert "ENABLE_STRUCTURED_REASONER" in flags
+        # Model is part of the arm too: same tag on a different model is a
+        # different experiment.
+        assert "RAG_LLM_MODEL" in flags
 
 
 class TestRenderedPrompt:

@@ -641,8 +641,17 @@ def run_generation_pipeline(
 
     P0-1: *evidence_set* is the serialized selection produced by
     ``run_retrieval_pipeline``'s ``apply_stages``.  Honoured only when
-    ``cfg.evidence_selector`` is enabled; otherwise ignored so the default
-    prompt path is unchanged.
+    ``cfg.evidence_selector`` or the alternate ``cfg.decision_path`` is
+    enabled; otherwise ignored so the default prompt path is unchanged.
+
+    Decision pathway (plan step 1, default off): when ``RAG_DECISION_PATH``
+    is on and no *evidence_set* was passed, the decision-model selection
+    (default ``typesafe/jev-1.13``) is taken from the retrieval-stage
+    ``decision_trace`` (or computed here for caller-provided chunks /
+    compound merges) and forwarded to generation; the trace rides back in
+    the result under ``decision_trace``.  With ``RAG_DECISION_SHADOW``
+    only, the selection is computed and logged by retrieval but never
+    served.
 
     1.3: If the query contains multiple section references with
     conjunctions (e.g., "Section 33 and Section 38"), decompose into
@@ -670,6 +679,27 @@ def run_generation_pipeline(
         pipeline=pipeline,
     )
 
+    # Stage 1b — decision pathway (RAG_DECISION_PATH, default off; plan step
+    # 1).  Shadow mode only surfaces the retrieval-stage trace for logging;
+    # the served path reuses that same trace's evidence_set when the pool was
+    # fetched in this call (one decision-model call per retrieval), and
+    # selects here only for caller-provided chunks or compound sub-query
+    # merges (where the per-sub-query trace would be stale against the
+    # merged pool).
+    decision_trace: dict[str, Any] | None = None
+    if isinstance(retrieval_data, dict):
+        decision_trace = retrieval_data.get("decision_trace") or None
+    if cfg.decision_path and evidence_set is None and chunk_objects:
+        trace_is_mine = (
+            isinstance(decision_trace, dict)
+            and isinstance(decision_trace.get("evidence_set"), dict)
+            and "sub_queries" not in retrieval_data
+        )
+        if not trace_is_mine:
+            from app.rag.retrieval.decision_selector import select_decision_set
+
+            evidence_set, decision_trace = select_decision_set(query, chunk_objects)
+
     # Stage 2 — KG context: contract fusion (RAG_KG_FUSION) or graph
     # expansion (RAG_KG_EXPANSION); the two are alternatives, never both.
     chunk_objects, kg_contract, kg_expansion = _generate_apply_kg_context(query, chunk_objects)
@@ -688,10 +718,11 @@ def run_generation_pipeline(
         rag_response = service.generate_with_prompts(query, chunk_objects, query_type, prompts=food_prompt)
     else:
         # P0-1: forward the selected evidence set so ContextBuilder can pack
-        # the prompt by legal role.  Gated on ENABLE_EVIDENCE_SELECTOR — it
-        # changes the live prompt for every query when on.  An evidence set
-        # that arrived without the flag being enabled is ignored.
-        if evidence_set and not cfg.evidence_selector:
+        # the prompt by legal role.  Gated on ENABLE_EVIDENCE_SELECTOR (or
+        # the alternate RAG_DECISION_PATH) — it changes the live prompt for
+        # every query when on.  A selection that arrived with neither gate
+        # enabled is ignored.
+        if evidence_set and not (cfg.evidence_selector or cfg.decision_path):
             evidence_set = None
         rag_response = service.generate(query, chunk_objects, query_type, evidence_set=evidence_set)
 
@@ -765,6 +796,10 @@ def run_generation_pipeline(
         # (absent for simple queries — decomposition never ran).
         **({"sub_queries": retrieval_data["sub_queries"]} if "sub_queries" in retrieval_data else {}),
     }
+    # Decision pathway trace — added only when present so the baseline wire
+    # shape stays byte-identical (flags off = no key).
+    if decision_trace is not None:
+        out["decision_trace"] = decision_trace
     if food_bundle is not None:
         # §16 answer-level completeness + §12 evidence bundle for callers.
         try:
