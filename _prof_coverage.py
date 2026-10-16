@@ -39,6 +39,6 @@ print("loaded in", round(time.time() - start, 2), "s")
 t0 = time.time()
 hits = 0
 for pid, payload in index.items():
-    if matches_gold(payload, u, fm):
+    if matches_gold(payload, u, fm, text_fallback=True):
         hits += 1
 print("hits:", hits, "in", round(time.time() - t0, 2), "s")

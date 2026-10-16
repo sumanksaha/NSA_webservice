@@ -979,12 +979,12 @@ def main() -> int:
                 if u.provision_id in seen:
                     continue
                 seen.add(u.provision_id)
-                hit = any(matches_gold(p, u, family_map) for p in payloads.values())
+                hit = any(matches_gold(p, u, family_map, text_fallback=True) for p in payloads.values())
                 if hit:
                     n_resolved_before += 1
                     continue
                 hit_after = any(
-                    matches_gold(dict(p, **changes.get(pid, {})), u, family_map) for pid, p in payloads.items()
+                    matches_gold(dict(p, **changes.get(pid, {})), u, family_map, text_fallback=True) for pid, p in payloads.items()
                 )
                 if hit_after:
                     newly_resolved.append(u.provision_id)

@@ -146,7 +146,7 @@ def gold_hit_rate(question: dict, chunks: list[dict]) -> float:
     family_map = FamilyMap()
     covered = 0
     for unit in gold_units:
-        if any(matches_gold(c, unit, family_map) for c in chunks):
+        if any(matches_gold(c, unit, family_map, text_fallback=True) for c in chunks):
             covered += 1
     return covered / len(gold_units)
 
