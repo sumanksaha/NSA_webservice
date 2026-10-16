@@ -158,6 +158,37 @@
 
 ---
 
+### P2-11: Decision-layer threshold tuning (Jev 1.13 selector) — threshold = 0.13
+**Status:** ✅ Complete (code + tests verified)
+**Files:** `app/shared/config.py` (`RAG_DECISION_THRESHOLD`/`decision_threshold`), `evaluation/tau_sweep.py`, `evaluation/ab_decision_selector.py`
+**Verification:**
+- `tau_sweep.py` run on 89 model_wrong + validation (150 total; cached decision scores, 0 new LLM calls): knee at tau=0.13–0.15 — f1 0.0758 overall / 0.0629 on model_wrong, gold_in@ 0.603 overall / 0.512 model_wrong, abstain 0.007 overall / 0 on model_wrong
+- `ab_decision_selector.py` at tau=0.13 k=6 on all 150: decision arm answer_correctness 0.078 vs baseline 0.078, gold_reachable 0.269 vs 0.265, citation_recall 0.019 vs 0.018 — no regression; decision_compact trades gold_reachable (~0.07) for compactness (~5.7 chunks vs ~18.8)
+- `tests/test_decision_selector.py`: 36 passed
+**Decision:** P(keep) threshold default now 0.13 (was 0.5); top_k remains 6. Preserves abstention (near-zero) with minimal F1 loss.
+
+---
+
+### P2-12: Second-pass retry triggers on missing authority as well as missing concepts
+**Status:** ✅ Complete (code only; live run pending call budget)
+**Files:** `evaluation/retry_second_pass.py` (`_run_retry`)
+**Verification:**
+- `py_compile` clean
+- `_run_retry` now treats `authority_missing`/`authorities_missing` (from cached generator cache) as additional retry triggers alongside `concepts_missing`, matching the Phase B plan ("targeted single-retry with missing concept/authority feedback")
+- Stage-1 targeted_retry_ab measured 22/150 recovered gold-in-window, 0 regressed, net +22; retry_second_pass runs the live half to confirm soft/binary conversion
+
+---
+
+### P3-13: JEV calibration cross-cohort variance reduction (deferred)
+**Status:** ⬜ Not started
+**Files:** `evaluation/experiment_f_calibration_eval.py`, `evaluation/calibrate_ce.py`
+**Notes:**
+- `calibrate_ce.py` loads `evaluation/out/models/legal_ce_v2_K500` and trains; `experiment_f_calibration_eval.py` consumes `ceiling_v5/evaluator_v2_per_question.jsonl` (not yet produced)
+- Requires cached CE-v2 outputs + evaluator-v2 per-question file before calibration eval can run
+- Deferred pending evaluator-v2 artifacts and available call budget
+
+---
+
 ## P3 — Later Polish & Calibration
 
 ### P3-11: Calibrate advisor confidence
@@ -191,3 +222,11 @@
 - Feature flags remain off by default where opt-in (correct behavior)
 - P0-2 requires source PDF that is not on disk — cannot proceed without it
 - P3 items require infrastructure (Qdrant BM25) or human labels (confidence calibration)
+
+## JEV Decision Layer Tuning (2026-10-16)
+**Achieved:** `RAG_DECISION_THRESHOLD` default set to 0.13 (from 0.5). Tau sweep on 89+validation set (150 questions, cached scores) found the knee preserving abstention: tau=0.13–0.15, f1 0.075–0.076, abstain ≤0.007 overall / 0 on model_wrong. Decision-selector A/B at tau=0.13 k=6 on 150 questions: decision arm answer_correctness 0.078 vs baseline 0.078, gold_reachable 0.269 vs 0.265 — no regression.
+
+**Future jobs (deferred / pending budget):**
+1. **P3-13 JEV calibration** (`evaluation/experiment_f_calibration_eval.py`, `evaluation/calibrate_ce.py`) — blocked on `ceiling_v5/evaluator_v2_per_question.jsonl` artifact and legal CE-v2 model outputs; use calibrated thresholds to reduce variance across cohorts once artifacts exist.
+2. **W3/W4 live A/B** (`tests/test_decision_eval_tools.py`, structured reasoner / per-type directives) — reserved-budget live A/B scored by W1 rubric; flags remain off until rubric + citation gates + 3 replicates clear.
+3. **retry_second_pass live run** — retry now triggers on `authority_missing`/`authorities_missing` in addition to `concepts_missing`; needs call budget to run live and confirm soft/binary conversion on the 22 recovered gold-in-window cases.
