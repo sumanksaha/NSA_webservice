@@ -434,7 +434,7 @@ def _gold_in_pool_by_unit(rel_units, pool, payload_index, family_map) -> bool:
     for unit in rel_units:
         for it in pool:
             if it["kind"] == "chunk":
-                if matches_gold(payload_index.get(it["key"]) or {}, unit, family_map):
+                if matches_gold(payload_index.get(it["key"]) or {}, unit, family_map, text_fallback=True):
                     return True
             else:
                 from evaluation.metrics import RankedItem, _kg_item_keys, item_covers
@@ -627,7 +627,7 @@ def main() -> int:
         gold_chunk_ids = set()
         for unit in q.relevant_units():
             for pid, payload in payload_index.items():
-                if matches_gold(payload, unit, family_map):
+                if matches_gold(payload, unit, family_map, text_fallback=True):
                     gold_chunks.append({"chunk_id": pid, "payload": payload})
                     gold_chunk_ids.add(pid)
                     break
@@ -694,7 +694,7 @@ def main() -> int:
         for unit in rel:
             for it in data["pool"]:
                 if it["kind"] == "chunk":
-                    if matches_gold(payload_index.get(it["key"]) or {}, unit, family_map):
+                    if matches_gold(payload_index.get(it["key"]) or {}, unit, family_map, text_fallback=True):
                         gold_in_pool_count += 1
                         break
                 else:

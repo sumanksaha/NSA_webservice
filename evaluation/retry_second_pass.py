@@ -258,7 +258,8 @@ def _run_retry(q, cached_gen: dict | None, service, payload_index, planner,
 
     if getattr(q, "insufficient_evidence", False):
         return {"qid": q.question_id, "cond": "retry", "skipped": "insufficient_evidence"}
-    missing = (cached_gen or {}).get("concepts_missing") or []
+    cached = cached_gen or {}
+    missing = (cached.get(concepts_missing\) or []) + (cached.get(uthority_missing\) or cached.get(uthorities_missing\) or [])
     if not missing:
         return {"qid": q.question_id, "cond": "retry", "skipped": "no_missing_concepts_or_authority"}
     # Same heuristic failure derivation Stage-1 used (imported seam, §4.1).

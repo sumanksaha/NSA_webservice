@@ -130,7 +130,7 @@ def find_all_gold_chunk_ids(question, payload_index: dict[str, dict], family_map
     for unit in question.recall_units():
         found = False
         for pid, payload in payload_index.items():
-            if matches_gold(payload, unit, family_map):
+            if matches_gold(payload, unit, family_map, text_fallback=True):
                 gold_chunk_ids.append(pid)
                 found = True
         # Note: we collect all matching chunk IDs per unit
@@ -153,7 +153,7 @@ def find_all_gold_with_ranks(ranked_list: list[dict], question, payload_index, f
         for i, it in enumerate(ranked_list):
             if it["kind"] == "chunk":
                 payload = payload_index.get(it["key"])
-                if payload and matches_gold(payload, unit, family_map):
+                if payload and matches_gold(payload, unit, family_map, text_fallback=True):
                     text = str(payload.get("chunk_text") or payload.get("text") or "")[:200]
                     info[pid]["hits"].append({
                         "rank": i + 1,

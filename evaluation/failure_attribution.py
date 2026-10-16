@@ -76,7 +76,7 @@ def _gold_in_prompt(qid: str, question, arms: dict, payload_index: dict, fm) -> 
     built = ContextBuilder(query_type=qt).build(question.question, chunks, qt)
     admitted = {c["chunk_id"] for c in built.citations}
     units = question.recall_units()
-    return any(cid in payload_index and any(matches_gold(payload_index[cid], u, fm) for u in units) for cid in admitted)
+    return any(cid in payload_index and any(matches_gold(payload_index[cid], u, fm, text_fallback=True) for u in units) for cid in admitted)
 
 
 def _gold_depth(chunk_ids: list[str], payload_index: dict, units, fm) -> int | None:
@@ -86,7 +86,7 @@ def _gold_depth(chunk_ids: list[str], payload_index: dict, units, fm) -> int | N
             continue
         for u in units:
             try:
-                if matches_gold(payload, u, fm):
+                if matches_gold(payload, u, fm, text_fallback=True):
                     return i
             except Exception:
                 continue
