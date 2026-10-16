@@ -184,13 +184,13 @@ class ContextBuilder:
     # operator setting a SMALLER window still wins. They only raise the default
     # when the ceiling is larger.
     _QUERY_TYPE_BUDGETS: ClassVar[dict[str, dict[str, int]]] = {
-        "case_law": {"max_context_chars": 24_000, "max_chunks": 20},
-        "cross_reference": {"max_context_chars": 24_000, "max_chunks": 20},
-        "prohibition": {"max_context_chars": 24_000, "max_chunks": 20},
-        "definition": {"max_context_chars": 20_000, "max_chunks": 16},
-        "penalty": {"max_context_chars": 24_000, "max_chunks": 20},
-        "general": {"max_context_chars": 24_000, "max_chunks": 20},
-        "procedure": {"max_context_chars": 24_000, "max_chunks": 20},
+        "case_law": {"max_context_chars": 40_000, "max_chunks": 50},
+        "cross_reference": {"max_context_chars": 40_000, "max_chunks": 50},
+        "prohibition": {"max_context_chars": 40_000, "max_chunks": 50},
+        "definition": {"max_context_chars": 40_000, "max_chunks": 50},
+        "penalty": {"max_context_chars": 40_000, "max_chunks": 50},
+        "general": {"max_context_chars": 40_000, "max_chunks": 50},
+        "procedure": {"max_context_chars": 40_000, "max_chunks": 50},
     }
 
     def __init__(

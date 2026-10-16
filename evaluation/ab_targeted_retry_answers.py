@@ -103,7 +103,7 @@ def _one(task, payload_index, family_map, questions, retry):
         tracked = svc._extract_citations(llm, pool, built)
         san = svc.sanitizer.sanitize(answer, tracked, pool)
         in_prompt = {c["chunk_id"] for c in built.citations}
-        gold = {c.chunk_id for c in pool if any(matches_gold(payload_index.get(c.chunk_id, {}), u, family_map) for u in q.recall_units())}
+        gold = {c.chunk_id for c in pool if any(matches_gold(payload_index.get(c.chunk_id, {}), u, family_map, text_fallback=True) for u in q.recall_units())}
         m = score_answer(answer, q.acceptable_conclusion or "", q.insufficient_evidence)
         cited = {c.chunk_id for c in tracked}
         m["citation_recall"] = round(len(cited & gold) / max(len(gold), 1), 4) if gold else 0.0

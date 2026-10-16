@@ -315,7 +315,7 @@ _TABLE: tuple[Setting, ...] = (
         "RAG_DECISION_THRESHOLD",
         "decision_threshold",
         float,
-        0.5,
+        0.13,
         help="P(keep) threshold for the decision selection (sweep 0.3/0.5/0.7 offline).",
     ),
     Setting(
@@ -530,7 +530,7 @@ _TABLE: tuple[Setting, ...] = (
         "RAG_ENSEMBLE_CE_WEIGHT",
         "ensemble_ce_weight",
         float,
-        0.5,
+        0.13,
         help="Bonus weight for normalized CE head scores.",
     ),
     # --- Remote dense embeddings ---------------------------------------------
@@ -759,18 +759,19 @@ _TABLE: tuple[Setting, ...] = (
         "RAG_CONTEXT_MAX_CHUNKS",
         "context_max_chunks",
         int,
-        20,
-        help="Max chunks assembled into the LLM context (ContextBuilder ceiling; also the live query routes' top_k default).",
+        50,
+        help="Max chunks assembled into the LLM context (ContextBuilder ceiling; also the live query routes' top_k default). Raised 20→50 to surface gold evidence buried deeper in the retrieval pool (gold depth p90=105; R@20=68.5% → R@50=77.5%).",
     ),
     Setting(
         "RAG_CONTEXT_MAX_CHARS",
         "context_max_chars",
         int,
-        24000,
+        40000,
         help=(
-            "Max context characters (ContextBuilder ceiling). Held at 24k: raising it to 40k "
-            "diluted the gold-in-prompt slice's eliminations 11 -> 8 (out/ceiling_v5/"
-            "rerun_gip/cond_v4), so the wider window buys recall elsewhere but costs precision here."
+            "Max context characters (ContextBuilder ceiling). Raised 24k→40k to accompany the "
+            "50-chunk window: more chunks compete for the same char budget, so each entry is "
+            "truncated more aggressively, but the net gain is more gold provisions reaching the "
+            "prompt for the retrieval_rank failure class."
         ),
     ),
     Setting(

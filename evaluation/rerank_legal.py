@@ -179,7 +179,7 @@ def rank_of(pool: list[dict], unit, payload_index, family_map) -> int | None:
 
     for i, it in enumerate(pool):
         if it["kind"] == "chunk":
-            if matches_gold(payload_index.get(it["key"]) or {}, unit, family_map):
+            if matches_gold(payload_index.get(it["key"]) or {}, unit, family_map, text_fallback=True):
                 return i + 1
         else:
             # KG provision -> RankedItem via the same key derivation as

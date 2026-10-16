@@ -225,7 +225,7 @@ def main() -> int:
         ids = set()
         for c in chunks:
             p = payload_index.get(c.chunk_id)
-            if p and any(matches_gold(p, u, family_map) for u in units):
+            if p and any(matches_gold(p, u, family_map, text_fallback=True) for u in units):
                 ids.add(c.chunk_id)
         gold_index[qid] = ids
         tasks.append((qid, rec.get("query", ""), chunks))

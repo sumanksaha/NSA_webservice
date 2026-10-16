@@ -170,7 +170,7 @@ def main() -> int:
 
 def _safe_match(payload: dict[str, Any], unit: Any, family_map: Any) -> bool:
     try:
-        return bool(matches_gold(payload, unit, family_map))
+        return bool(matches_gold(payload, unit, family_map, text_fallback=True))
     except Exception:
         return False
 

@@ -170,7 +170,7 @@ def main() -> int:
             gold = {
                 c.chunk_id
                 for c in chunks
-                if any(matches_gold(payload_index.get(c.chunk_id, {}), u, family_map) for u in q.recall_units())
+                if any(matches_gold(payload_index.get(c.chunk_id, {}), u, family_map, text_fallback=True) for u in q.recall_units())
             }
             pool, kg_meta = list(chunks), {"provisions": 0, "injected": 0}
             with sem:

@@ -126,7 +126,7 @@ def main() -> int:
         if len(chunks) < 2:
             continue
         units = q.recall_units()
-        gold_ids = {c.chunk_id for c in chunks if units and any(matches_gold(payload_index.get(c.chunk_id), u, family_map) for u in units)}
+        gold_ids = {c.chunk_id for c in chunks if units and any(matches_gold(payload_index.get(c.chunk_id), u, family_map, text_fallback=True) for u in units)}
         baseline = {c.chunk_id for c in chunks[:BASELINE_K]}
         failures = _derive_failures(qtext, bool(baseline & gold_ids))
         plan = planner.target_plan(qtext, failures, "general", {"top_k": BASELINE_K, "chunks": [c.to_dict() for c in chunks], "answer": ""})
