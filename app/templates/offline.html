@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Offline — NSA Webservice</title>
+        <meta name="theme-color" content="#0b3d91" />
+        <link rel="icon" href="/static/icons/pwa-16-favicon.png" />
+        <style>
+            :root {
+                --brand-blue: #0b3d91;
+                --brand-blue-dark: #1550a8;
+            }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            html, body { height: 100%; }
+            body {
+                font-family: "Merriweather", Georgia, serif;
+                background: linear-gradient(135deg, var(--brand-blue) 0%, var(--brand-blue-dark) 100%);
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                min-height: 100vh;
+                padding: 2rem;
+            }
+            .container {
+                max-width: 480px;
+                background: rgba(255, 255, 255, 0.08);
+                backdrop-filter: blur(10px);
+                border-radius: 16px;
+                padding: 2.5rem;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+            }
+            .icon {
+                font-size: 4rem;
+                margin-bottom: 1rem;
+            }
+            h1 {
+                font-size: 1.5rem;
+                font-weight: 600;
+                margin-bottom: 0.75rem;
+            }
+            p {
+                font-size: 1.05rem;
+                line-height: 1.6;
+                opacity: 0.92;
+            }
+            .retry {
+                margin-top: 1.5rem;
+                padding: 0.6rem 1.4rem;
+                background: rgba(255, 255, 255, 0.2);
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                border-radius: 8px;
+                color: #fff;
+                font-size: 0.95rem;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+            .retry:hover {
+                background: rgba(255, 255, 255, 0.3);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="icon">&#128269;</div>
+            <h1>You are offline</h1>
+            <p>
+                The NSA Webservice could not be reached. You can still access
+                recently viewed pages from your browser cache, but new actions
+                like creating or editing cases will be unavailable until you are
+                back online.
+            </p>
+            <button class="retry" onclick="window.location.reload()">Retry connection</button>
+        </div>
+    </body>
+</html>

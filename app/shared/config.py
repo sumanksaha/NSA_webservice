@@ -1056,6 +1056,15 @@ _TABLE: tuple[Setting, ...] = (
         0.30,
         help="Lower bound of the borderline review band for P2 human review.",
     ),
+    # --- Progressive Web App (issue #70) --------------------------------------
+    Setting(
+        "ENABLE_PWA",
+        "enable_pwa",
+        bool,
+        False,
+        opt_in=True,
+        help="Installable Progressive Web App (manifest, service worker, offline fallback). Default off — opt-in: only 'true' enables.",
+    ),
 )
 _BY_ATTR: dict[str, Setting] = {s.attr: s for s in _TABLE}
 _BY_KEY: dict[str, Setting] = {s.key: s for s in _TABLE}

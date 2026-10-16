@@ -190,3 +190,98 @@ def csp_report():
     }
     logger.warning("CSP violation reported: %s", brief or "(unparseable report)")
     return "", 204
+
+
+# ---------------------------------------------------------------------------
+# Progressive Web App (issue #70) — manifest, root-scoped service worker,
+# and branded offline fallback page.
+#
+# These endpoints are public (added to public_endpoints in app/__init__.py)
+# so the browser can fetch them unauthenticated.  When ENABLE_PWA is off they
+# still serve successfully (harmless), but the base template only injects the
+# manifest link and SW registration script when the flag is on — so the
+# browser never discovers or registers the worker when PWA is disabled.
+# ---------------------------------------------------------------------------
+
+
+def pwa_required(view_func):
+    """404 unless ENABLE_PWA is enabled — keeps PWA routes flag-gated."""
+    from functools import wraps
+
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        from flask import abort, current_app
+
+        if not current_app.config.get("ENABLE_PWA", False):
+            abort(404)
+        return view_func(*args, **kwargs)
+
+    return wrapped
+
+
+def _pwa_manifest() -> dict:
+    """Build the web app manifest dict (installability keys per PWA spec)."""
+    return {
+        "name": "NSA Webservice",
+        "short_name": "NSA",
+        "description": "Food Safety Officer adjudication and case management",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#0b3d91",
+        "icons": [
+            {
+                "src": "/static/icons/pwa-192.png",
+                "sizes": "192x192",
+                "type": "image/png",
+            },
+            {
+                "src": "/static/icons/pwa-512.png",
+                "sizes": "512x512",
+                "type": "image/png",
+            },
+            {
+                "src": "/static/icons/pwa-192-maskable.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "maskable",
+            },
+            {
+                "src": "/static/icons/pwa-512-maskable.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "maskable",
+            },
+        ],
+    }
+
+
+@health_bp.route("/manifest.json")
+@pwa_required
+def manifest():
+    """Serve the web app manifest as JSON (installability)."""
+    from flask import jsonify
+
+    return jsonify(_pwa_manifest())
+
+
+@health_bp.route("/sw.js")
+@pwa_required
+def service_worker():
+    """Serve the root-scoped service worker with a JavaScript content type."""
+    from flask import Response, current_app
+    import os
+
+    sw_path = os.path.join(current_app.root_path, "static", "src", "sw.js")
+    with open(sw_path, encoding="utf-8") as f:
+        sw_code = f.read()
+    return Response(sw_code, mimetype="application/javascript")
+
+
+@health_bp.route("/offline")
+@pwa_required
+def offline():
+    """Serve the branded offline fallback page."""
+    from flask import render_template
+
+    return render_template("offline.html")

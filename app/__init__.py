@@ -284,6 +284,9 @@ def create_app(db_uri: str | None = None):
         "form-action": ["'self'"],
         "base-uri": ["'self'"],
     }
+    # PWA: permit the service worker only when the feature is enabled.
+    if app.config.get("ENABLE_PWA", False):
+        csp["worker-src"] = ["'self'"]
 
     talisman.init_app(
         app,
@@ -349,6 +352,10 @@ def create_app(db_uri: str | None = None):
         "health.backups",
         # CSP violation collector — browsers post here without session/CSRF
         "health.csp_report",
+        # PWA assets — public so the browser can fetch them unauthenticated
+        "health.manifest",
+        "health.service_worker",
+        "health.offline",
         # Lookup endpoints - public for form prefill/autocomplete
         "case_file_generator.lookup_sample",
         "case_file_generator.list_samples_for_datalist",

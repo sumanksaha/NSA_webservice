@@ -133,6 +133,8 @@ services:
             value: "5"
           - key: RAG_HALLUCINATION_DETECTOR
             value: "true"
+          - key: ENABLE_PWA
+            value: "false"
 
     # ── G2: Staging web service — built from the default branch (main),
     #    deployed via deploy.yml → staging environment → Render deploy hook
@@ -244,6 +246,8 @@ services:
             value: "5"
           - key: RAG_HALLUCINATION_DETECTOR
             value: "true"
+          - key: ENABLE_PWA
+            value: "false"
 
 databases:
     - name: nsa-webservice-db
