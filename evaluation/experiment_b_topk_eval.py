@@ -200,9 +200,14 @@ def gold_chunk_ids_for_units(units, idx, payload_index=None, family_map=None, te
             ids |= by_section.get(u.family, {}).get(u.section, set())
         if text_fallback and payload_index is not None and family_map is not None:
             from evaluation.resolution import matches_gold as _mg
-            for pid, payload in payload_index.items():
+            # Only scan in-family chunks (by_family already indexes them via
+            # payload_to_keys). resolve_by_text requires unit.family in the
+            # chunk's payload families, so a cross-family chunk can never
+            # match — scanning only in-family candidates is complete.
+            for pid in by_family.get(u.family, set()):
                 if pid in ids:
                     continue
+                payload = payload_index.get(pid, {})
                 if _mg(payload, u, family_map, text_fallback=True):
                     ids.add(pid)
     return ids

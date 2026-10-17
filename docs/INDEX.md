@@ -51,6 +51,8 @@ Files the engineering skills read before acting:
 - [NOTEPAD_LEGAL_RAG_PLAN.md](./NOTEPAD_LEGAL_RAG_PLAN.md) — Turning the Notepad into a legal-Q&A thread: the AI button routes through the legal RAG pipeline (`run_generation_pipeline`) instead of the generic LLM; append-only Answer turns, deterministic query rewriting for follow-ups, user-driven query fragmentation, statement editing with stale-answer markers
 - [NOTEPAD_LEGAL_RAG_SPEC.md](./NOTEPAD_LEGAL_RAG_SPEC.md) — Normative specification for the above: requirement IDs (FR/NFR/INV/V/SEC), the `NoteAnswer` data contract, fragmentation and query-rewrite rules, pipeline-result mapping, route state machine, error taxonomy, 16 acceptance criteria, and traceability
 - [PWA_IMPLEMENTATION.md](PWA_IMPLEMENTATION.md) — Progressive Web App rollout guide (config flag, assets, security, staging→production rollout)
+- [OBSERVABILITY_SENTRY_PROMETHEUS_RESEARCH.md](OBSERVABILITY_SENTRY_PROMETHEUS_RESEARCH.md) — Where Sentry and Prometheus pay off in this codebase, and the phased plan to wire them in (README Level 7). **Read before starting the observability work.**
+- [OBSERVABILITY_SENTRY_PROMETHEUS_SPEC.md](./OBSERVABILITY_SENTRY_PROMETHEUS_SPEC.md) — Normative specification for the above: decisions D1–D11, 50 functional requirements, the metric and label contracts (bounded allowlists), `/metrics` decision table, PII/security requirements, 24 acceptance criteria, and traceability
 
 ## Implemented
 

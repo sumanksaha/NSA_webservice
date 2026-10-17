@@ -1,0 +1,25 @@
+[2026-10-16 21:11:54,723] WARNING in __init__: DATABASE_URL not set - falling back to SQLite
+[2026-10-16 21:11:57,214] WARNING in qstash_client: QStash not configured — recurring task create_daily_db_snapshot not scheduled. Set QSTASH_TOKEN / QSTASH_CURRENT_SIGNING_KEY / QSTASH_NEXT_SIGNING_KEY / PUBLIC_BASE_URL env vars to enable.
+[2026-10-16 21:11:57,215] WARNING in scheduled_jobs: Schedule create_daily_db_snapshot NOT active: QStash unconfigured, no snapshots will run
+[2026-10-16 21:11:57,215] WARNING in qstash_client: QStash not configured — recurring task cleanup_rag_query_logs not scheduled. Set QSTASH_TOKEN / QSTASH_CURRENT_SIGNING_KEY / QSTASH_NEXT_SIGNING_KEY / PUBLIC_BASE_URL env vars to enable.
+[2026-10-16 21:11:57,215] WARNING in scheduled_jobs: Schedule cleanup_rag_query_logs NOT active: QStash unconfigured, no runs will run
+======================================================================
+Phase LLM: K-curve (150 Q x 8 K = 1200 calls)
+======================================================================
+  cached CE: 150 questions | checkpointed: 0/1200 | stub=False | concurrency=8
+  584 LLM tasks ...
+  [25/584] Q004 K=30 (78s, 0 errors)
+  [50/584] Q006 K=100 (122s, 0 errors)
+  [75/584] Q010 K=30 (192s, 0 errors)
+  [100/584] Q013 K=20 (264s, 0 errors)
+  [125/584] Q017 K=1 (326s, 0 errors)
+  [150/584] Q019 K=5 (381s, 0 errors)
+  [175/584] Q023 K=5 (437s, 0 errors)
+  [200/584] Q026 K=5 (481s, 0 errors)
+  [225/584] Q029 K=20 (543s, 0 errors)
+  [250/584] Q030 K=100 (608s, 0 errors)
+  [275/584] Q035 K=30 (648s, 0 errors)
+  [300/584] Q039 K=1 (680s, 0 errors)
+  [325/584] Q041 K=30 (721s, 0 errors)
+  [350/584] Q044 K=10 (756s, 0 errors)
+  [375/584] Q048 K=1 (783s, 0 errors)
