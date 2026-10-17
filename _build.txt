@@ -1,17 +1,0 @@
-[2026-10-16 21:06:42,001] WARNING in __init__: DATABASE_URL not set - falling back to SQLite
-[2026-10-16 21:06:45,053] WARNING in qstash_client: QStash not configured — recurring task create_daily_db_snapshot not scheduled. Set QSTASH_TOKEN / QSTASH_CURRENT_SIGNING_KEY / QSTASH_NEXT_SIGNING_KEY / PUBLIC_BASE_URL env vars to enable.
-[2026-10-16 21:06:45,053] WARNING in scheduled_jobs: Schedule create_daily_db_snapshot NOT active: QStash unconfigured, no snapshots will run
-[2026-10-16 21:06:45,053] WARNING in qstash_client: QStash not configured — recurring task cleanup_rag_query_logs not scheduled. Set QSTASH_TOKEN / QSTASH_CURRENT_SIGNING_KEY / QSTASH_NEXT_SIGNING_KEY / PUBLIC_BASE_URL env vars to enable.
-[2026-10-16 21:06:45,053] WARNING in scheduled_jobs: Schedule cleanup_rag_query_logs NOT active: QStash unconfigured, no runs will run
-======================================================================
-Phase BUILD: retrieval + RRF + CE ONCE, cache complete CE top-K ranking
-======================================================================
-  payload_index=34745 pts, questions=150, registry=99, ident_cached=150
-Loading weights:   0%|          | 0/105 [00:00<?, ?it/s]Loading weights: 100%|##########| 105/105 [00:00<00:00, 2265.55it/s]
-  CE model loaded: legal_ce_v2_K500
-  [verify] Q001: brute=54 indexed=57 -> MISMATCH
-  [verify] Q002: brute=45 indexed=49 -> MISMATCH
-  [verify] Q003: brute=35 indexed=39 -> MISMATCH
-  [verify] Q004: brute=34 indexed=43 -> MISMATCH
-  [verify] Q005: brute=24 indexed=25 -> MISMATCH
-  25/150 ce-scored (elapsed 226.2s)
