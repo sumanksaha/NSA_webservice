@@ -1940,6 +1940,26 @@ def phase_report():
         )
     A("")
     A("---")
+    A("## 24. Coverage & Error Rate (per K)")
+    A("")
+    A("Coverage disclosure for interpreting 'completed' results: each K attempts all 150 questions; "
+      "records with empty answers / rate-limit errors are counted as n_error.")
+    A("")
+    for row in _tbl(
+        ["K", "attempted", "success (n)", "error (n)", "error_rate"],
+        [
+            [
+                k,
+                150,
+                kc[k]["n"],
+                kc[k]["n_error"],
+                f"{kc[k]['n_error'] / 150 * 100:.1f}%",
+            ]
+            for k in ks
+        ],
+    ):
+        A(row)
+    A("")
     A(
         f"*Generated {time.strftime('%Y-%m-%d %H:%M:%S')} from "
         f"`evaluation/experiment_b_topk_eval.py`. "
