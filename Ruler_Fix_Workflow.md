@@ -427,3 +427,21 @@ question edits (v1.0 frozen; reference bundle is the only new artifact); no
 calls made with `MAX_LLM_CALLS=0` until an explicit, budgeted gate re-enables
 them for live A/Bs only; no composite-index optimization or arm gating until
 its accuracy axis is calibrated against the tabulation (WF-9 promotion rule).
+
+## Lane A · IE disposition packets (`evaluation/ie_disposition_packets.py`)
+
+The 11 IE qids split into two *measured* classes: A1 answered-in-every-arm
+(Q042 Q060 Q090 Q098 — audited arms all answered with zero refusal phrasing)
+and A2 no-K-curve-trace (Q119 … Q137 — all checkpoint arms errored, though
+their audited arms mostly answered). All 11 already carry
+`expected_abstain=True` in the bundle — the ruler side is done; the machine
+cannot author the decision. Lane A therefore mirrors the WF-6 packet
+architecture for a human choice: build (evidence packet per qid) → validate
+(choice in {A, B, C} + human rationale ≥20 chars) → merge (stamps the
+NON-scoring `questions[qid].ie_disposition` field — no rule reads it —
+bumps the bundle minor version to 1.3.1 on first accept, re-verifies the
+content checksum, is idempotent, and refuses conflicting re-decisions
+without silent overwrite). The human tabulation is never modified.
+Packets: `evaluation/out/ceiling_v5/ie_disposition/packets/{QID}.md` +
+reviewer guide `README.md` — **awaiting the legal reviewer's dispositions**;
+the merge is the R1-versioned bundle event that pairs with a checksum change.
