@@ -22,6 +22,8 @@ Files the engineering skills read before acting:
 ## Evaluation
 
 - [../evaluation/README.md](../evaluation/README.md) - Schemas for the training/eval cache files under `evaluation/out/`
+- [../Evaluator_V4_Binary_Ruler_Design_Review.md](../Evaluator_V4_Binary_Ruler_Design_Review.md) - Design review of the binary-correctness ruler (evaluator v1→v3 lineage, measured constraints, v4 CREDIT/CLAIM design, acceptance criteria)
+- [../Ruler_Fix_Workflow.md](../Ruler_Fix_Workflow.md) - Executable workflow (WF-0…WF-9) to build ruler v4 and eliminate the G1–G11 measurement gaps, with gates, 0-LLM sequencing, and the WF-9 composite index (reporting layer only)
 
 ## Architectural Decisions
 
