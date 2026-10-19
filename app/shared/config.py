@@ -1066,6 +1066,51 @@ _TABLE: tuple[Setting, ...] = (
         opt_in=True,
         help="Installable Progressive Web App (manifest, service worker, offline fallback). Default off — opt-in: only 'true' enables.",
     ),
+    # --- Observability (issues #71-#75) --------------------------------------
+    # Error tracking. A blank DSN means Sentry is never initialised: with no DSN
+    # there is no transport, so there is no network egress (the property the
+    # test suite's no-network contract needs). Never pass dsn=None - the SDK
+    # falls back to $SENTRY_DSN. See docs/OBSERVABILITY_SENTRY_PROMETHEUS_SPEC.md.
+    Setting(
+        "SENTRY_DSN",
+        "sentry_dsn",
+        str,
+        "",
+        help="Sentry DSN. Blank means Sentry is never initialised (no transport, no network).",
+    ),
+    Setting(
+        "SENTRY_ENVIRONMENT",
+        "sentry_environment",
+        str,
+        "",
+        help="Sentry environment. Blank derives 'production' on Render, else 'development'.",
+    ),
+    Setting(
+        "SENTRY_TRACES_SAMPLE_RATE",
+        "sentry_traces_sample_rate",
+        float,
+        0.0,
+        help="Transaction sample rate. 0.0 = errors only (default); does NOT sample errors.",
+    ),
+    # Prometheus scraping. GET /metrics is bearer-token guarded and fail-closed:
+    # enabled with a blank METRICS_TOKEN returns 503, never 200.
+    # PROMETHEUS_MULTIPROC_DIR is deliberately NOT declared here - the client
+    # reads it at import time, before this table exists.
+    Setting(
+        "METRICS_ENABLED",
+        "metrics_enabled",
+        bool,
+        False,
+        opt_in=True,
+        help="Expose GET /metrics for Prometheus scraping (bearer-token guarded). Default off - opt-in: only 'true' enables.",
+    ),
+    Setting(
+        "METRICS_TOKEN",
+        "metrics_token",
+        str,
+        "",
+        help="Bearer token required by GET /metrics when metrics are enabled. Dashboard-set secret.",
+    ),
 )
 _BY_ATTR: dict[str, Setting] = {s.attr: s for s in _TABLE}
 _BY_KEY: dict[str, Setting] = {s.key: s for s in _TABLE}

@@ -135,6 +135,14 @@ services:
             value: "true"
           - key: ENABLE_PWA
             value: "false"
+          # Observability (issues #71-#75). Dashboard-set secrets; a blank value
+          # disables the integration (Sentry: no transport at all; /metrics:
+          # fail-closed 503 if enabled without a token). Render injects no
+          # Sentry env vars of its own - there is no Sentry integration.
+          - key: SENTRY_DSN
+            sync: false
+          - key: METRICS_TOKEN
+            sync: false
 
     # ── G2: Staging web service — built from the default branch (main),
     #    deployed via deploy.yml → staging environment → Render deploy hook
@@ -248,6 +256,14 @@ services:
             value: "true"
           - key: ENABLE_PWA
             value: "false"
+          # Observability (issues #71-#75). Dashboard-set secrets; a blank value
+          # disables the integration (Sentry: no transport at all; /metrics:
+          # fail-closed 503 if enabled without a token). Render injects no
+          # Sentry env vars of its own - there is no Sentry integration.
+          - key: SENTRY_DSN
+            sync: false
+          - key: METRICS_TOKEN
+            sync: false
 
 databases:
     - name: nsa-webservice-db
