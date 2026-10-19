@@ -35,6 +35,34 @@ Adding a flag = one table row + one `.env.example` entry (enforced by
 `tests/test_shared_config.py::test_env_example_keys_are_declared`). Never
 hand-roll a `try: current_app.config / except: os.environ` resolver again.
 
+### `Observability` — the error-tracking and metrics seam
+
+**Package:** `app/observability/`. Deliberately thin, and deliberately _not_ the
+audit trail: `RecordAudit` stays the hash-chained record of truth, and nothing
+here may be cited as evidence or history.
+
+- **Error tracking (Sentry, `sentry.py`)** — `init_sentry()`, one call site, in
+  `create_app()`. It **returns early when `SENTRY_DSN` is blank**; that is the
+  off switch. Passing `dsn=None` is _not_ one — the SDK falls back to
+  `os.environ["SENTRY_DSN"]` — so a blank DSN skips `init()` entirely: no DSN,
+  no transport, no network. It never raises: a malformed DSN (a typo in a
+  dashboard field) is logged and leaves tracking disabled rather than taking a
+  deploy down.
+- **PII is hard-wired off** — `send_default_pii=False`, `max_request_body_size="never"`,
+  and a `before_send` scrubber that drops request bodies and cookies. There is
+  deliberately no flag for it: an FSSAI query is a legal question about a named
+  firm, so firm names, licence numbers, addresses and query text are as
+  sensitive as credentials.
+- **Why it earns its keep** — the codebase swallows exceptions on purpose
+  (Ruff `S110`/`S112` ignored; the RAG loggers are "best-effort … logged and
+  swallowed"). The SDK's logging integration turns those already-emitted
+  warnings and errors into grouped, stack-traced issues with **no call-site
+  edits**. Do not sprinkle `capture_exception()` into existing `except` blocks.
+- **Tracing stays off** (`SENTRY_TRACES_SAMPLE_RATE=0.0`) — `a2wsgi` invokes
+  `Flask.__call__`, so one request would otherwise open two server transactions.
+
+See `docs/OBSERVABILITY_SENTRY_PROMETHEUS_SPEC.md` (decisions D1–D11, FR/NFR/INV/SEC).
+
 ### `BackupRestorer` — the CSV restore adapter (D6)
 
 **Module:** `app/services/backup_restorer.py`. The single deep module

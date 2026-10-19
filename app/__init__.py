@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from flask import Flask, redirect, url_for
+from flask import Flask, g, redirect, request, url_for
 from flask_login import current_user
 from flask_migrate import Migrate
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -128,6 +128,22 @@ def create_app(db_uri: str | None = None):
 
     # Load environment variables from .env file before any config
     load_dotenv()
+
+    # ------------------------------------------------------------------
+    # Error tracking (Sentry). Guarded twice over: init_sentry() itself
+    # swallows DSN/transport failures, and this wrapper keeps observability
+    # from ever blocking a boot (NFR-2; same posture as app/utils/logging.py).
+    # A blank SENTRY_DSN makes it a no-op — no transport, no network.
+    #
+    # Single call site: asgi.py reaches this factory, so it must not call
+    # init_sentry() again (spec D2).
+    # ------------------------------------------------------------------
+    try:
+        from app.observability.sentry import init_sentry
+
+        init_sentry()
+    except Exception:  # pragma: no cover - the module is guarded too; belt and braces
+        app.logger.warning("Observability: Sentry init unavailable", exc_info=True)
 
     # ------------------------------------------------------------------
     # Production detection — shared by the SECRET_KEY guard below and the
@@ -384,6 +400,24 @@ def create_app(db_uri: str | None = None):
             db.session.info["audit_user_id"] = current_user.get_id() if current_user.is_authenticated else None
         except (RuntimeError, AttributeError):
             db.session.info["audit_user_id"] = None
+
+    @app.before_request
+    def bind_observability_context():
+        """Attach request correlation to the Sentry scope.
+
+        Registered *before* the login/RBAC gates below so it also covers the
+        redirects those gates produce. Binds nothing identifying: an inbound
+        ``X-Request-ID`` when a proxy supplies one, and a bounded role label
+        (never an officer or firm name). A no-op while Sentry is disabled.
+        """
+        try:
+            request_id = (request.headers.get("X-Request-ID") or getattr(g, "request_id", "") or "").strip()
+
+            from app.observability.sentry import bind_request_context
+
+            bind_request_context(current_user, request_id)
+        except Exception:  # pragma: no cover - observability never breaks a request
+            app.logger.debug("Observability: request context binding failed", exc_info=True)
 
     # Auth gates (global login + Phase 18 RBAC) live in app/shared/rbac.py —
     # the single home for access policy (2026-09-12 review: the factory was
