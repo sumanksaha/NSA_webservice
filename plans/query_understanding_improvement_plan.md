@@ -104,4 +104,4 @@ After implementing the improvements:
 4. Verify entity extraction (act, section, authority, jurisdiction) on varied inputs
 5. Verify `QueryParser` dispatch works for all query types
 6. Verify form reference detection across query types
-7. Run integration tests: `tests/_test_workflow_part1.py`, `tests/test_food_intent_retrieval.py`
+7. Run integration tests: `tests/test_workflow_improvement.py`, `tests/test_food_intent_retrieval.py`

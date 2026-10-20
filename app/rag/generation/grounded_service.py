@@ -29,8 +29,9 @@ from app.rag.generation.citation_tracker import CitationTracker
 from app.rag.generation.context_builder import BuiltContext, ContextBuilder
 from app.rag.generation.llm_client import GroundedLLMClient, GroundedLLMResponse
 from app.rag.generation.logger import GenerationLogger
-from app.rag.generation.prompt_template import PromptTemplate
+from app.rag.generation.prompt_template import PromptTemplate, query_type_directive, with_query_type_directive
 from app.rag.generation.sanitizer import ResponseSanitizer, SanitizedResponse
+from app.rag.generation.answer_contract import get_answer_contract_resolver, AnswerContract
 from app.rag.retrieval.result import RAGResponse, RetrievedChunk
 from app.rag.verification.token_counter import TokenCounter
 from app.shared.config import cfg
@@ -129,19 +130,47 @@ class GroundedGenerationService:
         # 1. Build context
         built = self._build_context(query, chunks, query_type, evidence_set)
 
-        # 1b. Optional two-pass structured reasoning (W3).  When
-        # ``ENABLE_STRUCTURED_REASONER`` is on, the IRAC-shaped IR is built
-        # first, in its own LLM call, and the answer is rendered from it
-        # (``grounded_qa_structured``).  Fail-closed: any reasoner failure
-        # degrades to the single-pass template, so the answer never depends
-        # on the extra call succeeding.
-        reasoning = self._reason(query, built) if cfg.structured_reasoner else None
+        # 1b. Optional two-pass structured reasoning (W3).
+        reasoning = self._reason(query, built, query_type=query_type) if cfg.structured_reasoner else None
+
+        # Answer contract (provision-check/abstention-gate)
+        contract = None
+        contract_check = None
+        resolver = get_answer_contract_resolver() if getattr(cfg, 'answer_contract', False) else None
+        if resolver is not None:
+            try:
+                # try to pass question_obj if available? we don't have it here; that's fine
+                contract = resolver.build_contract(query, chunks, query_type)
+            except Exception as exc:
+                logger.debug("answer contract build failed: %s", exc)
 
         # 2. Render prompt
         system_prompt, user_prompt = self._render_prompt(query, built, reasoning=reasoning, query_type=query_type)
+        if contract is not None and resolver is not None and getattr(cfg, 'answer_contract_repair', False):
+            try:
+                system_prompt, user_prompt = resolver.repair_prompt(contract, system_prompt, user_prompt)
+            except Exception as exc:
+                logger.debug("answer contract repair prompt failed: %s", exc)
 
         # 3. Call LLM
         llm_response = self._call_llm(system_prompt, user_prompt)
+
+        # Contract check + optional repair retry (once)
+        if contract is not None and resolver is not None and llm_response.success:
+            try:
+                contract_check = resolver.check_answer(llm_response.text or "", contract, chunks)
+                if not contract_check.passed and getattr(cfg, 'answer_contract_repair', False):
+                    try:
+                        rs, ru = self._render_prompt(query, built, reasoning=reasoning, query_type=query_type)
+                        rs2, ru2 = resolver.repair_prompt(contract, rs, ru)
+                        llm_response2 = self._call_llm(rs2, ru2)
+                        if llm_response2.success and (llm_response2.text or ""):
+                            llm_response = llm_response2
+                            contract_check = resolver.check_answer(llm_response.text or "", contract, chunks)
+                    except Exception as exc:
+                        logger.debug("answer contract repair retry failed: %s", exc)
+            except Exception as exc:
+                logger.debug("answer contract check failed: %s", exc)
 
         # 4. Extract citations
         citations = self._extract_citations(llm_response, chunks, built)
@@ -154,9 +183,21 @@ class GroundedGenerationService:
         self._log_generation(query_log_id, query, llm_response, sanitized, total_latency_ms, built)
 
         # 7. Assemble response
-        return self._assemble_response(
+        resp = self._assemble_response(
             query, query_type, chunks, llm_response, sanitized, total_latency_ms, built, reasoning=reasoning
         )
+        if contract_check is not None:
+            try:
+                resp.debug = dict(resp.debug or {})
+                resp.debug['answer_contract'] = {
+                    'passed': contract_check.passed,
+                    'false_abstention': contract_check.false_abstention,
+                    'provision_mismatch': contract_check.provision_mismatch,
+                    'violations': [{'kind': v.kind, 'severity': v.severity, 'message': v.message} for v in contract_check.violations],
+                }
+            except Exception:
+                pass
+        return resp
 
     def generate_with_prompts(
         self,
@@ -236,12 +277,19 @@ class GroundedGenerationService:
     ) -> tuple[str, str]:
         try:
             if reasoning is not None:
-                return self.prompt_template.render(
+                system_prompt, user_prompt = self.prompt_template.render(
                     "grounded_qa_structured",
                     query=query,
                     context=built.context,
                     extra_vars={"reasoning": reasoning.model_dump_json()},
                 )
+                # W3 x W4: the structured memo path honours the query-type
+                # directive only when the operator opts in via
+                # RAG_STRUCTURED_QUERY_TYPE_DIRECTIVES (measured neutral on
+                # soft correctness, default off).
+                if cfg.structured_query_type_directives and query_type:
+                    user_prompt = with_query_type_directive(user_prompt, query_type)
+                return system_prompt, user_prompt
             # W4: query-type directives are appended only when the operator
             # enables them (cfg.query_type_directives); the default render is
             # byte-identical to the shipped template.
@@ -254,13 +302,17 @@ class GroundedGenerationService:
             user_prompt = f"Question: {query}"
             return system_prompt, user_prompt
 
-    def _reason(self, query: str, built: BuiltContext) -> Any | None:
+    def _reason(self, query: str, built: BuiltContext, query_type: str = "") -> Any | None:
         """Build the structured legal IR for the two-pass path (W3).
 
         Returns ``None`` — never raises — when the flag's promise cannot be
         kept: no context to reason over, or the reasoner itself failed (its
         own fail-closed path returns an empty skeleton, which still renders
         a valid structured prompt; only a crash degrades to single-pass).
+
+        W3 x W4: the query-type directive rides in the IR prompt too, so the
+        type-specific elements (authority, penalty structure, procedure) are
+        reasoned over rather than only appended to the final memo.
         """
         if not built.context:
             return None
@@ -268,7 +320,8 @@ class GroundedGenerationService:
             from app.rag.generation.structured_reasoner import StructuredReasoner
 
             reasoner = StructuredReasoner(llm_client=self.llm_client)
-            return reasoner.reason(query, built.context)
+            directive = query_type_directive(query_type) if cfg.structured_query_type_directives else ""
+            return reasoner.reason(query, built.context, directive=directive)
         except Exception as exc:
             logger.warning("StructuredReasoner unavailable: %s", exc)
             return None

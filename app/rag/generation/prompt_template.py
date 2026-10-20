@@ -140,7 +140,9 @@ GROUND_QA_USER_TEMPLATE = (
     "If one part is not covered by the context, answer the other parts and "
     "say which part is uncovered rather than declining the whole question; "
     "before stating that the context does not address something, point to "
-    "the numbered sources you checked for it.\n"
+    "the numbered sources you checked for it. NEVER give a blanket refusal "
+    "if the question names a specific Act/Order/Rule or section number — "
+    "you MUST address that specific provision with citations from the context.\n"
     "For each material legal proposition, name the exact provision you rely "
     "on (Act and section) beside its [n] citation. If more than one section "
     "could apply, say which one governs and why. If the context holds more "
@@ -225,6 +227,33 @@ GROUNDED_QA_STRUCTURED_USER_TEMPLATE = (
 #: the alias index and the coverage test can see them.
 QUERY_TYPE_DIRECTIVES: dict[str, str] = dict(_registry.DIRECTIVES)
 
+
+def query_type_directive(query_type: str) -> str:
+    """Return the W4 directive for *query_type*, or ``""`` when none applies.
+
+    Resolves aliases first: callers pass the runtime ``QueryType`` value
+    (``duty``) or a benchmark label (``Penalty``), not the canonical id.
+    """
+    return QUERY_TYPE_DIRECTIVES.get(_registry.resolve(query_type) or "", "")
+
+
+def with_query_type_directive(user_prompt: str, query_type: str) -> str:
+    """Insert the W4 directive before the ``Question:`` marker.
+
+    No-op when the type has no directive or the marker is absent, so callers
+    can use it unconditionally and keep the default render byte-identical.
+    The directive is inserted before the question so it still reads as an
+    instruction, not as trailing content after ``Answer:``.
+    """
+    directive = query_type_directive(query_type)
+    if not directive:
+        return user_prompt
+    marker = "\nQuestion: "
+    if marker not in user_prompt:
+        return user_prompt
+    return user_prompt.replace(marker, f"\n{directive}{marker}", 1)
+
+
 _TEMPLATES: dict[str, tuple[str, str]] = {
     "grounded_qa": (GROUND_QA_SYSTEM_PROMPT, GROUND_QA_USER_TEMPLATE),
     # W3: two-pass structured answering. Selected by GroundedGenerationService
@@ -307,11 +336,5 @@ class PromptTemplate:
         )
         # W4: the directive is inserted before the question so it still reads
         # as an instruction, not as trailing content after "Answer:".
-        # Resolve aliases first: callers pass the runtime ``QueryType`` value
-        # (``duty``) or a benchmark label (``Penalty``), not the canonical id.
-        directive = QUERY_TYPE_DIRECTIVES.get(_registry.resolve(query_type) or "")
-        if directive:
-            marker = "\nQuestion: "
-            if marker in user_prompt:
-                user_prompt = user_prompt.replace(marker, f"\n{directive}{marker}", 1)
+        user_prompt = with_query_type_directive(user_prompt, query_type)
         return system_prompt, user_prompt

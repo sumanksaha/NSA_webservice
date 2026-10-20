@@ -295,6 +295,40 @@ _TABLE: tuple[Setting, ...] = (
         ),
     ),
     Setting(
+        "RAG_STRUCTURED_QUERY_TYPE_DIRECTIVES",
+        "structured_query_type_directives",
+        bool,
+        False,
+        help=(
+            "When ENABLE_STRUCTURED_REASONER is on, append the query-type directive "
+            "to the structured memo AND the reasoner IR prompts. Opt-in A/B lever: "
+            "measured 2026-10-20, the combination did not improve soft correctness "
+            "over W3 alone (CI included 0) and added ~1.5k chars of padding, so it "
+            "defaults off. The seam is retained for future refined directives."
+        ),
+    ),
+    Setting(
+        "RAG_ANSWER_CONTRACT",
+        "answer_contract",
+        bool,
+        False,
+        help=(
+            "Enable deterministic answer contract checks (governing-provision resolver, "
+            "false-abstention detection, provision-attribution checks). Opt-in; default off "
+            "until measured on the gold-in-prompt failure slice."
+        ),
+    ),
+    Setting(
+        "RAG_ANSWER_CONTRACT_REPAIR",
+        "answer_contract_repair",
+        bool,
+        False,
+        help=(
+            "When answer_contract is on and violations are found, rewrite the prompt with "
+            "contract constraints and retry generation once. Opt-in; default off."
+        ),
+    ),
+    Setting(
         "ENABLE_LEGAL_AUDITOR",
         "legal_auditor",
         bool,

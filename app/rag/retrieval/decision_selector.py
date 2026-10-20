@@ -55,6 +55,12 @@ import os
 import time
 from typing import Any
 
+from app.rag.retrieval.chunk import (
+    chunk_id as chunk_id_of,
+    field,
+    score as chunk_score,
+    text as chunk_text,
+)
 from app.shared.config import cfg
 
 logger = logging.getLogger(__name__)
@@ -404,25 +410,14 @@ def _candidate(chunk: Any, index: int) -> dict[str, Any]:
     backends' context; section/act/score give the model the identity
     features the ensemble reranker already trusts.
     """
-    text = getattr(chunk, "text", "") or ""
-    if isinstance(chunk, dict):
-        text = chunk.get("text", "") or ""
     return {
         "index": index,
-        "chunk_id": str(getattr(chunk, "chunk_id", None) or (chunk.get("chunk_id") if isinstance(chunk, dict) else "")),
-        "section": getattr(chunk, "section_number", None)
-        or (chunk.get("section_number") if isinstance(chunk, dict) else None),
-        "act": getattr(chunk, "act_name", None) or (chunk.get("act_name") if isinstance(chunk, dict) else None),
-        "score": float(getattr(chunk, "score", 0.0) or 0.0),
-        "text": text[:_SNIPPET_CHARS],
+        "chunk_id": chunk_id_of(chunk, ""),
+        "section": field(chunk, "section_number"),
+        "act": field(chunk, "act_name"),
+        "score": chunk_score(chunk),
+        "text": chunk_text(chunk)[:_SNIPPET_CHARS],
     }
-
-
-def _chunk_id(chunk: Any) -> str | None:
-    value = getattr(chunk, "chunk_id", None)
-    if value is None and isinstance(chunk, dict):
-        value = chunk.get("chunk_id")
-    return str(value) if value is not None else None
 
 
 # --------------------------------------------------------------------------- #
@@ -444,7 +439,7 @@ def merge_reservoir(ranked_chunks: list[Any], limit: int) -> list[Any]:
     seen_units: set[str] = set()
     out: list[Any] = []
     for chunk in ranked_chunks:
-        cid = _chunk_id(chunk)
+        cid = chunk_id_of(chunk)
         if cid is not None:
             if cid in seen_ids:
                 continue
@@ -505,7 +500,7 @@ def select_from_scores(
         chunk = ranked_chunks[i]
         unit = canonical_unit_id(chunk)
         if unit in units:
-            dropped_dups.append(_chunk_id(chunk))
+            dropped_dups.append(chunk_id_of(chunk))
             return False
         units.add(unit)
         item = EvidenceItem(
@@ -513,9 +508,9 @@ def select_from_scores(
             evidence_type=_detect_evidence_type(chunk, query_section),
             confidence=probs[i],
             legal_identity=unit,
-            section_number=getattr(chunk, "section_number", None),
-            act_name=getattr(chunk, "act_name", None),
-            text_snippet=(getattr(chunk, "text", "") or "")[:500],
+            section_number=field(chunk, "section_number"),
+            act_name=field(chunk, "act_name"),
+            text_snippet=chunk_text(chunk)[:500],
         )
         item.redundancy = _compute_redundancy(item, items)
         item.complementarity = _compute_complementarity(item, items)
@@ -554,8 +549,8 @@ def select_from_scores(
         "threshold": threshold,
         "top_k": top_k,
         "pool": n,
-        "keep_scores": {_chunk_id(ranked_chunks[i]): round(probs[i], 4) for i in sorted(probs) if 0 <= i < n},
-        "kept": [_chunk_id(it.chunk) for it in items],
+        "keep_scores": {chunk_id_of(ranked_chunks[i]): round(probs[i], 4) for i in sorted(probs) if 0 <= i < n},
+        "kept": [chunk_id_of(it.chunk) for it in items],
         "dropped_duplicates": dropped_dups,
         "abstain": all_below,
     }

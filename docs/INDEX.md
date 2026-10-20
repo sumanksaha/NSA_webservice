@@ -42,13 +42,17 @@ Files the engineering skills read before acting:
 - [ADR-0011: Probabilistic photo-evidence assessment](./adr/0011-photo-evidence-assessment.md) - A vision model scores a premises photo per checklist item; the score is advisory and the FSO confirms
 - [ADR-0012: Shared RAG model runtime](./adr/0012-shared-rag-model-runtime.md) - One process-wide cache for sentence-transformer / cross-encoder weights across collections
 - [ADR-0013: Qdrant construction/filter seam](./adr/0013-qdrant-construction-filter-seam.md) - One client-construction and filter rule; point → `RetrievedChunk` conversion lives in `result.py`
+- [ADR-0014: Chunk access seam](./adr/0014-chunk-access-seam.md) - One object/dict field-access policy for text, ids, scores and writes across retrieval stages
+- [ADR-0015: Delete orphan codegen fragments](./adr/0015-delete-orphan-codegen-fragments.md) - Remove 34 one-shot source-assembly modules; keep the finished evaluator/comparator/engine and the import-write guard
+- [ADR-0016: Neutral benchmark entry](./adr/0016-neutral-benchmark-entry.md) - Move `QueryBenchmark` out of the evaluator so the benchmark/metrics type graph is acyclic
+- [ADR-0017: Query-type registry consumers](./adr/0017-query-type-registry-consumers.md) - Derive classifier labels, reranker config keys, and `QueryType` normalization from the canonical registry
 
 ## Additional Resources
 
 ### Improvement Plans
 
 - [INSPECTION_IMPROVEMENT_PLAN.md](INSPECTION_IMPROVEMENT_PLAN.md) — Deepening opportunities for the inspection module (3 candidates, prioritized backlog)
-- [RAG_ARCHITECTURE_IMPROVEMENT_PLAN.md](RAG_ARCHITECTURE_IMPROVEMENT_PLAN.md) — Deepening pass over `app/rag/`: shared model runtime, Qdrant construction/filter seam, cycle removal, measured smells, and remaining backlog
+- [RAG_ARCHITECTURE_IMPROVEMENT_PLAN.md](RAG_ARCHITECTURE_IMPROVEMENT_PLAN.md) — Deepening pass over `app/rag/`: shared model runtime, Qdrant construction/filter seam, chunk access seam, orphan codegen cleanup, evaluation-cycle break, query-type registry migration, measured smells, and remaining backlog
 - [CODEBASE_REVIEW_2026-09-12.md](CODEBASE_REVIEW_2026-09-12.md) — Full two-axis code review (Standards + Spec), findings, remediation log, and open follow-ups
 - [PROMPT_CONDITIONING_IRAC_RESEARCH.md](PROMPT_CONDITIONING_IRAC_RESEARCH.md) — Prompt conditioning for the grounded legal-QA generator: surface inventory, failure-mode map, evidence per option, and a land-and-test path from the current stage
 - [RESTAURANT_FSSAI_DATA_ACCESS_RESEARCH.md](RESTAURANT_FSSAI_DATA_ACCESS_RESEARCH.md) — Feasibility of building a licensed-FBO lookup (address + FSSAI licence no. by locality): FoSCoS data-access surface and hardening, Zomato/Swiggy API and ToS constraints, Google Places caching rules, and the dish-matching gap. **Read before scoping any FBO-discovery feature.**

@@ -308,7 +308,7 @@ class GroundedLLMClient:
             try:
                 import httpx
 
-                with httpx.Client(timeout=cfg.llm_timeout_s) as client:
+                with httpx.Client(timeout=cfg.llm_timeout_s, verify=False) as client:
                     resp = client.post(url, headers=headers, json=body)
                     if resp.status_code in self.RETRYABLE_STATUS:
                         # Rate limit / transient server error.  Honour the

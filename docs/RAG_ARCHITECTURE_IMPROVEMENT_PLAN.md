@@ -31,7 +31,7 @@ Measured smells:
 | Filter converters | 2 (drifted) | store dropped list expansion and boolean pass-through |
 | Chunk field readers | 6+ | `_chunk_field`, `_ctext`, `_chunk_id`, `_cid`, `_f`, `_take` |
 | Import cycles | 3 | `food_view ↔ tasks`, `retrieval ↔ reference_*`, `benchmark ↔ decomposition_metrics` |
-| Orphan fragment modules | ~20 | `evaluation/_part*.py`, `feedback/_cmp_part*.py` |
+| Orphan fragment modules | 34 | `evaluation/_part*.py`, `feedback/_cmp_part*.py`, `tests/_test_workflow_*` |
 
 ## Implemented
 
@@ -72,13 +72,97 @@ filter shapes the dense path already supported.
 data conversion) is gone. `tasks.py` also lost a malformed module docstring
 (a parenthesised string expression, so the module had no `__doc__`).
 
+### Candidate 4 — Chunk access seam ✅
+
+**Module:** `app/rag/retrieval/chunk.py` · **ADR-0014**
+
+Eleven modules re-implemented the same `isinstance(chunk, dict)` branch for
+reading and writing chunk fields, with drifted defaults (`None` vs `""`) and
+score coercion. `field`, `text`, `chunk_id`, `score`, `set_field` and
+`set_score` now own that policy once; payload dicts and `RetrievedChunk`
+objects are pinned to the same behaviour at every stage.
+
+**Fixed drift:** `EvidenceSet.chunk_ids` previously only worked for object
+chunks, so serialized payloads lost their ids; score coercion now guards
+malformed values in every consumer.
+
+**Wired:** `evidence_selector`, `decision_selector`, `legal_reranker`,
+`parent_reconstruction`, `validation`, `provision_metadata`, `legal_identity`,
+`provision_extractor/isolator`, `chunk_quality`, and
+`evaluation/textmatch` (the last two keep their public names as thin
+delegates). `RetrievedChunk`'s interface is unchanged; `canonical_unit_id`
+stays in the selector because it owns legal parse rules.
+
+### Candidate 5 — Delete orphan codegen fragments ✅
+
+**Scope:** `app/rag/evaluation/`, `app/rag/feedback/`, `tests/` · **ADR-0015**
+
+34 one-shot generator/fragment modules assembled `workflow_evaluator.py`,
+`workflow_comparator.py` and `workflow_improvement_engine.py`, then stayed in
+the package with no production or test importer. One of them,
+`_write_evaluator.py`, wrote its target source at import time and corrupted a
+live evaluation.
+
+Deleted the tracked `_part*`, `_insert_*`, `_cmp_part*`, `_impr_part*`,
+`_write_evaluator`, `_test_improvement` / `_test_impr` and
+`tests/_test_workflow_*` fragments, plus the ignored `_fix_*.py` artifacts.
+Kept the completed modules they produced.
+
+**Leverage:** 34 modules of accidental surface disappear; there is no behaviour
+to preserve because nothing imported them.
+**Locality:** the only remaining codegen concern is the guard, not the
+generators. `scripts/check_import_side_effects.py` stays as the detector and
+`module_health_check.py` keeps the underscore-prefix import skip; both comments
+now describe the deleted incident in the past tense.
+**Config:** removed the broad `"app/rag/evaluation/*"` ruff exception block
+that existed only for these generators.
+
+### Candidate 6 — Neutral benchmark entry ✅
+
+**Module:** `app/rag/evaluation/benchmark_entry.py` · **ADR-0016**
+
+`benchmark.py` called `decomposition_metrics` at scoring time, while
+`decomposition_metrics.py` imported `QueryBenchmark` from `benchmark.py` under
+`TYPE_CHECKING`. The runtime graph was safe, but the type graph was circular.
+
+`QueryBenchmark` moved to a dependency-free `benchmark_entry.py`.
+`benchmark.py` re-exports it, so existing imports keep working;
+`decomposition_metrics.py` imports the neutral class at runtime and no longer
+mentions `benchmark` at all.
+
+**Boundary:** `DecompositionBenchmark` and the scoring methods stay in
+`benchmark.py`; only the shared data shape moved.
+
+### Candidate 7 — Query-type registry consumers ✅
+
+**Modules:** `app/rag/retrieval/query_classifier.py`,
+`app/rag/retrieval/legal_query_classifier.py`,
+`app/rag/retrieval/query_understanding.py` · **ADR-0017**
+
+The registry existed but two classifiers still carried parallel vocabularies.
+`query_classifier` had hand-written `CLASSIFIER_TRIAGE` / `_LABEL_TO_TYPE`
+tables keyed by legacy labels; `legal_query_classifier` keyed its patterns and
+config table by surface spellings; `normalize_query_type()` repeated the
+registry's string surgery.
+
+Now both pattern tables are keyed by canonical ids. The legal classifier emits
+each type's declared `surface`, and `QUERY_TYPE_CONFIGS` is projected through
+the registry. `QueryType` remains the legacy runtime enum, but its canonical
+map, triage table, and classifier label map are derived at import time and
+fail loudly if any value is unregistered. `get_config()` and
+`normalize_query_type()` resolve aliases through the registry, so `duty` and
+`amendment_query` land on `obligation` and `amendment`.
+
+**Boundary:** `QueryType` is not deleted; callers and persisted values use its
+member names. Only the vocabulary that used to drift is derived.
+
 ### Housekeeping
 
 - `tests/test_ensemble_reranker.py`: the cached `FakeHybrid` had drifted behind
   the pipeline signature (`form_query`, `rrf_k`). Fixed with `**kwargs`; both
   previously-failing wiring tests now pass and act as regression coverage.
-- New tests: `tests/test_model_runtime.py` (14) and `tests/test_qdrant_seams.py`
-  (11).
+- New tests: `tests/test_model_runtime.py` (14), `tests/test_qdrant_seams.py`
+  (11) and `tests/test_chunk_access.py` (10).
 
 ## Verification
 
@@ -88,50 +172,29 @@ python -m pytest tests/test_embedding_service.py tests/test_dense_retriever.py \
   tests/test_reranker.py tests/test_ensemble_reranker.py tests/test_remote_embedder.py \
   tests/test_remote_reranker.py tests/test_qdrant_client.py tests/test_section_scope_arm.py \
   tests/test_food_intent_retrieval.py
+python -m pytest tests/test_chunk_access.py tests/test_evidence_selector.py \
+  tests/test_decision_selector.py tests/test_food_intent_retrieval.py \
+  tests/test_provision_extractor.py tests/test_evidence_structure_integration.py \
+  tests/test_chunk_quality.py tests/test_eval_framework.py
+python -m pytest tests/test_workflow_improvement.py tests/test_check_import_side_effects.py
+python -m pytest tests/test_rag_evaluation_imports.py tests/test_rag_phase3_requirements.py tests/test_rag_phase4_measurement.py
+python -m pytest tests/test_query_type_registry.py
+python -m pytest tests/test_query_classifier.py tests/test_legal_query_classifier_part_a.py tests/test_query_understanding.py
+python scripts/check_import_side_effects.py
+python -m ruff check app/rag/evaluation app/rag/feedback scripts/check_import_side_effects.py scripts/guard_import_side_effects.py
 ```
 
-Expected: 300 passed (25 new + 275 affected). Ruff check + format clean on every
-touched file.
+Expected: 300 passed (Candidates 1–3), then 238 passed (C4), the
+workflow/import-guard suite green (C5), 63 passed for the evaluation boundary
+tests (C6), and 32 passed for the query-type registry suite (C7). The broader
+classifier suite is 61 passed with four pre-existing, unrelated failures
+(`section_numbers` parser key, two authority/enforcement tie expectations, and
+form-reference detection); C7 changes no emitted classifier surface. Ruff
+check is clean on every touched file; the new modules and test files are
+format-clean. The import-side-effect scanner reports ``all clean`` after the
+fragment deletion.
 
-## Remaining backlog (not done in this pass)
+## Remaining backlog
 
-### C4 — Chunk access seam (medium value, low risk)
-
-Six modules each read chunk fields with a different object/dict policy:
-
-- `retrieval/evidence_selector.py` — `_chunk_id` (None), `_chunk_text` (dict-aware)
-- `retrieval/decision_selector.py` — `_chunk_id` (None), `_take`
-- `retrieval/legal_reranker.py` — `_cid` (`""`), `_ctext`
-- `retrieval/parent_reconstruction.py` — `_cid`, `_ctext`, `_f`
-- `retrieval/validation.py` — `_ctext`
-- `provision_extractor/isolator.py`, `legal_identity.py`, `provision_metadata.py` — `_chunk_field`
-
-Proposal: `app/rag/retrieval/chunk.py` with `field`, `text`, `chunk_id`,
-`score`, `set_score` and dict/object parity pinned once. Migrate the callers;
-keep `canonical_unit_id` in the selector until its parse rules move.
-Acceptance: one implementation of each accessor; parity tests for dict and
-`RetrievedChunk` inputs; no change to `RetrievedChunk`'s interface.
-
-### C5 — Delete the orphan fragment modules (high value, zero risk)
-
-`evaluation/_part2..8.py`, `_insert_*.py`, `feedback/_cmp_part*.py`,
-`feedback/_impr_part*.py`, `feedback/_fix_*.py` have no production importer.
-They are leftovers from script-generated file assembly and inflate the RAG
-surface by ~20 modules. Deletion test: no caller, so complexity vanishes.
-Caveat: `scripts/check_import_side_effects.py` lists `_part1`, `_fix_order`,
-`_write_evaluator` as import targets — update or retire that dev script in the
-same change.
-
-### C6 — Break the evaluation cycle (low value)
-
-`evaluation/benchmark.py ↔ decomposition_metrics.py` import each other
-(one side under `TYPE_CHECKING` at import time, one at call time). Move the
-shared `QueryBenchmark` shape to a neutral module or a protocol. Low priority:
-both are offline harnesses, not the request path.
-
-### C7 — `QueryUnderstanding` consumers (in flight, do not duplicate)
-
-`app/rag/query_type_registry.py` (currently untracked) is the in-progress
-canonical query-type vocabulary. The next pass should finish migrating
-`query_classifier` / `legal_query_classifier` onto it rather than adding a
-parallel registry in this refactor.
+None from this pass. The registry migration is complete; the four classifier
+test failures above are pre-existing and belong to a separate accuracy pass.

@@ -42,6 +42,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from app.rag.retrieval.chunk import field, text as chunk_text
+
 __all__ = [
     "DOCUMENT_ROLES",
     "ProvisionMetadata",
@@ -343,12 +345,6 @@ class ProvisionMetadata(dict):
     """Derived chunk metadata (dict subclass for JSON-serialisability)."""
 
 
-def _chunk_field(chunk: Any, name: str, default: Any = None) -> Any:
-    if isinstance(chunk, dict):
-        return chunk.get(name, default)
-    return getattr(chunk, name, default)
-
-
 def _extract_commodity_from_heading(text: str) -> str | None:
     """Commodity name from a clause heading line, else ``None``.
 
@@ -398,16 +394,16 @@ def derive_provision_metadata(chunk: Any) -> dict[str, Any]:
     Accepts a ``RetrievedChunk``, a ``to_dict()`` dict, or any object with the
     payload fields.  Unknown values stay the literal ``"unknown"``.
     """
-    text = str(_chunk_field(chunk, "text", "") or "")
+    text = chunk_text(chunk)
     low = text.lower()
-    clause = _chunk_field(chunk, "clause_number", None)
-    section = _chunk_field(chunk, "section_number", None)
-    document_title = str(_chunk_field(chunk, "document_title", "") or "")
-    act_name = str(_chunk_field(chunk, "act_name", "") or "")
-    document_uri = str(_chunk_field(chunk, "document_uri", "") or "")
-    document_id = _chunk_field(chunk, "document_id", None)
-    parent_chunk_id = _chunk_field(chunk, "parent_chunk_id", None)
-    hierarchy_level = _chunk_field(chunk, "hierarchy_level", 0)
+    clause = field(chunk, "clause_number", None)
+    section = field(chunk, "section_number", None)
+    document_title = str(field(chunk, "document_title", "") or "")
+    act_name = str(field(chunk, "act_name", "") or "")
+    document_uri = str(field(chunk, "document_uri", "") or "")
+    document_id = field(chunk, "document_id", None)
+    parent_chunk_id = field(chunk, "parent_chunk_id", None)
+    hierarchy_level = field(chunk, "hierarchy_level", 0)
 
     # --- commodity / entity -------------------------------------------------
     commodity: str | None = None
@@ -500,7 +496,7 @@ def is_definition_chunk(chunk: Any) -> bool:
     "Cumin … whole means the dried mature fruits of Cuminum Cyminum L." —
     the shape that historically outranks real standards.
     """
-    text = str(_chunk_field(chunk, "text", "") or "")
+    text = chunk_text(chunk)
     low = text.lower()
     if not _MEANS_RE.search(low):
         return False
@@ -517,7 +513,7 @@ def is_standard_chunk(chunk: Any) -> bool:
     True for requirement language, measurement rows, or "shall conform"
     provisions — the evidence a food_standard query actually needs.
     """
-    text = str(_chunk_field(chunk, "text", "") or "")
+    text = chunk_text(chunk)
     if not text:
         return False
     if _STANDARD_LANGUAGE_RE.search(text):
@@ -536,8 +532,8 @@ _METADATA_CACHE_MAX = 4096
 
 def derive_provision_metadata_cached(chunk: Any) -> dict[str, Any]:
     """Memoized :func:`derive_provision_metadata` keyed by chunk_id + text hash."""
-    cid = str(_chunk_field(chunk, "chunk_id", "") or "")
-    text = str(_chunk_field(chunk, "text", "") or "")
+    cid = str(field(chunk, "chunk_id", "") or "")
+    text = chunk_text(chunk)
     key = f"{cid}:{hash(text)}"
     hit = _METADATA_CACHE.get(key)
     if hit is not None:

@@ -244,22 +244,6 @@ ignore = [
   "I001",
   "T20",
 ]
-# Same treatment for the workflow-evaluator codegen scripts under the RAG
-# package (_insert_*.py / _part*.py / _test_improvement.py): they are generator
-# helpers run once per schema change, not shipped modules.
-"app/rag/evaluation/*" = [
-  "E701", "E702", "E731", "E741",
-  "F401", "F541", "F841",
-  "B007", "B023", "B905",
-  "N802", "N803", "N806",
-  "S310", "S311", "S501", "S605", "S607",
-  "UP031",
-  "RUF005", "RUF015", "RUF059", "RUF100",
-  "SIM102", "SIM103", "SIM105", "SIM108", "SIM110", "SIM113", "SIM115",
-  "W291", "W292", "W293",
-  "I001",
-  "T20",
-]
 # Step 0 CE-v2 regression harness: the console tables ARE the report output
 # (diffed against the preserved v1/v2 logs), so print is deliberate here.
 "evaluation/ce_v2_eval.py" = ["T201"]

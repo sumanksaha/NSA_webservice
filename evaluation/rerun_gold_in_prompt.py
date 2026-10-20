@@ -127,6 +127,27 @@ def structured_summary(resp) -> dict | None:
     }
 
 
+def answer_contract_summary(resp) -> dict | None:
+    """Compact answer-contract diagnostics from ``RAGResponse.debug`` (0 LLM).
+
+    ``None`` when the contract flag was off (or the check never ran), so a
+    mixed run cannot report a contract pass rate over records that never had
+    a contract.  ``false_abstention`` and ``provision_mismatch`` are the two
+    violation classes the contract exists to catch.
+    """
+    ac = (getattr(resp, "debug", None) or {}).get("answer_contract")
+    if not isinstance(ac, dict):
+        return None
+    violations = ac.get("violations") or []
+    return {
+        "passed": bool(ac.get("passed")),
+        "false_abstention": bool(ac.get("false_abstention")),
+        "provision_mismatch": bool(ac.get("provision_mismatch")),
+        "n_violations": len(violations),
+        "kinds": sorted({str(v.get("kind")) for v in violations if v.get("kind")}),
+    }
+
+
 def flags_used() -> dict:
     """Provenance recorded on every record: which W3/W4 flags this run saw."""
     from app.shared.config import cfg
@@ -134,6 +155,9 @@ def flags_used() -> dict:
     return {
         "structured_reasoner": bool(cfg.structured_reasoner),
         "query_type_directives": bool(cfg.query_type_directives),
+        "structured_query_type_directives": bool(cfg.structured_query_type_directives),
+        "answer_contract": bool(cfg.answer_contract),
+        "answer_contract_repair": bool(cfg.answer_contract_repair),
     }
 
 
@@ -196,6 +220,7 @@ def run_one(qid: str, arms: dict, payload_index: dict, question, service) -> dic
         "gold_in_prompt": int(bool(gold_in_prompt)),
         "citation": citation_metrics(cited_ids, gold_admitted),
         "structured": structured_summary(resp),
+        "answer_contract": answer_contract_summary(resp),
         "flags": flags_used(),
         "latency_s": round(time.monotonic() - t0, 2),
         "error": err,
@@ -239,6 +264,20 @@ def structured_summary_of_run(rows: list[dict]) -> dict | None:
         "mean_provisions": round(sum(s["n_provisions"] for s in per_record) / len(per_record), 2),
         "mean_conditions": round(sum(s["n_conditions"] for s in per_record) / len(per_record), 2),
         "mean_uncertainties": round(sum(s["n_uncertainties"] for s in per_record) / len(per_record), 2),
+    }
+
+
+def answer_contract_summary_of_run(rows: list[dict]) -> dict | None:
+    """Answer-contract arm health: pass rate and the two violation classes."""
+    per_record = [r["answer_contract"] for r in rows if isinstance(r.get("answer_contract"), dict)]
+    if not per_record:
+        return None
+    return {
+        "n": len(per_record),
+        "n_passed": sum(1 for c in per_record if c.get("passed")),
+        "n_false_abstention": sum(1 for c in per_record if c.get("false_abstention")),
+        "n_provision_mismatch": sum(1 for c in per_record if c.get("provision_mismatch")),
+        "mean_violations": round(sum(c.get("n_violations", 0) for c in per_record) / len(per_record), 2),
     }
 
 
@@ -387,11 +426,22 @@ def main() -> int:
     )
     parser.add_argument("--no-drop-index", action="store_true", help="control for the index-chunk packing change")
     parser.add_argument(
+        "--no-query-type-directives",
+        action="store_true",
+        help="force RAG_QUERY_TYPE_DIRECTIVES off (the .env loads it on) for a W3-only arm",
+    )
+    parser.add_argument(
         "--score-only",
         default="",
         help="comma-separated tags to (re-)adjudicate from cached results; no LLM calls",
     )
     args = parser.parse_args()
+
+    # ``.env`` is loaded with override=True above, so a shell-level false is
+    # erased.  Flip it back here, before the service reads cfg, to measure the
+    # W3-only arm against the W3 x W4 arm.
+    if args.no_query_type_directives:
+        os.environ["RAG_QUERY_TYPE_DIRECTIVES"] = "false"
 
     if args.score_only:
         adjudicate_tags(
@@ -526,6 +576,7 @@ def main() -> int:
         "flags": run_flags(rows),
         "citation": citation,
         "structured": structured_summary_of_run(rows),
+        "answer_contract": answer_contract_summary_of_run(rows),
         "errors": errors,
         "gold_dropped_from_prompt": missing_gold,
     }
@@ -550,6 +601,14 @@ def main() -> int:
         s = summary["structured"]
         print(
             f"  reasoner IR: n={s['n']} fallback={s['n_fallback']} provisions={s['mean_provisions']} conds={s['mean_conditions']}",
+            flush=True,
+        )
+    if summary.get("answer_contract"):
+        c = summary["answer_contract"]
+        print(
+            f"  answer contract: n={c['n']} passed={c['n_passed']} "
+            f"false_abstention={c['n_false_abstention']} provision_mismatch={c['n_provision_mismatch']} "
+            f"mean_violations={c['mean_violations']}",
             flush=True,
         )
     if summary.get("flags"):

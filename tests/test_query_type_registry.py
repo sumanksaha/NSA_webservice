@@ -24,10 +24,21 @@ from app.rag import query_type_registry as registry
 from app.rag.generation.context_builder import ContextBuilder
 from app.rag.generation.prompt_template import QUERY_TYPE_DIRECTIVES
 from app.rag.retrieval.legal_query_classifier import (
+    CROSS_REFERENCE_CONFIG,
+    DEFAULT_CONFIG,
     LEGAL_QUERY_TYPES,
+    OBLIGATION_CONFIG,
     QUERY_TYPE_CONFIGS,
     _TYPE_PATTERNS,
     classify_legal_query,
+    get_config,
+)
+from app.rag.retrieval.query_classifier import (
+    CLASSIFIER_TRIAGE,
+    QueryType,
+    _LABEL_TO_TYPE,
+    _QUERY_PATTERNS,
+    _RUNTIME_TYPE_BY_CANONICAL,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -75,10 +86,16 @@ class TestRegistryInvariants:
     def test_every_runtime_query_type_resolves(self):
         """A ``QueryType`` the registry does not know is dropped at every
         boundary that resolves spellings (directives, budgets, eval slicing)."""
-        from app.rag.retrieval.query_classifier import QueryType
-
         unmapped = [q.value for q in QueryType if registry.resolve(q.value) is None]
         assert not unmapped, f"QueryType values absent from the registry: {unmapped}"
+
+    def test_runtime_type_bridge_is_derived_from_registry(self):
+        assert set(_RUNTIME_TYPE_BY_CANONICAL) == {
+            registry.resolve(q.value) for q in QueryType
+        }
+        assert set(_RUNTIME_TYPE_BY_CANONICAL.values()) == set(QueryType)
+        for canonical in _RUNTIME_TYPE_BY_CANONICAL:
+            assert registry.resolve(canonical) == canonical
 
 
 class TestBenchmarkLabelsAreMapped:
@@ -108,12 +125,23 @@ class TestBenchmarkLabelsAreMapped:
 
 
 class TestClassifierAgreesWithRegistry:
-    def test_pattern_labels_are_declared_targets(self):
-        pattern_labels = {label for label, _ in _TYPE_PATTERNS}
-        for label in pattern_labels:
-            assert registry.resolve(label) is not None, (
-                f"classifier emits {label!r}, which the registry does not know"
+    def test_legal_pattern_labels_are_canonical(self):
+        for label, _ in _TYPE_PATTERNS:
+            assert registry.resolve(label) == label, (
+                f"legal classifier pattern label {label!r} is not canonical"
             )
+
+    def test_query_classifier_labels_are_canonical(self):
+        for label, _ in _QUERY_PATTERNS:
+            assert registry.resolve(label) == label, (
+                f"query classifier pattern label {label!r} is not canonical"
+            )
+            assert _LABEL_TO_TYPE[label] is not None
+
+    def test_triage_is_registry_derived(self):
+        assert set(CLASSIFIER_TRIAGE.values()) == set(QueryType)
+        for form, query_type in CLASSIFIER_TRIAGE.items():
+            assert registry.resolve(form) == registry.resolve(query_type.value)
 
     def test_configs_and_legal_types_agree(self):
         assert set(QUERY_TYPE_CONFIGS) == set(LEGAL_QUERY_TYPES)
@@ -122,6 +150,13 @@ class TestClassifierAgreesWithRegistry:
         for canonical in registry.CLASSIFIER_TARGETS:
             surface = registry.REGISTRY[canonical].emitted
             assert surface in QUERY_TYPE_CONFIGS, f"no reranker config for {surface!r}"
+
+    def test_get_config_accepts_canonical_and_benchmark_spellings(self):
+        assert get_config("cross_reference") is CROSS_REFERENCE_CONFIG
+        assert get_config("cross-reference") is CROSS_REFERENCE_CONFIG
+        assert get_config("Cross-reference") is CROSS_REFERENCE_CONFIG
+        assert get_config("duty") is OBLIGATION_CONFIG
+        assert get_config("no_such_type") is DEFAULT_CONFIG
 
     def test_emitted_surfaces_match_registry(self):
         for canonical in registry.CLASSIFIER_TARGETS:

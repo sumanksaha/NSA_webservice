@@ -14,6 +14,7 @@ on caller-controlled input.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any, Literal, Self
 
@@ -54,9 +55,14 @@ REASONER_SYSTEM_PROMPT = (
 #: the IR on every live call tried: a complete argument for a 4.5k-token
 #: evidence prompt measures 1486 completion tokens, so the JSON was cut
 #: mid-array, validation failed, and the pipeline silently shipped the
-#: fail-closed skeleton instead of two-pass reasoning.  3072 keeps headroom
-#: over the measured size while still bounding a runaway generation.
-DEFAULT_MAX_TOKENS = 3072
+#: fail-closed skeleton instead of two-pass reasoning.  3072 fixed that small
+#: prompt but still truncated on the benchmark's 35k-char packed contexts
+#: (2026-10-20: Q073 returned ``finish_reason='length'`` at 3072, ``'stop'``
+#: at 4096; the complete IR measured 3.6k completion tokens).  8192 keeps
+#: headroom over the measured size while still bounding a runaway generation;
+#: the model stops at the JSON's closing brace, so the budget is a ceiling,
+#: not a spend.
+DEFAULT_MAX_TOKENS = 8192
 
 
 class ConditionEvaluation(BaseModel):
@@ -90,9 +96,19 @@ class StructuredLegalArgument(BaseModel):
         return cls(issue=issue, uncertainties=["reasoning unavailable — argument not established"])
 
 
-def build_reasoning_prompt(question: str, context: str) -> tuple[str, str]:
-    """Render the (system, user) prompt pair for the reasoning call."""
-    user = f"Question:\n{question}\n\nLegal evidence:\n{context}\n\nStructured analysis (JSON only):"
+def build_reasoning_prompt(question: str, context: str, directive: str = "") -> tuple[str, str]:
+    """Render the (system, user) prompt pair for the reasoning call.
+
+    ``directive`` is the optional W4 query-type instruction.  When supplied it
+    is appended to the evidence, before the JSON ask, so the IR covers the
+    type-specific elements the final memo must carry (authority, penalty
+    structure, procedure, etc.).  Empty keeps the prompt byte-identical to the
+    pre-W4 behaviour.
+    """
+    user = f"Question:\n{question}\n\nLegal evidence:\n{context}\n"
+    if directive:
+        user += f"\n{directive}\n"
+    user += "\nStructured analysis (JSON only):"
     return REASONER_SYSTEM_PROMPT, user
 
 
@@ -113,9 +129,9 @@ class StructuredReasoner:
         self.temperature = temperature
         self.max_tokens = max_tokens
 
-    def reason(self, question: str, context: str) -> StructuredLegalArgument:
+    def reason(self, question: str, context: str, directive: str = "") -> StructuredLegalArgument:
         """Reason over question + evidence; fall back to an empty skeleton."""
-        system, user = build_reasoning_prompt(question, context)
+        system, user = build_reasoning_prompt(question, context, directive=directive)
         try:
             response = self.llm_client.call(system, user, temperature=self.temperature, max_tokens=self.max_tokens)
             text = (response.text or "").strip()
@@ -131,9 +147,21 @@ class StructuredReasoner:
 
 
 def _extract_json(text: str) -> str:
-    """Pull the first {...} block out of surrounding prose, if any."""
+    """Pull the first complete JSON object out of surrounding prose.
+
+    Uses ``json.JSONDecoder.raw_decode`` so a trailing code fence, an extra
+    sentence, or a second JSON blob after the object does not make
+    ``model_validate_json`` fail with "trailing characters".  Falls back to
+    the old brace-scan when the text is not valid JSON at all.
+    """
     start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        return text[start : end + 1]
-    return text
+    if start == -1:
+        return text
+    try:
+        _, end = json.JSONDecoder().raw_decode(text, start)
+        return text[start:end]
+    except (ValueError, json.JSONDecodeError):
+        last = text.rfind("}")
+        if last != -1 and last > start:
+            return text[start : last + 1]
+        return text

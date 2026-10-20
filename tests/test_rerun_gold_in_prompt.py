@@ -15,6 +15,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from evaluation.rerun_gold_in_prompt import (
+    answer_contract_summary,
+    answer_contract_summary_of_run,
     citation_metrics,
     citation_summary,
     flags_used,
@@ -151,6 +153,54 @@ class TestStructuredSummary:
         assert structured_summary_of_run([{}]) is None
 
 
+class TestAnswerContractSummary:
+    """Answer-contract diagnostics: the two violation classes it exists to catch."""
+
+    def test_none_when_the_flag_was_off(self):
+        assert answer_contract_summary(SimpleNamespace(debug={})) is None
+        assert answer_contract_summary(SimpleNamespace(debug={"answer_contract": None})) is None
+        assert answer_contract_summary(None) is None
+
+    def test_reports_pass_and_violation_classes(self):
+        resp = SimpleNamespace(
+            debug={
+                "answer_contract": {
+                    "passed": False,
+                    "false_abstention": True,
+                    "provision_mismatch": False,
+                    "violations": [
+                        {"kind": "false_abstention", "severity": "high", "message": "x"},
+                        {"kind": "false_abstention", "severity": "high", "message": "y"},
+                    ],
+                }
+            }
+        )
+        assert answer_contract_summary(resp) == {
+            "passed": False,
+            "false_abstention": True,
+            "provision_mismatch": False,
+            "n_violations": 2,
+            "kinds": ["false_abstention"],
+        }
+
+    def test_run_level_block_aggregates_only_contract_records(self):
+        rows = [
+            {"answer_contract": {"passed": True, "false_abstention": False, "provision_mismatch": False, "n_violations": 0}},
+            {"answer_contract": {"passed": False, "false_abstention": True, "provision_mismatch": True, "n_violations": 2}},
+            {"answer_contract": None},
+        ]
+        assert answer_contract_summary_of_run(rows) == {
+            "n": 2,
+            "n_passed": 1,
+            "n_false_abstention": 1,
+            "n_provision_mismatch": 1,
+            "mean_violations": 1.0,
+        }
+
+    def test_no_contract_records_yields_none(self):
+        assert answer_contract_summary_of_run([{}]) is None
+
+
 class TestRunFlags:
     """Every cached tag records which flags the run actually saw."""
 
@@ -170,4 +220,12 @@ class TestRunFlags:
     def test_flags_used_reads_the_live_config(self, monkeypatch):
         monkeypatch.setenv("ENABLE_STRUCTURED_REASONER", "true")
         monkeypatch.setenv("RAG_QUERY_TYPE_DIRECTIVES", "false")
-        assert flags_used() == {"structured_reasoner": True, "query_type_directives": False}
+        monkeypatch.setenv("RAG_ANSWER_CONTRACT", "true")
+        monkeypatch.setenv("RAG_ANSWER_CONTRACT_REPAIR", "false")
+        assert flags_used() == {
+            "structured_reasoner": True,
+            "query_type_directives": False,
+            "structured_query_type_directives": False,
+            "answer_contract": True,
+            "answer_contract_repair": False,
+        }

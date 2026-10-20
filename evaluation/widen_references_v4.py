@@ -29,6 +29,14 @@ Usage:
     python -m evaluation.widen_references_v4 --build-packets
     python -m evaluation.widen_references_v4 --validate-packets
     python -m evaluation.widen_references_v4 --merge-from-packets
+
+The ``reference_narrow`` partial cohort (Q042, Q043, Q148) is a separate lane;
+build its packets with ``--qids``/``--state`` so the default 14-qid run is not
+clobbered:
+
+    python -m evaluation.widen_references_v4 --build-packets \
+        --qids Q042,Q043,Q148 \
+        --state evaluation/out/ceiling_v5/widen_v4/drafts_state_refnarrow.json
 """
 
 from __future__ import annotations
@@ -78,6 +86,18 @@ WIDEN_QIDS = (
     "Q137",
     "Q146",
 )
+
+#: 2026-10-20 — the ``reference_narrow`` partial cohort from the full-150 human
+#: review. These already carry conclusions, but the reference is too strict, so
+#: a defensible model answer is graded partial. They are NOT part of the default
+#: ``widen_overlay`` run; build their packets in a separate lane:
+#:
+#:     python -m evaluation.widen_references_v4 --build-packets \
+#:         --qids Q042,Q043,Q148 \
+#:         --state evaluation/out/ceiling_v5/widen_v4/drafts_state_refnarrow.json
+#:
+#: The legal text is still authored by a human (repo rule; design review R3).
+REFERENCE_NARROW_QIDS = ("Q042", "Q043", "Q148")
 
 _ENTRY_FIELDS = ("add", "anchor_quote", "note")
 
@@ -154,12 +174,16 @@ def gold_anchors(perq_qid: dict[str, Any], payload_index: dict[str, dict[str, An
     return out
 
 
-def build_packets(out_dir: Path = PACKET_DIR) -> dict[str, Any]:
+def build_packets(
+    out_dir: Path = PACKET_DIR,
+    qids: tuple[str, ...] | None = None,
+    state_path: Path = STATE_PATH,
+) -> dict[str, Any]:
     ctx = load_context()
     out_dir = Path(out_dir)
     (out_dir).mkdir(parents=True, exist_ok=True)
     state: dict[str, Any] = {}
-    for qid in WIDEN_QIDS:
+    for qid in (qids or WIDEN_QIDS):
         qrec = (ctx["perq"] or {}).get(qid) or {}
         trec = (ctx["tabulation"] or {}).get(qid) or {}
         bref = (ctx["bundle"].get("questions") or {}).get(qid) or {}
@@ -232,7 +256,7 @@ def build_packets(out_dir: Path = PACKET_DIR) -> dict[str, Any]:
             "validated": None,
             "anchors": len(anchors),
         }
-    STATE_PATH.write_text(
+    Path(state_path).write_text(
         json.dumps({"stage": "built", "packets": state}, indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
@@ -242,7 +266,7 @@ def build_packets(out_dir: Path = PACKET_DIR) -> dict[str, Any]:
     print(f"\nbuilt packets for {len(state)} qids under {out_dir}")
     for qid, rec in sorted(state.items()):
         print(f"  {qid}: anchors={rec['anchors']} status={rec['status']}")
-    print(f"state: {STATE_PATH}")
+    print(f"state: {state_path}")
     print("NEXT: human legal review edits the `### WF6-ENTRY` blocks; then --validate-packets.")
     return {"state": state, "out_dir": str(out_dir)}
 
@@ -378,11 +402,24 @@ def main() -> int:
     parser.add_argument("--build-packets", action="store_true")
     parser.add_argument("--validate-packets", action="store_true")
     parser.add_argument("--merge-from-packets", action="store_true")
+    parser.add_argument(
+        "--qids",
+        default="",
+        help="Comma-separated qids to build packets for (default: WIDEN_QIDS).",
+    )
+    parser.add_argument(
+        "--state",
+        default="",
+        help="Packet-lifecycle state file (default: drafts_state.json). Use a "
+        "separate file to build a cohort without clobbering the default run.",
+    )
     args = parser.parse_args()
+
+    state_path = Path(args.state) if args.state else STATE_PATH
 
     if args.validate_packets:
         ctx = load_context()
-        state = json.loads(STATE_PATH.read_text(encoding="utf-8"))
+        state = json.loads(state_path.read_text(encoding="utf-8"))
         counts = {"valid": 0, "invalid": 0, "not_filled": 0}
         for qid, rec in sorted((state.get("packets") or {}).items()):
             entry = parse_entry(Path(rec["packet"]).read_text(encoding="utf-8"))
@@ -401,7 +438,7 @@ def main() -> int:
         return 0
 
     if args.merge_from_packets:
-        report = merge_from_packets()
+        report = merge_from_packets(state_path=state_path)
         from evaluation.ruler import format_publication_header, publication_header
 
         print(format_publication_header(publication_header()))
@@ -414,7 +451,10 @@ def main() -> int:
         print(f"report: {MERGE_REPORT}")
         return 0
 
-    build_packets()
+    build_packets(
+        qids=tuple(q.strip() for q in args.qids.split(",") if q.strip()) or None,
+        state_path=state_path,
+    )
     return 0
 
 

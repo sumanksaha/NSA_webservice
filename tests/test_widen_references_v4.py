@@ -202,3 +202,23 @@ def test_merge_never_moves_unfilled_packets(staged, tmp_path):
     assert any(r["status"] == "not_filled" for r in report["results"])
     assert verify_bundle(w4.BUNDLE_PATH)["ok"]
     assert _live_bundle_sha() == live_sha_before
+
+
+def test_build_packets_supports_a_named_subset(tmp_path):
+    """Build the reference-narrow cohort without clobbering the default run.
+
+    Q042/Q043/Q148 are ``reference_narrow`` partials (not part of the default
+    14-qid ``widen_overlay`` cohort). The explicit ``qids``/``state_path``
+    arguments let a reviewer build just those packets in a separate lane.
+    """
+    built = w4.build_packets(
+        out_dir=tmp_path / "packets",
+        qids=("Q042", "Q043", "Q148"),
+        state_path=tmp_path / "state.json",
+    )
+    state = built["state"]
+    assert set(state) == {"Q042", "Q043", "Q148"}
+    for qid, rec in state.items():
+        assert Path(rec["packet"]).is_file(), f"packet missing: {qid}"
+        assert rec["status"] == "pending_human"
+        assert rec["anchors"] > 0, f"{qid} packet has no gold anchors — unusable"

@@ -140,8 +140,9 @@ def find_factual_discrepancies(system_answer: str, user_answer: str) -> list[str
     issues = []
     # ``.lower()`` belongs on the haystack, not on ``re.findall``'s list
     # result -- as written this raised AttributeError on every call, so
-    # ``compare_workflow_answers`` could never return. The disabled
-    # ``tests/_test_workflow_improvement.py`` is why it shipped.
+    # ``compare_workflow_answers`` could never return. The old uncollected
+    # ``_test_workflow_improvement.py`` is why it shipped; the maintained
+    # ``tests/test_workflow_improvement.py`` now covers it.
     sys_tokens = set(re.findall(r"\b[a-z]+\b", (system_answer or "").lower()))
     user_tokens = set(re.findall(r"\b[a-z]+\b", (user_answer or "").lower()))
     common = set([

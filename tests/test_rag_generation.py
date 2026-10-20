@@ -1031,6 +1031,40 @@ class TestStructuredTwoPass:
         assert "<legal_context>" in user_prompt and "</legal_context>" in user_prompt
         assert '{"issue": "i"}' in user_prompt
 
+    def test_structured_render_honours_the_type_directive(self, monkeypatch):
+        """W3 x W4: the memo and IR prompts carry the same query-type cue."""
+        from app.rag.generation.prompt_template import QUERY_TYPE_DIRECTIVES
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "structured_reasoner", True)
+        monkeypatch.setattr(cfg, "structured_query_type_directives", True)
+        client = _scripted_client(self._IR_JSON, "Memo answer [1].")
+        GroundedGenerationService(llm_client=client).generate(
+            "Which authority may inspect?", _make_chunks(3), "penalty"
+        )
+
+        directive = QUERY_TYPE_DIRECTIVES["penalty"]
+        reason_user = client.calls[0]["user"]
+        answer_user = client.calls[1]["user"]
+        assert directive in reason_user, "IR prompt dropped the W4 directive"
+        assert directive in answer_user, "memo prompt dropped the W4 directive"
+        assert answer_user.index(directive) < answer_user.index("Question:")
+
+    def test_structured_render_drops_the_directive_when_the_flag_is_off(self, monkeypatch):
+        from app.rag.generation.prompt_template import QUERY_TYPE_DIRECTIVES
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "structured_reasoner", True)
+        monkeypatch.setattr(cfg, "structured_query_type_directives", False)
+        client = _scripted_client(self._IR_JSON, "Memo answer [1].")
+        GroundedGenerationService(llm_client=client).generate(
+            "Which authority may inspect?", _make_chunks(3), "penalty"
+        )
+
+        directive = QUERY_TYPE_DIRECTIVES["penalty"]
+        assert directive not in client.calls[0]["user"]
+        assert directive not in client.calls[1]["user"]
+
 
 class TestQueryTypeDirectives:
     """W4: one per-type directive appended before Question: when the operator

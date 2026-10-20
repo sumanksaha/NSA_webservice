@@ -179,13 +179,28 @@ the photo routes (`app/inspection/routes/photo_routes.py`). Owns:
 The tuple of `Setting` rows inside `app/shared/config.py`. Single source of
 truth for the config surface; doubles as living documentation.
 
+### Query-type registry — the vocabulary seam
+
+**Module:** `app/rag/query_type_registry.py`. Owns the canonical query-type
+ids, every legacy alias, emitted surfaces (`direct provision`,
+`cross-reference`, `insufficient-evidence`), directives, budgets, and the set
+of types the legal classifier may emit.
+
+The classifiers use canonical ids as their pattern keys. `QueryType` remains
+the legacy runtime enum, but its canonical map, triage table, and classifier
+label map are derived through the registry at import time; the legal
+classifier emits each type's declared surface and projects `QUERY_TYPE_CONFIGS`
+through the same table. `get_config()` and `QueryUnderstanding` normalization
+resolve aliases, so `duty` reaches `obligation` and `amendment_query` reaches
+`amendment`. See ADR-0017.
+
 ### `QueryUnderstanding` — the query understanding seam
 
 **Module:** `app/rag/retrieval/query_understanding.py`. The single deep
 module behind "what does the query ask". Owns:
 
 - the **canonical parse rule**: one `understand(query)` pass computing every
-  view — the legacy `QueryType`, the 13-type legal view with confidence,
+  view — the legacy `QueryType`, the 14-type legal view with confidence,
   act/section/subsection/authority/citation/court/jurisdiction entities,
   the `QueryParser` filter dispatch, and the identifier-arm query;
 - the **rerank views**: `rerank_config` (resolved `QueryTypeConfig`) and
@@ -315,6 +330,32 @@ and `app/rag/retrieval/result.py` (`RetrievedChunk.from_qdrant_point`). Owns:
   `tasks.py` for data conversion.
 
 See ADR-0013.
+
+### `Chunk access` — the object/payload field seam
+
+**Module:** `app/rag/retrieval/chunk.py`. The single policy for reading and
+writing a retrieved chunk, whether it is a `RetrievedChunk` object or a
+serialized payload dict:
+
+- `field` — dict `.get`, otherwise `getattr`;
+- `text` — always `str`, empty when absent;
+- `chunk_id` — `str` when present, caller-chosen default (`None` for identity,
+  `""` for string keys) when absent;
+- `score` — `float`, default for missing/malformed values;
+- `set_field` / `set_score` — dict assignment or attribute write.
+
+Stages never re-implement the `isinstance(chunk, dict)` branch. Parsing rules
+(legal identity, metadata, section chains) stay in their owning modules;
+`canonical_unit_id` stays in the evidence selector. See ADR-0014.
+
+### `QueryBenchmark` — neutral benchmark entry
+
+**Module:** `app/rag/evaluation/benchmark_entry.py`. The data shape shared by
+`DecompositionBenchmark` (evaluator behaviour) and `decomposition_metrics`
+(requirement-level scoring). It has no imports from either side;
+`benchmark.py` re-exports it for existing callers, and the metrics import it
+directly. This keeps the evaluation type graph acyclic while leaving scoring
+logic in `benchmark.py`. See ADR-0016.
 
 ### Pattern A
 

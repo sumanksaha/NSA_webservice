@@ -211,9 +211,159 @@
 
 ---
 
+## Live A/B — shipped prompt vs legacy scan-only (2026-10-20)
+
+**Status:** ✅ Complete (150/150 qids per arm, 0 errors; 1 replicate; no
+production flags changed)
+
+**Question:** does the current shipped grounded-QA prompt (the v1 conditioning
+block plus the 2026-10-20 question-decomposition cue) beat the pre-conditioning
+scan-only template on the gold-in-prompt failure slice, without regressing the
+control cohort?
+
+**Design (paired, one generation per qid):**
+
+| | Treatment | Control |
+|---|---|---|
+| tag | `cond_v5` | `cond_v5_ctrl` |
+| template | shipped `GROUND_QA_USER_TEMPLATE` (conditioning + decomposition cue) | `--legacy-template` (`cand_scan`, scan-only) |
+| directives | `RAG_QUERY_TYPE_DIRECTIVES=true` | `RAG_QUERY_TYPE_DIRECTIVES=true` |
+| answer contract | off (`RAG_ANSWER_CONTRACT` unset) | off |
+| structured reasoner | off | off |
+| context/model | same `C_hybrid` arm, `ContextBuilder`, model, temperature | same |
+
+**Population:** current gold-in-prompt failure slice (`load_targets()`, 59 qids;
+the analysis doc's 60 predates the 2026-10-16 attribution refresh) **plus** the
+regression complement (`load_complement()`, 91 qids) = all 150 benchmark qids.
+
+**Scoring (0-LLM after generation):**
+1. `evaluation.rubric_top_lawyer` — provision_check, reasoning_depth,
+   abstention_discipline, presentation, sliced by cohort and audit action.
+2. `evaluation.compare_rerun_arms` — paired gained/lost/net, soft delta,
+   citation recall, false/missed abstention; 4/89 noise floor disclosed.
+3. `evaluation.rerun_gold_in_prompt --score-only` — benchmark adjudication
+   (`eliminated` = all gold concepts + a gold authority, or justified abstention).
+
+### Results
+
+Failure cohort (n=59; the target slice):
+
+| metric | control | treatment | delta | discordant | McNemar |
+|---|---:|---:|---:|---:|---:|
+| provision_check | 0.7797 | 0.8644 | **+0.0847** | +6/-1 | p=0.125 |
+| reasoning_depth | 0.4746 | 0.5424 | **+0.0678** | +8/-4 | p=0.388 |
+| abstention_discipline | 0.5932 | 0.4237 | -0.1695 | +4/-14 | p=0.031 |
+| presentation | 0.9322 | 0.9322 | 0.0000 | +3/-3 | p=1.000 |
+| binary correct | 1 | 2 | +1 | +1/-0 | inside 4/89 noise |
+| soft correctness | 0.3577 | 0.3690 | +0.0113 | — | — |
+| citation macro recall | 0.4926 | 0.5647 | +0.0721 | — | — |
+| citation macro precision | 0.3987 | 0.3047 | -0.0940 | — | — |
+| mean distinct cited | 10.0 | 19.4 | +9.4 | — | — |
+| adjudicated eliminated | 5/59 | 7/59 | +2 | +5/-3 | p=0.727 |
+
+Target-slice detail:
+- **provision_check slice (n=21):** provision_check 0.7619 -> 0.9048
+  (+3/-0, +0.1429); binary 1 -> 1; reasoning_depth 0.5714 -> 0.4286 (-3);
+  abstention_discipline 0.4286 -> 0.1905 (lexicon artifact, below).
+- **abstention_gate slice (n=20):** provision_check 0.75 -> 0.85 (+2/-0);
+  reasoning_depth 0.35 -> 0.60 (+5/-0, +0.25); abstention_discipline 0.80 ->
+  0.80 (flat); binary 0 -> 0.
+- **needs_deeper_reasoning slice (n=18):** reasoning_depth 0.50 -> 0.61
+  (+3/-1); binary 0 -> 1; provision_check flat.
+
+Control cohort (n=91; regression guard):
+
+| metric | control | treatment | delta | discordant |
+|---|---:|---:|---:|---:|
+| provision_check | 0.7253 | 0.7363 | +0.0110 | +3/-2 |
+| reasoning_depth | 0.6154 | 0.6154 | 0.0000 | +6/-6 |
+| abstention_discipline | 0.4835 | 0.4505 | -0.0330 | +10/-13 |
+| presentation | 1.0000 | 0.9780 | -0.0220 | +0/-2 |
+| binary correct | 15 | 16 | +1 | +4/-3 (noise) |
+| soft correctness | 0.3917 | 0.3961 | +0.0044 | — |
+| citation macro recall | 0.5355 | 0.5990 | +0.0635 | — |
+| adjudicated eliminated | 20/91 | 21/91 | +1 | +6/-5 |
+
+All 150 (pooled): provision_check 0.7467 -> 0.7867 (+0.0400, +9/-3, p=0.146);
+reasoning_depth 0.5600 -> 0.5867 (+0.0267, +14/-10); abstention_discipline
+0.5267 -> 0.4400 (-0.0867, +14/-27, p=0.060); binary 16 -> 18 (+5/-3, net +2,
+inside the 4/89 noise floor); soft 0.3783 -> 0.3854; citation recall 0.5131 ->
+0.5811 (n=113); adjudicated eliminated 25/150 -> 28/150 (+11/-8, p=0.648).
+
+### Abstention sensitivity (the apparent regression is a measurement artifact)
+
+The rubric's `abstain_match` is a negation-anchored substring lexicon. The
+treatment prompt explicitly asks the model to "say which part is uncovered" and
+to "point to the numbered sources you checked", so substantive answers now
+contain phrases such as "the context does not establish …". The lexicon matches
+those mid-answer qualifiers and scores them as abstentions.
+
+Direct refusal checks over the same 150 answers:
+
+| check | control | treatment |
+|---|---:|---:|
+| recorded `abstained` (v1 narrow) | 4 | 1 |
+| answer < 400 chars | 0 | 0 |
+| refusal-opening (first 160 chars) | 0 | 0 |
+| short AND refusal-opening | 0 | 0 |
+
+Failure slice: recorded `abstained` 1 -> 0. The treatment answers are longer
+(median 3,682 vs 3,123 chars on failures; 3,074 vs 2,380 on controls), not
+shorter refusals. The `abstention_discipline` drop must not be used as the veto
+for this arm; a prompt-robust refusal classifier is needed before that dimension
+can compare prompts with different qualification language.
+
+### Verdict
+
+- **Targeted gain, not a fix.** Provision attribution improves on both target
+  slices (+14.3 pp on `provision_check`, +10 pp on `abstention_gate`) with zero
+  losses on those slices; reasoning depth improves +25 pp on `abstention_gate`.
+  But overall binary accuracy moves only +2/150 inside the repo's 4/89 noise
+  floor, and benchmark-adjudicated elimination only +3/150 (p=0.65). This cue
+  does not close the 89-failure gap.
+- **No control-cohort regression.** Provision +1.1 pp, reasoning flat, binary
+  +1 in noise, soft +0.004. Safe to keep shipped.
+- **Citation trade-off.** Recall rises (0.493 -> 0.565 failures; 0.536 -> 0.599
+  controls) by citing nearly twice as many distinct sources (10.0 -> 19.4),
+  while precision falls (0.399 -> 0.305). More gold is cited in absolute terms
+  (176 -> 223 on failures), but the citation-precision diagnosis is not
+  addressed by this lever.
+- **One replicate.** Binary conclusions are underpowered by design; the
+  repo's own 4/89 same-config flip rate is disclosed, and 3 replicates remain
+  the bar for a promotion claim. The directionally consistent provision gain
+  and the absence of control-cohort regression are the reportable findings.
+
+**Run/scoring commands:**
+```bash
+# generation (paired; the failure-slice records were already cached)
+python -m evaluation.rerun_gold_in_prompt --tag cond_v5 --cohort control --concurrency 2 --delay 0.5
+python -m evaluation.rerun_gold_in_prompt --tag cond_v5_ctrl --cohort control --legacy-template --concurrency 2 --delay 0.5
+python -m evaluation.rerun_gold_in_prompt --tag cond_v5 --cohort all
+python -m evaluation.rerun_gold_in_prompt --tag cond_v5_ctrl --cohort all --legacy-template
+# scoring (0 LLM)
+python -m evaluation.rubric_top_lawyer --rescore cond_v5_ctrl,cond_v5
+python -m evaluation.compare_rerun_arms --base cond_v5_ctrl --arms cond_v5 --cohort all --by-action
+python -m evaluation.rerun_gold_in_prompt --score-only cond_v5_ctrl,cond_v5 --cohort all
+```
+
+**Artifacts:**
+- `evaluation/out/ceiling_v5/rerun_gip/cond_v5.jsonl`,
+  `cond_v5_ctrl.jsonl` (150 rows each), their `*_summary.json`
+- `evaluation/out/ceiling_v5/rerun_gip/compare_cond_v5_ctrl__vs__cond_v5.json`
+- `evaluation/out/ceiling_v5/rerun_gip/cond_v5{,_ctrl}_adjudication.json`
+- `evaluation/out/ceiling_v5/rubric/cond_v5{,_ctrl}_rubric.json`,
+  `rubric/rubric_summary.json`
+- run logs: `temp/live_ab_*.log`
+
+**Next lever (not in this A/B):** `RAG_ANSWER_CONTRACT` / `_REPAIR` remain off
+and unmeasured; they are the deterministic provision-attribution layer this
+result shows is still needed. Re-measure abstention with a refusal-position
+classifier before using `abstention_discipline` as a gate.
+
 ## Summary
 - **Complete (code + tests):** 9 items (P0-1, P0-3, P1-4, P1-5, P1-6, P1-7, P2-8, P2-9, P2-10)
 - **W1-W5 top-lawyer program (2026-10-13):** W1 rubric harness + W2 amendment-prose packing (both verified offline, default-on) and W5 verifier gates are landed; W3/W4 are code-complete behind flags pending a reserved-budget live A/B scored by the W1 rubric
+- **Live A/B (2026-10-20):** shipped prompt (conditioning + decomposition cue) vs legacy scan-only, 150 qids paired, 1 replicate. Provision_check +8.5 pp on failures and +14.3 pp on the provision slice, control cohort safe; binary +2/150 inside the 4/89 noise floor; benchmark elimination +3/150. The abstention_discipline drop is a lexicon artifact (actual refusals 4 -> 1). Keep the cue; it is not the 89-failure fix; answer-contract layer still unmeasured
 - **Code present, flag off by design:** 3 items (P3-11, P3-12 — infrastructure/labels dependent)
 - **Blocked:** 1 item (P0-2, awaiting source PDF for OCR re-extract)
 
@@ -228,5 +378,5 @@
 
 **Future jobs (deferred / pending budget):**
 1. **P3-13 JEV calibration** (`evaluation/experiment_f_calibration_eval.py`, `evaluation/calibrate_ce.py`) — blocked on `ceiling_v5/evaluator_v2_per_question.jsonl` artifact and legal CE-v2 model outputs; use calibrated thresholds to reduce variance across cohorts once artifacts exist.
-2. **W3/W4 live A/B** (`tests/test_decision_eval_tools.py`, structured reasoner / per-type directives) — reserved-budget live A/B scored by W1 rubric; flags remain off until rubric + citation gates + 3 replicates clear.
+2. **W3/W4 live A/B** (`tests/test_decision_eval_tools.py`, structured reasoner / per-type directives) — reserved-budget live A/B scored by W1 rubric; flags remain off until rubric + citation gates + 3 replicates clear. The 2026-10-20 A/B covered the shipped prompt cue, not these two flags; W3/W4 remain unmeasured. Also measure `RAG_ANSWER_CONTRACT` / `_REPAIR` next: the prompt cue's provision gain is real but small, so the deterministic attribution layer is the remaining lever.
 3. **retry_second_pass live run** — retry now triggers on `authority_missing`/`authorities_missing` in addition to `concepts_missing`; needs call budget to run live and confirm soft/binary conversion on the 22 recovered gold-in-window cases.

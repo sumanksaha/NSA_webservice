@@ -6,12 +6,17 @@ different reranker configurations, and a single global configuration is
 suboptimal.
 
 The classifier is **rule-based** (no LLM) for determinism and zero latency
-overhead.  It maps user queries to one of the legal query types used in the
-evaluation framework:
+overhead.  It maps user queries to one of the legal query types declared in
+:mod:`app.rag.query_type_registry`:
 
-    penalty, direct provision, definition, exception, obligation, procedure,
-    authority, prohibition, cross-reference, offence, enforcement,
-    insufficient-evidence, temporal, ambiguous
+    penalty, direct_provision, definition, exception, obligation, procedure,
+    authority, prohibition, cross_reference, offence, enforcement,
+    insufficient_evidence, temporal, ambiguous
+
+Patterns are keyed by the registry's canonical ids; the returned strings are
+each type's declared ``surface`` (for example ``direct provision`` and
+``cross-reference``), so frozen evaluation artifacts keep their spelling while
+the vocabulary itself stays canonical.
 
 The ``QueryTypeConfig`` dataclass holds per-type reranker parameters:
 CE weight, CE head, hierarchy weight, and a ``feature_weight`` multiplier
@@ -218,28 +223,49 @@ AMBIGUOUS_CONFIG = QueryTypeConfig(
     feature_weight=0.8,
 )
 
-#: Master mapping: query type string -> QueryTypeConfig
-QUERY_TYPE_CONFIGS: dict[str, QueryTypeConfig] = {
+#: Canonical id -> reranker config.  Keys are canonical so the registry owns
+#: the spelling; the public ``QUERY_TYPE_CONFIGS`` table below projects them
+#: through each type's declared emitted surface.
+_CONFIGS_BY_CANONICAL: dict[str, QueryTypeConfig] = {
     "penalty": PENALTY_CONFIG,
-    "direct provision": DIRECT_PROVISION_CONFIG,
+    "direct_provision": DIRECT_PROVISION_CONFIG,
     "definition": DEFINITION_CONFIG,
     "exception": EXCEPTION_CONFIG,
     "obligation": OBLIGATION_CONFIG,
     "procedure": PROCEDURE_CONFIG,
     "authority": AUTHORITY_CONFIG,
     "prohibition": PROHIBITION_CONFIG,
-    "cross-reference": CROSS_REFERENCE_CONFIG,
+    "cross_reference": CROSS_REFERENCE_CONFIG,
     "offence": OFFENCE_CONFIG,
     "enforcement": ENFORCEMENT_CONFIG,
-    "insufficient-evidence": INSUFFICIENT_EVIDENCE_CONFIG,
+    "insufficient_evidence": INSUFFICIENT_EVIDENCE_CONFIG,
     "temporal": TEMPORAL_CONFIG,
     "ambiguous": AMBIGUOUS_CONFIG,
 }
 
+assert set(_CONFIGS_BY_CANONICAL) == _registry.CLASSIFIER_TARGETS, (
+    "reranker configs must cover exactly the registry's classifier targets"
+)
+
+#: Master mapping: emitted query-type surface -> QueryTypeConfig
+QUERY_TYPE_CONFIGS: dict[str, QueryTypeConfig] = {
+    _registry.REGISTRY[canonical].emitted: config
+    for canonical, config in _CONFIGS_BY_CANONICAL.items()
+}
+
 
 def get_config(query_type: str) -> QueryTypeConfig:
-    """Get the reranker configuration for a query type (falls back to DEFAULT)."""
-    return QUERY_TYPE_CONFIGS.get(query_type, DEFAULT_CONFIG)
+    """Get the reranker configuration for a query type (falls back to DEFAULT).
+
+    Both canonical ids (``cross_reference``) and the emitted /
+    benchmark spellings (``cross-reference``, ``Cross-reference``) resolve
+    through the registry, so callers do not need to normalise first.
+    """
+    canonical = _registry.resolve(query_type)
+    if canonical is None:
+        return DEFAULT_CONFIG
+    surface = _registry.REGISTRY[canonical].emitted
+    return QUERY_TYPE_CONFIGS.get(surface, DEFAULT_CONFIG)
 
 
 # ---------------------------------------------------------------------------
@@ -350,7 +376,7 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
     ),
     # cross-reference — "as provided under", "read with", "refer to", schedule
     (
-        "cross-reference",
+        "cross_reference",
         [
             r"\breferred\s+to\s+in\b",
             r"\bread\s+with\b",
@@ -435,7 +461,7 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
     # the default lookup shape, and a broad pattern here would swallow
     # penalty/prohibition queries that cite a section.
     (
-        "direct provision",
+        "direct_provision",
         [
             r"\bwhat\s+does\s+section\b",
             r"\bwhat\s+does\s+the\s+act\b",
@@ -466,7 +492,7 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
     ),
     # insufficient-evidence — evidentiary standards, burden of proof
     (
-        "insufficient-evidence",
+        "insufficient_evidence",
         [
             r"\bevidenc",
             r"\bburden\s+of\s+proof\b",
@@ -479,17 +505,27 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
     ),
 ]
 
-#: Compiled patterns cache — list of (label, compiled_patterns)
+#: Pattern labels are canonical ids; emitted strings are the registry surfaces.
+for _label, _ in _TYPE_PATTERNS:
+    assert _registry.resolve(_label) == _label, (
+        f"legal classifier pattern label {_label!r} must be canonical"
+    )
+_AMBIGUOUS_SURFACE: str = _registry.REGISTRY["ambiguous"].emitted
+del _label
+
+
+#: Compiled patterns cache — list of (canonical id, compiled_patterns)
 _COMPILED: list[tuple[str, list[re.Pattern[str]]]] = [
     (label, [re.compile(p, re.IGNORECASE) for p in pats]) for label, pats in _TYPE_PATTERNS
 ]
 
 
 def classify_legal_query(query: str) -> str:
-    """Classify a legal query into a query type string.
+    """Classify a legal query into the registry's emitted surface string.
 
-    Uses keyword patterns ordered by specificity.  Returns the first matching
-    type, or ``"ambiguous"`` if none match confidently.
+    Uses keyword patterns keyed by canonical id and ordered by specificity.
+    Returns the first matching type's declared surface, or ``"ambiguous"`` if
+    none match confidently.
 
     The classifier is deliberately conservative: when multiple types match,
     it picks the one with the most keyword hits, not just the first match.
@@ -497,7 +533,7 @@ def classify_legal_query(query: str) -> str:
     which could be Authority or Offence).
     """
     if not query or not query.strip():
-        return "ambiguous"
+        return _AMBIGUOUS_SURFACE
 
     scores: dict[str, int] = {}
 
@@ -507,20 +543,21 @@ def classify_legal_query(query: str) -> str:
             scores[label] = count
 
     if not scores:
-        return "ambiguous"
+        return _AMBIGUOUS_SURFACE
 
     # Return the type with the most keyword hits (key=s is a callable returning
     # int, which mypy's max overload rejects — use itemgetter instead)
-    return max(scores.items(), key=lambda item: item[1])[0]
+    best_label = max(scores.items(), key=lambda item: item[1])[0]
+    return _registry.REGISTRY[best_label].emitted
 
 
 def classify_with_confidence(query: str) -> tuple[str, float]:
-    """Classify a legal query and return (type, confidence 0-1).
+    """Classify a legal query and return (emitted surface, confidence 0-1).
 
     Confidence = fraction of matched keywords among all keywords for that type.
     """
     if not query or not query.strip():
-        return "ambiguous", 0.0
+        return _AMBIGUOUS_SURFACE, 0.0
 
     scores: dict[str, tuple[int, int]] = {}
     for label, patterns in _COMPILED:
@@ -529,12 +566,12 @@ def classify_with_confidence(query: str) -> tuple[str, float]:
             scores[label] = (count, len(patterns))
 
     if not scores:
-        return "ambiguous", 0.0
+        return _AMBIGUOUS_SURFACE, 0.0
 
     best_label, pair = max(scores.items(), key=lambda item: item[1][0])
     hits, total = pair
     confidence = hits / total if total > 0 else 0.0
-    return best_label, confidence
+    return _registry.REGISTRY[best_label].emitted, confidence
 
 
 # ---------------------------------------------------------------------------
