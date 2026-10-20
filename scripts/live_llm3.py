@@ -18,7 +18,7 @@ load_dotenv(ROOT / ".env", override=True)
 if os.getenv("LLM_ENABLED", "false").strip().lower() != "true":
     raise SystemExit("refusing: LLM disabled (set LLM_ENABLED=true and MAX_LLM_CALLS first)")
 KEY = os.getenv("OPENROUTER_API_KEY", "")
-MODEL = os.getenv("RAG_LLM_MODEL", "poolside/laguna-s-2.1:free")
+MODEL = os.getenv("RAG_LLM_MODEL", "minimax/minimax-m3.1-flash:free")
 FRE = re.compile(r"\bform\s+(ii|iii|iv|v|vi|vii|viia|viii)\b", re.IGNORECASE)
 WF = open(ROOT / "sample_workflow.md", encoding="utf-8").read().split("---")[0][:1500]
 body = json.dumps({

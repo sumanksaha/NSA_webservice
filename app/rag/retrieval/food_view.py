@@ -203,7 +203,7 @@ def _fetch_siblings(
     from app.rag.retrieval.provision_metadata import (
         derive_provision_metadata_cached as _dpm,
     )
-    from app.rag.tasks import _point_to_chunk
+    from app.rag.retrieval.result import RetrievedChunk
 
     food = view.food
     if not (food.entity and food.entity != "unknown" and view.sibling_budget[0] > 0):
@@ -244,7 +244,7 @@ def _fetch_siblings(
             pid = str(p.get("id"))
             if pid in seen_ids:
                 continue
-            fresh.append(_point_to_chunk(p, pid, payload))
+            fresh.append(RetrievedChunk.from_qdrant_point(p, pid, payload))
         if fresh:
             ranked[:] = reranker.rerank(view.query, [*fresh, *ranked], food=food)
     except Exception as exc:

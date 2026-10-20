@@ -2,6 +2,7 @@ import os
 import secrets
 import threading
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from dotenv import load_dotenv
@@ -418,6 +419,54 @@ def create_app(db_uri: str | None = None):
             bind_request_context(current_user, request_id)
         except Exception:  # pragma: no cover - observability never breaks a request
             app.logger.debug("Observability: request context binding failed", exc_info=True)
+
+    # ------------------------------------------------------------------
+    # HTTP metrics (OBS3, FR-34/FR-36/FR-37) — the Flask surface.
+    #
+    # Registered only when metrics are enabled, so the disabled path adds zero
+    # work per request and never imports prometheus_client. The ASGI half lives
+    # in asgi.py and counts only /api/v2/*, which never reaches this app: the
+    # two surfaces are disjoint by construction (INV-3).
+    # ------------------------------------------------------------------
+    from app.shared.config import cfg
+
+    if cfg.metrics_enabled:
+        from app.observability import metrics as obs_metrics
+
+        @app.before_request
+        def _metrics_request_started():
+            """Start the timer and the in-flight gauge. Paired with teardown."""
+            if not obs_metrics.is_flask_countable_path(request.path):
+                return None
+            # URL matching has already run, so the *rule* is available here —
+            # never the interpolated path (V-3, FR-37).
+            g._nsa_obs = {
+                "started": perf_counter(),
+                "route": request.url_rule.rule if request.url_rule else None,
+            }
+            obs_metrics.http_request_started("flask", g._nsa_obs["route"])
+            return None
+
+        @app.after_request
+        def _metrics_request_completed(response):
+            """Record status and latency. Does not decrement — teardown owns that."""
+            entry = g.get("_nsa_obs")
+            if entry is not None:
+                obs_metrics.observe_http_request(
+                    surface="flask",
+                    method=request.method,
+                    route=entry["route"],
+                    status=response.status_code,
+                    duration=perf_counter() - entry["started"],
+                )
+            return response
+
+        @app.teardown_request
+        def _metrics_request_finished(exc):
+            """Decrement exactly once, whatever happened to the request."""
+            entry = g.pop("_nsa_obs", None)
+            if entry is not None:
+                obs_metrics.http_request_finished("flask", entry["route"])
 
     # Auth gates (global login + Phase 18 RBAC) live in app/shared/rbac.py —
     # the single home for access policy (2026-09-12 review: the factory was

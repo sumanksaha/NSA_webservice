@@ -68,27 +68,32 @@ class DenseRetriever:
     # ------------------------------------------------------------------ #
 
     def _get_client(self) -> Any | None:
-        """Return a QdrantClient, importing qdrant-client lazily."""
+        """Return a QdrantClient through the single construction seam.
+
+        :func:`app.rag.qdrant_client.build_qdrant_client` resolves
+        ``RAG_QDRANT_URL`` / ``RAG_QDRANT_API_KEY`` via :data:`cfg` (Pattern A),
+        so query-side retrieval no longer needs a Flask app context.
+        """
         if self._client is not None:
             return self._client
-        from flask import current_app
-        from qdrant_client import QdrantClient
+        from app.rag.qdrant_client import build_qdrant_client
 
-        url = current_app.config.get("RAG_QDRANT_URL", "")
-        if not url:
-            logger.warning("DenseRetriever: RAG_QDRANT_URL not configured; dense retrieval unavailable.")
-            return None
-        api_key = current_app.config.get("RAG_QDRANT_API_KEY") or None
-        self._client = QdrantClient(url=url, api_key=api_key)
+        self._client = build_qdrant_client()
         return self._client
 
     def _get_encoder(self) -> Any | None:
-        """Return a SentenceTransformer, importing sentence-transformers lazily."""
+        """Return the shared SentenceTransformer for this retriever's model.
+
+        The model cache is process-wide (:mod:`app.rag.model_runtime`), so the
+        per-collection retrievers the multi-domain router builds share one copy
+        of the weights instead of each loading their own. Returns ``None`` when
+        sentence-transformers is unavailable.
+        """
         if self._encoder is not None:
             return self._encoder
-        from sentence_transformers import SentenceTransformer
+        from app.rag.model_runtime import get_sentence_transformer
 
-        self._encoder = SentenceTransformer(self.embedding_model)
+        self._encoder = get_sentence_transformer(self.embedding_model)
         return self._encoder
 
     def _collection_has_sparse(self) -> bool:
@@ -284,22 +289,14 @@ class DenseRetriever:
 
     @staticmethod
     def _build_filter(filters: dict[str, Any]) -> dict[str, Any]:
-        """Convert a flat ``{field: value}`` dict into a Qdrant filter dict.
+        """Convert a caller filter into Qdrant's filter shape.
 
-        A filter that is *already* shaped — i.e. it carries Qdrant's boolean
-        clauses (``must`` / ``should`` / ``must_not``) — is passed through
-        untouched, so callers can express an OR over scoping keys (e.g.
-        ``section_number == N`` AND (``act_name`` OR ``document_title``) ==
-        Act), which a flat dict cannot. See
-        :mod:`app.rag.retrieval.section_scope`.
+        Delegates to :func:`app.rag.qdrant_client.build_filter` (the single
+        conversion rule shared with the store): pre-shaped boolean filters pass
+        through; flat dicts expand list values into one ``must`` clause each.
+        Kept as a method because :mod:`app.rag.retrieval.section_scope` and the
+        tests cross this seam.
         """
-        if any(k in filters for k in ("must", "should", "must_not")):
-            return filters
-        must = []
-        for key, value in filters.items():
-            if isinstance(value, list):
-                for v in value:
-                    must.append({"key": key, "match": {"value": v}})
-            else:
-                must.append({"key": key, "match": {"value": value}})
-        return {"must": must} if must else {}
+        from app.rag.qdrant_client import build_filter
+
+        return build_filter(filters)

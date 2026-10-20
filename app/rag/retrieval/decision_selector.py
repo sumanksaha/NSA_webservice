@@ -25,8 +25,8 @@ call until it exhausted the key's daily budget.
 httpx call (key ``OPENROUTER_API_KEY`` / ``AI_ASSISTANT_API_KEY``,
 ordinary verifying client).  The chat transport through
 :meth:`AIAssistantService.complete_json_with_model` is retained for
-chat-type models (none sanctioned today).  Laguna
-(``poolside/laguna-s-2.1:free``) remains the answer model on the
+chat-type models (none sanctioned today).  The answer model
+(``minimax/minimax-m3.1-flash:free`` by default) remains on the
 untouched ``GroundedLLMClient`` path.
 
 Contract (unchanged from the original design — only the scorer changed):

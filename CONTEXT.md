@@ -60,6 +60,22 @@ here may be cited as evidence or history.
   edits**. Do not sprinkle `capture_exception()` into existing `except` blocks.
 - **Tracing stays off** (`SENTRY_TRACES_SAMPLE_RATE=0.0`) — `a2wsgi` invokes
   `Flask.__call__`, so one request would otherwise open two server transactions.
+- **Metrics (Prometheus, `metrics.py`)** — every metric object in the app is
+  constructed here and nowhere else (FR-10): one module, one `nsa_` namespace.
+  Each label value passes an allowlist and anything unrecognised becomes
+  `other`; `route` is the matched **rule** (`/inspection/<int:inspection_id>`),
+  never the interpolated path. That is not tidiness — Grafana Cloud bills on
+  active series, and a path label is an unbounded series.
+- **The scrape path lives on the ASGI edge** (`asgi.py`, before the Flask
+  mount). `prometheus-flask-exporter` would never see `/api/v2/rag/generate`
+  and `/api/v2/rag/query/agent`, the two slowest routes in the system.
+  `GET /metrics` is registered only when `METRICS_ENABLED` is set, and fails
+  closed with `503` when enabled without `METRICS_TOKEN`.
+- **Counting is disjoint by construction** — the ASGI middleware counts only
+  `/api/v2/*` (which never reaches Flask) and the Flask hooks skip everything
+  FastAPI owns, so a request is counted exactly once. Both skip `/metrics`,
+  `/health` and `/api/v2/health`: a monitor pinging every 10 s would otherwise
+  flatten the very graph it feeds.
 
 See `docs/OBSERVABILITY_SENTRY_PROMETHEUS_SPEC.md` (decisions D1–D11, FR/NFR/INV/SEC).
 
@@ -261,6 +277,44 @@ feature stays opt-in (never auto-applied).
 Deleted as zero-caller orphans in the same pass: `confidence_controller`
 (tier function nobody called), `ThreeStageReranker` (weaker parallel
 ranker), `build_kg_queries` (variant builder nobody called).
+
+### `ModelRuntime` — the shared encoder seam
+
+**Module:** `app/rag/model_runtime.py`. The single construction site for every
+torch model the RAG stack loads. Owns:
+
+- the **cache rule**: one process-wide model per `(kind, model_name)`, so the
+  per-collection retrievers/rerankers the multi-domain router builds share one
+  copy of the mpnet/CE weights instead of loading one each;
+- the **construction rule**: lazy import, `cap_torch_threads()` before build,
+  remembered package absence (`None`, never an import-time raise), load errors
+  propagate;
+- the **cold-start hook**: `clear_model_cache()` for harnesses that swap model
+  names. Re-ingestion does not clear it — the weights did not change.
+
+Boundary: constructor injection (`encoder=`) still wins, so tests and callers
+that supply an encoder never touch the registry. The remote clients' lazy local
+fallbacks call the same seam. Glossary entries elsewhere that name
+`EmbeddingService`, `DenseRetriever`, `Reranker` or `EnsembleReranker` describe
+behaviour, not model-loading policy. See ADR-0012.
+
+### `Qdrant seam` — connection, filter, and point conversion
+
+**Modules:** `app/rag/qdrant_client.py` (`build_qdrant_client`, `build_filter`)
+and `app/rag/retrieval/result.py` (`RetrievedChunk.from_qdrant_point`). Owns:
+
+- the **connection rule**: `RAG_QDRANT_URL` / `RAG_QDRANT_API_KEY` resolve
+  through `cfg` (Pattern A) in one place, so ingestion/query work outside a
+  Flask app context; injected clients still win;
+- the **filter rule**: empty → `{}`, pre-shaped `must`/`should`/`must_not`
+  filters pass through, flat dicts expand list values into one `must` clause
+  each. `QdrantStore._build_filter` and `DenseRetriever._build_filter` delegate
+  (callers and tests cross that seam);
+- the **conversion rule**: Qdrant point (object or `scroll` dict) → chunk. It
+  lives in `result.py`, not the orchestrator, so stage modules never import
+  `tasks.py` for data conversion.
+
+See ADR-0013.
 
 ### Pattern A
 

@@ -200,7 +200,7 @@ class TestNoFallbackOnFailure:
         monkeypatch.setenv("RAG_USE_STUB_LLM", "false")
         monkeypatch.delenv("RAG_LLM_MODEL", raising=False)
 
-    def test_rag_failure_keeps_laguna_on_every_attempt(self, monkeypatch):
+    def test_rag_failure_keeps_default_model_on_every_attempt(self, monkeypatch):
         self._arm_live(monkeypatch)
         monkeypatch.setattr("app.rag.generation.llm_client.GroundedLLMClient.MAX_ATTEMPTS", 2)
         monkeypatch.setattr("app.rag.generation.llm_client.GroundedLLMClient.BACKOFF_BASE_S", 0.01)
@@ -217,11 +217,11 @@ class TestNoFallbackOnFailure:
         # Failure surfaces as an error — no answer text, no silent switch.
         assert resp.error and "failed after" in resp.error
         assert resp.text == ""
-        assert resp.model == "poolside/laguna-s-2.1:free"
-        # Every attempted request named Laguna; none mentioned deepseek.
+        assert resp.model == "minimax/minimax-m3.1-flash:free"
+        # Every attempted request named the default answer model; none mentioned deepseek.
         assert len(_RecordingClient.sent) == 2  # MAX_ATTEMPTS
         for record in _RecordingClient.sent:
-            assert record["body"]["model"] == "poolside/laguna-s-2.1:free"
+            assert record["body"]["model"] == "minimax/minimax-m3.1-flash:free"
             assert "deepseek" not in str(record).lower()
 
     def test_ai_assistant_failure_surfaces_error_no_model_switch(self, monkeypatch):
@@ -246,7 +246,7 @@ class TestNoFallbackOnFailure:
 
         assert _RecordingClient.sent
         for record in _RecordingClient.sent:
-            assert record["body"]["model"] == "poolside/laguna-s-2.1:free"
+            assert record["body"]["model"] == "minimax/minimax-m3.1-flash:free"
             assert "deepseek" not in str(record).lower()
 
     def test_decision_model_deepseek_refused(self, monkeypatch):

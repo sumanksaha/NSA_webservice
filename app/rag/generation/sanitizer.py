@@ -26,6 +26,37 @@ logger = logging.getLogger(__name__)
 #: Below this, ``hallucination_detected`` is set to ``True``.
 _GROUNDEDNESS_THRESHOLD = 0.50
 
+#: A line that starts the answer step.  Anchored: a plan that merely mentions
+#: "step 2" mid-sentence ("we need step 1 quote, step 2 answer") is not a
+#: conclusion, which is exactly the minimax leak this flag exists to catch.
+_STEP2_HEADING_RE = re.compile(r"(?im)^\s*(?:#{1,6}\s*)?(?:\*\*)?step\s*2\b")
+
+#: First-person planning openers.  A response that opens like this is a
+#: restatement of the instructions, not an answer.
+_PLAN_OPENING_RE = re.compile(
+    r"(?i)^\s*(?:\*\*)?(?:we need|we should|we must|we are asked|i need|"
+    r"i should|let me|the user (?:wants|asks|is asking)|the question "
+    r"(?:asks|is asking)|to answer this|okay[,.]|first,? i)\b"
+)
+
+
+def _has_conclusion(text: str) -> bool:
+    """Whether *text* contains an answer rather than only a plan.
+
+    True when the text is an abstention, when it opens the answer step with a
+    line-anchored ``Step 2`` heading, or when it is a substantive body that
+    does not open with first-person planning.  A truncated trace fails all
+    three and is reported as degraded instead of scoring as a normal answer.
+    """
+    if not text or not text.strip():
+        return False
+    if is_abstention(text):
+        return True
+    if _STEP2_HEADING_RE.search(text):
+        return True
+    return len(text.strip()) >= 40 and not _PLAN_OPENING_RE.match(text)
+
+
 
 @dataclass
 class SanitizedResponse:
@@ -39,6 +70,9 @@ class SanitizedResponse:
         abstained: True when the answer declines instead of asserting.  Read
             ``groundedness_score`` together with this: an abstention cites
             nothing, so it scores 0.0 without being ungrounded.
+        has_conclusion: True when the text contains an answer, not only a
+            plan or a truncated reasoning trace.  False is a delivery
+            failure even when every citation is valid.
         hallucination_detected: True if any invalid citation or low groundedness.
         hallucinated_claims: Heuristically flagged unverifiable claims.
         confidence: Overall confidence (0.0-1.0).
@@ -50,6 +84,7 @@ class SanitizedResponse:
     invalid_citations: list[Citation] = field(default_factory=list)
     groundedness_score: float = 0.0
     abstained: bool = False
+    has_conclusion: bool = False
     hallucination_detected: bool = False
     hallucinated_claims: list[str] = field(default_factory=list)
     confidence: float = 0.0
@@ -136,6 +171,7 @@ class ResponseSanitizer:
             invalid_citations=invalid,
             groundedness_score=round(groundedness, 4),
             abstained=abstained,
+            has_conclusion=_has_conclusion(response_text),
             hallucination_detected=hallucination,
             hallucinated_claims=hallucinated_claims,
             confidence=round(confidence, 4),

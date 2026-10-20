@@ -9,12 +9,16 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.rag import query_type_registry as _registry
+
 logger = logging.getLogger(__name__)
 
 GROUND_QA_SYSTEM_PROMPT = (
     "You are a legal assistant specialised in the Food Safety and Standards "
     "Act, 2006 (FSS Act). Answer using ONLY the <legal_context> sources below. "
-    "Work in two steps. Step 1 — quote: first extract the short passages "
+    "Begin your reply with the literal heading 'Step 1 — Quotes'. Do not "
+    "describe your approach or restate these instructions. Work in two steps. "
+    "Step 1 — quote: first extract the short passages "
     "that bear on the question, quoting them verbatim. Step 2 — answer: "
     "give a concise, legally precise answer derived strictly from those quotes. "
     "Citation contract: (1) every material legal claim carries at least one "
@@ -214,49 +218,12 @@ GROUNDED_QA_STRUCTURED_USER_TEMPLATE = (
 #: Gated by ``RAG_QUERY_TYPE_DIRECTIVES`` (default off) and measured through
 #: ``evaluation/ab_baseline_citation.py --qtype <type>`` before the flag is
 #: flipped; `abstained` is the binding risk on every type.
-QUERY_TYPE_DIRECTIVES: dict[str, str] = {
-    "penalty": (
-        "For this penalty question, state the full structure of the sanction — "
-        "base fine and/or imprisonment, any continuing daily fine, and any "
-        "escalation on repeat conviction — with exact figures as printed in "
-        "the source, never a rounded summary."
-    ),
-    "exception": (
-        "For this exemption question, quote the exception, proviso or "
-        "non-applicability clause itself, with its own [n] citation, before "
-        "stating what the general rule provides."
-    ),
-    "definition": (
-        "For this definition question, answer from the operative provision "
-        "that governs, not from a general definition: name the operative "
-        "clause and say how the definition bears on it."
-    ),
-    "prohibition": (
-        "For this prohibition question, restate every element the source "
-        "joins with 'and' — dropping one changes the offence — and do not "
-        "soften the prohibition into a permission."
-    ),
-    "obligation": (
-        "For this obligation question, restate the duty as written, with "
-        "every cumulative requirement, and identify who must discharge it."
-    ),
-    "offence": (
-        "For this offence question, identify the actus reus elements the "
-        "source states, all of them, and the authority that takes cognizance."
-    ),
-    "procedure": (
-        "For this procedure question, state the designated authority, any "
-        "statutory deadline in days, and the statutory Form by name."
-    ),
-    "temporal": (
-        "For this temporal question, state which version of the provision the "
-        "question asks about and how the versions differ."
-    ),
-    "enforcement": (
-        "For this enforcement question, name the enforcing authority and the "
-        "specific power it exercises under the cited provision."
-    ),
-}
+#: The table itself now lives in :mod:`app.rag.query_type_registry`, which
+#: owns the canonical vocabulary and every alias.  It is re-exported here
+#: unchanged so existing imports keep working and the rendered prompt bytes
+#: are identical.  Do not re-add entries here -- add them to the registry so
+#: the alias index and the coverage test can see them.
+QUERY_TYPE_DIRECTIVES: dict[str, str] = dict(_registry.DIRECTIVES)
 
 _TEMPLATES: dict[str, tuple[str, str]] = {
     "grounded_qa": (GROUND_QA_SYSTEM_PROMPT, GROUND_QA_USER_TEMPLATE),
@@ -321,10 +288,12 @@ class PromptTemplate:
             domain: Optional domain key (``fssai`` / ``env`` / ``commercial``
                 / ``animal`` / ``wb_state`` / ``general``); ``None`` uses the
                 FSSAI default (backward compatible).
-            query_type: Optional classified query type.  When it matches an
-                entry in :data:`QUERY_TYPE_DIRECTIVES`, that directive is
-                appended before the ``Question:`` line.  Empty (the default)
-                leaves the rendered prompt byte-identical to before.
+            query_type: Optional classified query type.  Any registered
+                spelling (canonical id, legacy enum value, benchmark label)
+                whose canonical type has an entry in
+                :data:`QUERY_TYPE_DIRECTIVES` gets that directive appended
+                before the ``Question:`` line.  Empty or unregistered values
+                leave the rendered prompt byte-identical to before.
 
         """
         vars_dict = dict(extra_vars)
@@ -338,7 +307,9 @@ class PromptTemplate:
         )
         # W4: the directive is inserted before the question so it still reads
         # as an instruction, not as trailing content after "Answer:".
-        directive = QUERY_TYPE_DIRECTIVES.get((query_type or "").strip().lower())
+        # Resolve aliases first: callers pass the runtime ``QueryType`` value
+        # (``duty``) or a benchmark label (``Penalty``), not the canonical id.
+        directive = QUERY_TYPE_DIRECTIVES.get(_registry.resolve(query_type) or "")
         if directive:
             marker = "\nQuestion: "
             if marker in user_prompt:

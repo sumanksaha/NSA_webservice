@@ -34,27 +34,23 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.rag import query_type_registry as _registry
+
 # ---------------------------------------------------------------------------
 # Legal query types — aligned with the evaluation framework taxonomy
 # ---------------------------------------------------------------------------
 
 #: Canonical set of legal query types used throughout the system.
-LEGAL_QUERY_TYPES = frozenset({
-    "penalty",
-    "direct provision",
-    "definition",
-    "exception",
-    "obligation",
-    "procedure",
-    "authority",
-    "prohibition",
-    "cross-reference",
-    "offence",
-    "enforcement",
-    "insufficient-evidence",
-    "temporal",
-    "ambiguous",
-})
+#:
+#: Derived from :mod:`app.rag.query_type_registry`, which owns the vocabulary
+#: and every alias.  The emitted spellings below are the ones already stored in
+#: frozen artifacts (notably ``ceiling_v5/experiment_B_ce_ranking.json``), so
+#: they are declared as `surface` in the registry rather than normalised to
+#: snake_case here.  Changing them is an artifact-breaking migration, not a
+#: cleanup -- see the registry docstring.
+LEGAL_QUERY_TYPES: frozenset[str] = frozenset(
+    _registry.REGISTRY[c].emitted for c in _registry.CLASSIFIER_TARGETS
+)
 
 
 @dataclass(frozen=True)
@@ -253,46 +249,46 @@ def get_config(query_type: str) -> QueryTypeConfig:
 #: Keyword patterns for each legal query type.
 #: Order matters: more specific types are checked first.
 _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
-    # penalty — monetary/term punishment, fine, imprisonment, penalty amounts
+    # penalty — monetary/term punishment, fine, imprisonment, penalty amounts.
+    # Stems are prefix-matched (no trailing \b) so inflections are caught:
+    # penalt|y|ies, punish|ment|ed|able, imprison|ment.
     (
         "penalty",
         [
-            r"\bpenalty\b",
-            r"\bimprison\b",
+            r"\bpenalt",
+            r"\bimprison",
+            r"\bpunish",
+            # "fine" is left STRICT: a prefix would match "finger",
+            # "refine", "finesse".  Use the phrase forms instead.
             r"\bfine\b",
-            r"\bpunish\b",
+            r"\bfined\b",
             r"\brs\.?\s*\d+[,\d]*\s*(?:per|for|each|or)\b",
-            r"\bshall\s+be\s+punish",
-            r"\bwith\s+imprisonment",
-            r"\bpunishable\b",
-            r"\bmonetary\s+penalty\b",
+            r"\bmonetary\s+penalt",
+            r"\bcost\s+of\s+violation\b",
         ],
     ),
     # offence — criminal liability, commission of offence, prosecution
     (
         "offence",
         [
-            r"\boffence\b",
-            r"\bcommit\s+an?\s+offence\b",
-            r"\bcommission\s+of\s+offence\b",
-            r"\bprosecut(e|ion)\b",
-            r"\bliable\s+to\s+prosecut\b",
+            r"\boffence",
+            r"\bprosecut",
             r"\bcriminal\s+liability\b",
             r"\bguilty\b",
             r"\bconvict",
+            r"\bliable\s+to\s+be\s+punish",
         ],
     ),
     # prohibition — prohibition orders, what is prohibited, restrictions
     (
         "prohibition",
         [
-            r"\bprohibit\b",
-            r"\bprohibition\b",
-            r"\bprohibited\b",
+            r"\bprohibit",
+            r"\brestrict",
             r"\bshall\s+not\b",
-            r"\bno\s+(?:person|food\s*business)",
-            r"\brestrict\b",
-            r"\brestriction\b",
+            r"\bmay\s+not\b",
+            r"\bmust\s+not\b",
+            r"\bno\s+(?:person|food\s*business|premises|establishment)",
             r"\bprohibition\s+order\b",
         ],
     ),
@@ -300,35 +296,34 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
     (
         "exception",
         [
-            r"\bexceptions?\b",
-            r"\bexempt\b",
-            r"\bexemption\b",
+            r"\bexcept",
+            r"\bexempt",
             r"\bnot\s+applicable\b",
-            r"\bdoesn't\s+apply\b",
-            r"\bdoesn\t+apply\b",
+            r"\bdoesn'?t\s+apply\b",
             r"\bsaving\b",
             r"\bsubject\s+to\b",
             r"\bnotwithstanding\b",
+            r"\bnon[- ]applicab",
         ],
     ),
-    # enforcement — enforcement actions, inspection, sampling, seizure
+    # enforcement — enforcement actions, inspection, sampling, seizure.
     # NOTE: placed BEFORE authority so queries like "When will the FSO conduct
     # sampling?" classify as enforcement (sample) rather than authority (fso),
     # since enforcement keywords indicate the action type, not just the actor.
     (
         "enforcement",
         [
-            r"\binspect\b",
-            r"\bsample\b",
-            r"\benforcement\b",
-            r"\benter\s+and\s+inspect\b",
-            r"\bseiz(e|ure|ing)\b",
+            r"\binspect",
+            r"\bsampl",
+            r"\benforc",
+            r"\bseiz",
             r"\bdetention\b",
             r"\bclosure\s+notice\b",
             r"\bshow\s+cause\b",
+            # exercise-of-power vocabulary: the action an officer may take
         ],
     ),
-    # authority — officers, boards, agencies, who has power
+    # authority — officers, boards, agencies, who has power.
     # NOTE: ``tribunal`` intentionally NOT duplicated here — it is in the
     # ``procedure`` list above.  If a query mentions both, procedure wins
     # (earlier entry, count-wins).  This avoids the previous conflict where
@@ -337,18 +332,17 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
     (
         "authority",
         [
-            r"\bofficer\b",
+            r"\bofficer",
             r"\bauth\b",
-            r"\bauthority\b",
+            r"\bauthorit",
             r"\bboard\b",
-            r"\bagency\b",
+            r"\bagenc",
             r"\bcommission\b",
-            r"\bdesignated\s+officer\b",
             r"\bfso\b",
             r"\bfsoi\b",
             r"\bwho\s+is\b.*\borgan",
             r"\bempowered\b",
-            r"\bprincipal\s+enforcement\b",
+            r"\bprincipal\s+enforc",
             r"\bfood\s+analyst\b",
             r"\bappellate\b",
             r"\bjurisdicti",
@@ -367,21 +361,34 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
             r"\bshall\s+apply\s+in\s+accordance\b",
             r"\bmeans\s+and\s+includes\b",
             r"\bnotwithstanding\s+anything\s+contained\b",
-            r"\bsubject\s+to\s+the\s+provisions\b",
+            r"\bsubject\s+to\s+the\s+provision",
             r"\bexplained\s+in\b",
+            r"\bgiven\s+under\b",
         ],
     ),
-    # temporal — when, time limits, deadlines, validity periods
+    # temporal — when, time limits, deadlines, validity periods, and the
+    # version-in-force shape ("which version applies", "as in force in 2019").
+    # The in-force/version family is generic statutory drafting language; with
+    # only the first family present every temporal question fell through to
+    # "ambiguous".
     (
         "temporal",
         [
             r"\bhow\s+long\b",
-            r"\btime\s+limit\b",
-            r"\bdeadline\b",
+            r"\btime\s+limit",
+            r"\bdeadline",
             r"\bvalid\s+for\b",
             r"\bvalidity\b",
             r"\bperiod\s+of\b",
             r"\bwithin\s+\d+\s+(?:days|months|years)\b",
+            r"\bas\s+of\s+which\s+date\b",
+            r"\bin\s+force\b",
+            r"\bcome\s+into\s+force\b",
+            r"\bcome\s+into\s+operation\b",
+            r"\bversion\b",
+            r"\bprior\s+to\b",
+            r"\bsubsequent\s+to\b",
+            r"\bwith\s+effect\s+from\b",
         ],
     ),
     # definition — explicit definition asks + statutory definition shapes.
@@ -395,11 +402,10 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
         "definition",
         [
             r"""['"][^'"]{1,60}['"]\s+means\b""",
-            r"\bdefine\b",
-            r"\bdefinition\b",
-            r"\bfor the purposes of\b",
-            r"\bshall have the meaning\b",
-            r"\brefer(?:s)? to\b",
+            r"\bdefin",
+            r"\bfor\s+the\s+purposes\s+of\b",
+            r"\bshall\s+have\s+the\s+meaning\b",
+            r"\brefer(?:s)?\s+to\b",
             r"\bwhat\s+is\s+meant\s+by\b",
             r"\bmeaning\s+of\b",
         ],
@@ -414,15 +420,15 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
         "procedure",
         [
             r"\bprocedure\b",
-            r"\bappeal\b",
-            r"\bhearing\b",
+            r"\bappeal",
+            r"\bhearing",
             r"\bcompound(?:ing|able|ed)?\b",
             r"\bhow\s+to\b",
-            r"\bapply\s+for\b",
+            r"\bapply\s+(?:for|to)\b",
             r"\bregistration\s+process\b",
             r"\bsteps?\b",
             r"\bform\s+(?:ii|iii|iv|v|vi|vii|viii)\b",
-            r"\bseiz(?:e|ure|ing)\b",
+            r"\bseiz",
         ],
     ),
     # direct provision — verbatim-text asks.  Deliberately narrow: this is
@@ -432,11 +438,13 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
         "direct provision",
         [
             r"\bwhat\s+does\s+section\b",
+            r"\bwhat\s+does\s+the\s+act\b",
             r"\btext\s+of\b",
             r"\bbare\s+act\b",
+            r"\bword(?:ing)?\s+of\s+section\b",
         ],
     ),
-    # obligation — duties, responsibilities, what must be done
+    # obligation — duties, responsibilities, what must be done.
     # NOTE: ``shall`` is deliberately removed from this list — it is too
     # common and would swallow procedural, penalty, and prohibition
     # queries.  The more specific obligation keywords (duty, obligation,
@@ -444,25 +452,29 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
     (
         "obligation",
         [
-            r"\bresponsibility\b",
-            r"\bduty\b",
-            r"\bobligation\b",
+            r"\bdut(?:y|ies)\b",
+            r"\bobligat",
+            r"\bresponsibilit",
             r"\bmust\b",
-            r"\brequired\s+to\b",
+            r"\brequir",
             r"\bexpected\s+to\b",
             r"\bestablish\b",
+            r"\belligib",
+            r"\bcriteri",
+            r"\bno\s+\w+\s+shall\b",
         ],
     ),
     # insufficient-evidence — evidentiary standards, burden of proof
     (
         "insufficient-evidence",
         [
-            r"\bevidence\b",
+            r"\bevidenc",
             r"\bburden\s+of\s+proof\b",
             r"\binsufficient\b",
             r"\bnot\s+sufficient\b",
             r"\breasonable\s+suspicion\b",
             r"\bprobable\s+cause\b",
+            r"\bno\s+(?:evidence|record|document)",
         ],
     ),
 ]

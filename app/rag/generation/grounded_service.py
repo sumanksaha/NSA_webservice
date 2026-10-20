@@ -380,6 +380,7 @@ class GroundedGenerationService:
             hallucination_detected=sanitized.hallucination_detected,
             hallucinated_claims=sanitized.hallucinated_claims,
             confidence=sanitized.confidence,
+            has_conclusion=sanitized.has_conclusion,
             generation_latency_ms=gen_latency_ms,
             total_latency_ms=total_latency_ms,
             llm_model=llm_response.model,
@@ -389,6 +390,8 @@ class GroundedGenerationService:
                 "prompt": usage.get("prompt_tokens", 0) or real_context_tokens,
                 "completion": usage.get("completion_tokens", 0),
                 "total": usage.get("total_tokens", 0) or (real_context_tokens + usage.get("completion_tokens", 0)),
+                "reasoning": usage.get("reasoning_tokens", 0),
+                "cost": usage.get("cost", 0.0),
             },
             debug={
                 "context_length": real_context_tokens,
@@ -396,6 +399,10 @@ class GroundedGenerationService:
                 "truncated": built.truncated,
                 "invalid_citation_count": len(sanitized.invalid_citations),
                 "error": llm_response.error,
+                "finish_reason": llm_response.finish_reason,
+                "has_conclusion": sanitized.has_conclusion,
+                "reasoning_tokens": usage.get("reasoning_tokens", 0),
+                "cost_usd": usage.get("cost", 0.0),
                 "structured_argument": structured_argument,
             },
         )

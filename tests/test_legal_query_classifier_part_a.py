@@ -69,6 +69,13 @@ def test_direct_provision_stays_narrow():
     assert classify_legal_query("What does Section 55 say about penalty?") == "penalty"
 
 
+def test_penalty_matches_punish_inflections():
+    # The stem must be prefix-matched: ``\\bpunish\\b`` misses "punishable" and
+    # "punishment", which are the words the provisions actually use.
+    assert classify_legal_query("Is selling substandard food punishable?") == "penalty"
+    assert classify_legal_query("What is the punishment for selling adulterated food?") == "penalty"
+
+
 def test_refer_to_plural_counts_as_definition_signal():
     # Approximate: a numberless "refer to" ask carries no cross-reference
     # pattern hit, so the definition signal wins the count. Harmless now

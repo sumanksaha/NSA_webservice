@@ -296,20 +296,20 @@ class AIAssistantService:
         """Return the model identifier for this assistant request.
 
         Provider-appropriate default: ``gpt-4o-mini`` for the OpenAI
-        provider, ``poolside/laguna-s-2.1:free`` for OpenRouter (the
+        provider, ``minimax/minimax-m3.1-flash:free`` for OpenRouter (the
         project's answer model); an explicit ``AI_ASSISTANT_MODEL`` override
         is honoured as-is.
 
         The spend controls that gate this surface — the ``LLM_ENABLED`` kill
         switch, the ``MAX_LLM_CALLS`` budget, and request/response
         accounting — are enforced in :meth:`_post_messages` via
-        :mod:`app.shared.llm_client`.  The Laguna-only answer-model
+        :mod:`app.shared.llm_client`.  The answer-model
         ``ALLOWED_MODELS`` allow-list is intentionally applied only on the
         RAG answer path (:func:`get_llm_client` / ``GroundedLLMClient``):
         the assistant is a separate chat surface and must remain usable with
         provider-specific models (e.g. ``gpt-4o-mini``), so it is *not*
-        restricted to Laguna — a stray model never silently switches backend
-        providers because there is no fallback logic; failures surface.
+        restricted to the allow-list — a stray model never silently switches
+        backend providers because there is no fallback logic; failures surface.
         """
         if self._model:
             model_id = self._model
@@ -317,7 +317,7 @@ class AIAssistantService:
             model_id = "gpt-4o-mini"
         else:
             # Default to the project's answer model (OpenRouter free tier).
-            model_id = "poolside/laguna-s-2.1:free"
+            model_id = "minimax/minimax-m3.1-flash:free"
         return model_id
 
     def complete_json(
@@ -502,9 +502,9 @@ class AIAssistantService:
                     data = resp.json()
                     content = data["choices"][0]["message"]["content"]
                     if content is None:
-                        # Some OpenRouter reasoning models (e.g.
-                        # poolside/laguna-s-2.1:free) may return content=None
-                        # while emitting the response in the reasoning field.
+                        # Some OpenRouter reasoning models may return
+                        # content=None while emitting the response in the
+                        # reasoning field.
                         content = data["choices"][0]["message"].get("reasoning") or ""
                     tokens = data.get("usage", {}).get("total_tokens", 0)
                     self._tokens_used += tokens

@@ -86,6 +86,48 @@ class RetrievedChunk:
             collection=data.get("collection", ""),
         )
 
+    @classmethod
+    def from_qdrant_point(
+        cls,
+        point: Any,
+        chunk_id: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> RetrievedChunk:
+        """Build a chunk from a Qdrant point / ``scroll`` dict.
+
+        ``scroll_all`` returns ``{"id", "payload"}`` (no score), while search
+        points carry ``score``; both shapes are accepted, and an explicit
+        *payload* / *chunk_id* wins when the caller already unwrapped them.
+        This lives here — not in ``tasks.py`` — so stage modules can build
+        chunks without importing the orchestrator (the old import cycle).
+        """
+        if payload is None:
+            if isinstance(point, dict):
+                payload = point.get("payload") or {}
+            else:
+                payload = getattr(point, "payload", None) or {}
+        pid = chunk_id
+        if pid is None:
+            pid = point.get("id", "") if isinstance(point, dict) else getattr(point, "id", "")
+        score = getattr(point, "score", None)
+        if score is None and isinstance(point, dict):
+            score = point.get("score", 0.0)
+        return cls(
+            chunk_id=str(pid),
+            score=float(score or 0.0),
+            text=payload.get("chunk_text", payload.get("text", "")),
+            section_number=payload.get("section_number"),
+            clause_number=payload.get("clause_number"),
+            document_title=payload.get("document_title", ""),
+            act_name=payload.get("act_name", ""),
+            document_type=payload.get("document_type", ""),
+            authority=payload.get("authority", ""),
+            chunk_index=payload.get("chunk_index", 0),
+            hierarchy_level=payload.get("hierarchy_level", 0),
+            parent_chunk_id=payload.get("parent_chunk_id"),
+            document_id=str(payload.get("document_id", "") or ""),
+        )
+
 
 @dataclass
 class SearchResult:
@@ -142,6 +184,7 @@ class RAGResponse:
     hallucination_detected: bool = False
     hallucinated_claims: list[str] = field(default_factory=list)
     confidence: float = 0.0
+    has_conclusion: bool = False
     retrieval_latency_ms: int = 0
     generation_latency_ms: int = 0
     total_latency_ms: int = 0

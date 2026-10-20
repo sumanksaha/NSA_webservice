@@ -13,9 +13,12 @@ Fail-closed controls (both default to "no calls"):
 * ``MAX_LLM_CALLS`` (default ``0``) — per-process cap on REAL (non-stub)
   LLM calls; ``0`` blocks every call.  To permit LLM calls you must set
   BOTH ``LLM_ENABLED=true`` AND ``MAX_LLM_CALLS=<positive budget>``.
-* ``ALLOWED_MODELS`` — the answer model may only be
-  ``poolside/laguna-s-2.1:free`` (Poolside Laguna S 2.1 via OpenRouter).
-  Any other id raises; there is no fallback provider or model.  (Decision
+* ``ALLOWED_MODELS`` — the answer model must be the default
+  ``minimax/minimax-m3.1-flash:free`` (free, via OpenRouter) or another
+  allow-listed slug: laguna (retires 2026-10-31; retained for cached eval
+  baselines) plus the free swap candidates under evaluation (see
+  ``evaluation/MODEL_SWAP_FREE_PLAN.md``).  Any other id raises; there is no
+  fallback provider or model.  (Decision
   models keep their own allow-list in ``app.rag.retrieval.decision_selector``
   — today ``typesafe/jev-1.13`` only; ``inception/mercury-decide:free`` was
   dropped 2026-10-15 after the head-to-head and remains solely the
@@ -32,13 +35,27 @@ from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
-#: The answer model may ONLY be this Poolside Laguna S 2.1 id (OpenRouter).
-ALLOWED_MODELS: frozenset[str] = frozenset({"poolside/laguna-s-2.1:free"})
+#: Answer-model allow-list (all OpenRouter).  Default is minimax-m3.1-flash
+#: (swapped 2026-10-19 after the free-candidate paired A/B — see
+#: evaluation/MODEL_SWAP_FREE_PLAN.md).  Laguna retires 2026-10-31; it stays
+#: here for cached eval baselines and should be dropped after that date.
+ALLOWED_MODELS: frozenset[str] = frozenset({
+    "poolside/laguna-s-2.1:free",
+    "nvidia/nemotron-3.5-super-vl:free",
+    "thinkingmachines/inkling-small:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "minimax/minimax-m3.1-flash:free",
+    # Paid GLM 5.3 Flash — first paid candidate, added 2026-10-19 for the
+    # cost-gated swap eval (evaluation/MODEL_SWAP_FREE_PLAN.md §8).
+    "z-ai/glm-5.3-flash",
+    # (anthropic/claude-sonnet-5.5 and openai/gpt-6.1-sol were probed
+    # 2026-10-19 and deliberately not retained — §9.)
+})
 
 #: Default answer-model resolution (single source of truth).
-DEFAULT_ANSWER_MODEL = "poolside/laguna-s-2.1:free"
+DEFAULT_ANSWER_MODEL = "minimax/minimax-m3.1-flash:free"
 
-#: Laguna is served by OpenRouter — no other base URL is permitted.
+#: The answer model is served by OpenRouter — no other base URL is permitted.
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # ---------------------------------------------------------------------------

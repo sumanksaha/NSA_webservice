@@ -44,21 +44,17 @@ class Reranker:
         self._encoder = encoder
 
     def _get_encoder(self) -> Any | None:
-        """Return a ``CrossEncoder``, importing lazily."""
+        """Return the shared CrossEncoder (``None`` when unavailable).
+
+        Load failures propagate, matching this reranker's previous contract;
+        the Ensemble reranker wraps the same call when it wants to degrade.
+        """
         if self._encoder is not None:
             return self._encoder
-        try:
-            from sentence_transformers import CrossEncoder
+        from app.rag.model_runtime import get_cross_encoder
 
-            # Bound torch threads before the model is built (RAG_TORCH_THREADS)
-            # so a rerank call does not peg every core on a laptop.
-            from app.rag.torch_runtime import cap_torch_threads
-
-            cap_torch_threads()
-            self._encoder = CrossEncoder(self.model_name)
-            return self._encoder
-        except ImportError:
-            return None
+        self._encoder = get_cross_encoder(self.model_name)
+        return self._encoder
 
     def rerank(
         self,
@@ -249,22 +245,17 @@ class EnsembleReranker:
         self.skip_ce_when_confident = True
 
     def _get_encoder(self) -> Any | None:
-        """Return a ``CrossEncoder``, importing lazily (None when unavailable)."""
+        """Return the shared CrossEncoder, or ``None`` when unavailable."""
         if self._encoder is not None:
             return self._encoder
+        from app.rag.model_runtime import get_cross_encoder
+
         try:
-            from sentence_transformers import CrossEncoder
-
-            # Bound torch threads before the model is built (RAG_TORCH_THREADS)
-            # so the CE head does not peg every core on a laptop.
-            from app.rag.torch_runtime import cap_torch_threads
-
-            cap_torch_threads()
-            self._encoder = CrossEncoder(self.model_name)
-            return self._encoder
+            self._encoder = get_cross_encoder(self.model_name)
         except Exception as exc:
             logger.warning("EnsembleReranker: cross-encoder unavailable (%s)", exc)
-            return None
+            self._encoder = None
+        return self._encoder
 
     def rerank(
         self,

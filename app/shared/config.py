@@ -97,6 +97,50 @@ _TABLE: tuple[Setting, ...] = (
         opt_in=False,
         help="Phase 3 claim-level HallucinationDetector in run_generation_pipeline.",
     ),
+    # --- Grounded answer channel ------------------------------------------------
+    Setting(
+        "RAG_LLM_MAX_TOKENS",
+        "llm_max_tokens",
+        int,
+        4096,
+        help=(
+            "Completion budget for one grounded answer. 1024 was smaller than the "
+            "thinking trace of every reasoning model on the allow-list, so the trace "
+            "hit the cap and content came back null (see MODEL_SWAP_FREE_PLAN §11)."
+        ),
+    ),
+    Setting(
+        "RAG_LLM_REASONING_MAX_TOKENS",
+        "llm_reasoning_max_tokens",
+        int,
+        1024,
+        help=(
+            "Cap on the model's thinking budget; 0 sends no cap. The remainder of "
+            "RAG_LLM_MAX_TOKENS is left for the answer. Minimax rejects reasoning-off "
+            "with HTTP 400 ('Reasoning is mandatory for this endpoint'), so a budget "
+            "is the only lever that ends the trace before the cap."
+        ),
+    ),
+    Setting(
+        "RAG_LLM_TIMEOUT_S",
+        "llm_timeout_s",
+        float,
+        30.0,
+        help=(
+            "HTTP timeout for one LLM attempt. The eval harness reads the same value "
+            "so a gate run measures production's deadline instead of hiding misses."
+        ),
+    ),
+    Setting(
+        "RAG_LLM_REASONING_FALLBACK",
+        "llm_reasoning_fallback",
+        bool,
+        False,
+        help=(
+            "Serve message.reasoning as the answer when content is null. Off by "
+            "default: a null answer is a visible error, not a silent plan-as-answer."
+        ),
+    ),
     # --- Reinforcement learning (Phase 4: RL-augmented retrieval) ---------------
     Setting(
         "RAG_RL_ENABLED",

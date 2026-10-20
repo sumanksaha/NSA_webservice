@@ -18,11 +18,14 @@ Deploy: replace gunicorn with ``uvicorn asgi:app`` in render.yaml start_command.
 
 from __future__ import annotations
 
+import hmac
+import logging
 import os
+import time
 from typing import Any
 
 from a2wsgi import WSGIMiddleware
-from fastapi import Depends, FastAPI, Request, status
+from fastapi import Depends, FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -33,6 +36,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # extensions, and RAG services are all available.
 from app import create_app
 from app.api.deps import get_db, get_flag, get_rag_pipeline, set_flask_app
+from app.observability import metrics as obs_metrics
+from app.shared.config import cfg
 
 flask_app = create_app()
 # Hand the Flask app to the v2 dependency layer (dependency inversion —
@@ -63,7 +68,8 @@ class QueryAgentRequest(BaseModel):
     filters: dict[str, Any] | None = Field(default=None, description="Metadata filters.")
     thread_id: str | None = Field(default=None, description="Resume a paused HITL run (M5).")
     fso_advisory: bool | None = Field(
-        default=None, description="Per-request override of FSO_ADVISOR_ENABLED (ADR-0003).",
+        default=None,
+        description="Per-request override of FSO_ADVISOR_ENABLED (ADR-0003).",
     )
     is_repeat_offender: bool = Field(default=False, description="Repeat-offender flag for the FSO selector.")
     has_lab_report: bool = Field(default=False, description="Lab-report flag for the FSO selector.")
@@ -163,6 +169,73 @@ def _api_v2_key_enabled() -> bool:
 
 
 app.add_middleware(ApiKeyAuthMiddleware)
+
+
+# --------------------------------------------------------------------------- #
+# HTTP metrics (OBS3) — the ASGI surface.
+#
+# Flask's half lives in app/__init__.py. The two are disjoint by construction:
+# this middleware counts only /api/v2/*, and those paths never reach the Flask
+# mount, so INV-3 (counted exactly once) holds without any shared state.
+#
+# Added last, so it is the outermost user middleware: that way the responses
+# produced by the API-key and security-header middleware are counted too.
+# --------------------------------------------------------------------------- #
+logger = logging.getLogger(__name__)
+
+
+class HttpMetricsMiddleware(BaseHTTPMiddleware):
+    """Record ``nsa_http_requests_total`` / ``..._duration_seconds`` for /api/v2/*.
+
+    The ``route`` label is read from the router's resolved route
+    (``scope["route"]``) *after* the downstream call — never from the raw URL,
+    which is what keeps the series count bounded (FR-35, V-3).
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        if not obs_metrics.is_countable_path(request.url.path):
+            return await call_next(request)
+
+        surface = "fastapi"
+        # Routing has not happened yet, so the in-flight gauge carries the
+        # "pending" sentinel for its (brief) lifetime; the counter below carries
+        # the resolved rule. See metrics.route_label.
+        obs_metrics.http_request_started(surface, obs_metrics.PENDING)
+        started = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            # Only genuinely unhandled errors reach here: HTTPException and
+            # RequestValidationError are turned into 4xx responses by FastAPI's
+            # inner ExceptionMiddleware, so they arrive as an ordinary response.
+            obs_metrics.observe_http_request(
+                surface=surface,
+                method=request.method,
+                route=self._resolved_route(request),
+                status=500,
+                duration=time.perf_counter() - started,
+            )
+            raise
+        finally:
+            obs_metrics.http_request_finished(surface, obs_metrics.PENDING)
+
+        obs_metrics.observe_http_request(
+            surface=surface,
+            method=request.method,
+            route=self._resolved_route(request),
+            status=response.status_code,
+            duration=time.perf_counter() - started,
+        )
+        return response
+
+    @staticmethod
+    def _resolved_route(request: Request) -> str | None:
+        """The matched route rule, or None when routing never ran (e.g. 401)."""
+        return getattr(request.scope.get("route"), "path", None)
+
+
+if cfg.metrics_enabled:
+    app.add_middleware(HttpMetricsMiddleware)
 
 
 # NOTE: RAG service wiring (get_db, get_flag, get_rag_pipeline) lives in
@@ -305,8 +378,90 @@ async def v2_rag_query_agent_resume(req: AgentResumeRequest) -> dict[str, Any] |
 
 
 # --------------------------------------------------------------------------- #
+# GET /metrics (OBS3) — registered before the Flask mount, or it is unreachable.
+#
+# Hand-written, not `make_asgi_app()`: on prometheus-client 0.26.0 the
+# make_asgi_app + add_route combination raises TypeError, and the documented
+# mount() workaround serves /metrics/ and 307-redirects /metrics — which Grafana
+# Cloud's metrics integration rejects outright (FR-29).
+#
+# No trailing-slash variant exists, and the path never redirects (FR-29).
+# --------------------------------------------------------------------------- #
+async def metrics_endpoint(request: Request) -> Response:
+    """Prometheus scrape endpoint. Bearer-token guarded, fail-closed.
+
+    Decision table (spec §8.1):
+
+    ==================  ===============  ==========================
+    METRICS_ENABLED     METRICS_TOKEN    response
+    ==================  ===============  ==========================
+    false               —                404 (route is not registered)
+    true                blank            503 + ERROR log (misconfigured)
+    true                set, no/invalid  401
+    true                set, valid       200 + Prometheus text
+    ==================  ===============  ==========================
+
+    Reads no config beyond the two flags above and touches no database, no LLM
+    and no network: it serialises in-memory state only (INV-6, FR-33).
+    """
+    if not cfg.metrics_enabled:
+        # Unreachable in practice — the route is only registered when enabled —
+        # but the handler stays total so a direct call cannot leak exposition.
+        return Response("Metrics are disabled.\n", status_code=status.HTTP_404_NOT_FOUND, media_type="text/plain")
+
+    token = (cfg.metrics_token or "").strip()
+    if not token:
+        # Fail closed: enabled without a token must never expose anything.
+        logger.error(
+            "metrics_misconfigured: METRICS_ENABLED is true but METRICS_TOKEN is blank; "
+            "refusing to serve /metrics (spec FR-30, SEC-6).",
+        )
+        return Response(
+            "Metrics endpoint misconfigured.\n",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            media_type="text/plain",
+        )
+
+    if not _bearer_token_matches(request.headers.get("authorization"), token):
+        return Response(
+            "Unauthorized.\n",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            media_type="text/plain",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return Response(
+        content=obs_metrics.render_metrics(),
+        status_code=status.HTTP_200_OK,
+        headers={"Content-Type": obs_metrics.CONTENT_TYPE_LATEST},
+    )
+
+
+def _bearer_token_matches(header: str | None, expected: str) -> bool:
+    """Constant-time check of ``Authorization: Bearer <token>`` (FR-30, SEC-5)."""
+    if not header:
+        return False
+    scheme, _, provided = header.partition(" ")
+    if scheme.lower() != "bearer":
+        return False
+    # Compare bytes: hmac.compare_digest rejects non-ASCII str inputs outright.
+    try:
+        return hmac.compare_digest(provided.strip().encode("utf-8"), expected.encode("utf-8"))
+    except (UnicodeError, TypeError):  # pragma: no cover - defensive
+        return False
+
+
+def register_metrics_route(fastapi_app: FastAPI) -> None:
+    """Register the scrape route on *fastapi_app* (FR-28, FR-31)."""
+    fastapi_app.add_api_route("/metrics", metrics_endpoint, methods=["GET"], include_in_schema=False)
+
+
+# --------------------------------------------------------------------------- #
 # Mount Flask at the root — all non-/api/v2 paths fall through to Flask.
 # --------------------------------------------------------------------------- #
+if cfg.metrics_enabled:
+    register_metrics_route(app)
+
 app.mount("/", WSGIMiddleware(flask_app.wsgi_app))  # type: ignore[arg-type]
 
 # NOTE: FastAPI owns /api/v2/* natively above; Flask (mounted at /) serves
@@ -317,5 +472,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "asgi:app", host="127.0.0.1", port=int(os.environ.get("PORT", 8000)),
+        "asgi:app",
+        host="127.0.0.1",
+        port=int(os.environ.get("PORT", 8000)),
     )  # pi-lens-ignore: ast-grep:unchecked-throwing-call-python
