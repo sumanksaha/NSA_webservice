@@ -18,6 +18,7 @@ from __future__ import annotations
 import pytest
 
 import httpx
+from typing import ClassVar
 
 from app.shared.llm_client import (
     get_llm_client,
@@ -62,7 +63,7 @@ class _FakeResp:
 class _RecordingClient:
     """Fake httpx.Client recording every request body; answers via `responder`."""
 
-    sent: list = []
+    sent: ClassVar[list] = []
     responder = staticmethod(lambda body: _FakeResp(500))
 
     def __init__(self, *args, **kwargs):

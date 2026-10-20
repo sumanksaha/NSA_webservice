@@ -69,7 +69,7 @@ BOILERPLATE = {
     "shall", "may", "section", "sections", "act", "food", "the", "and", "or",
     "of", "in", "to", "for", "any", "such", "be", "is", "are", "as", "by",
     "with", "that", "not", "no", "person", "if", "under", "thereof", "provided",
-    "fine", "officer", "shall", "authority", "rule", "rules", "regulation",
+    "fine", "officer", "authority", "rule", "rules", "regulation",
     "regulations", "inserted", "omitted", "substituted", "words", "clause",
     "sub", "subsection", "proviso", "namely", "following", "subject",
 }
@@ -444,9 +444,7 @@ def _split_sentences(text: str) -> list[str]:
     for p in parts:
         p = p.strip()
         # Markdown headings and list bullets behave as units.
-        if p.startswith(("#", "-", "*", ">")):
-            out.append(p)
-        elif p:
+        if p.startswith(("#", "-", "*", ">")) or p:
             out.append(p)
     return out
 

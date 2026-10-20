@@ -5,7 +5,6 @@ This asks the question that matters for the fix: under each thinking budget,
 does the model still beat laguna on the same 24 questions?
 """
 
-import io
 import json
 import math
 import os
@@ -31,7 +30,7 @@ def load(path):
     if not path.exists():
         return []
     out = []
-    for line in io.open(path, encoding="utf-8"):
+    for line in open(path, encoding="utf-8"):
         line = line.strip()
         if line:
             try:

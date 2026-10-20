@@ -32,8 +32,8 @@ __all__ = [
     "matches_gold_enhanced",
     "resolve_by_text",
     "text_matches_title",
-    "title_phrase",
     "title_is_distinctive",
+    "title_phrase",
 ]
 
 MIN_TITLE_WORDS = 2

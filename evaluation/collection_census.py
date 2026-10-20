@@ -58,8 +58,7 @@ def scroll_all(client, collection: str, page: int = 256):
         if not batch:
             return
         seen_pages += 1
-        for pt in batch:
-            yield pt
+        yield from batch
         if offset is None:
             return
         if seen_pages > 2000:

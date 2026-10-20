@@ -159,7 +159,7 @@ class AnswerContractResolver:
         new_system = (system_prompt + system_add) if system_add else system_prompt
         return new_system, user_prompt + repair_directive
 
-    def check_answer(self, answer: str, c: AnswerContract, context_chunks: list[Any] = None):
+    def check_answer(self, answer: str, c: AnswerContract, context_chunks: list[Any] | None = None):
         txt = answer or ""
         tl = txt.lower()
         res = ContractCheckResult()
