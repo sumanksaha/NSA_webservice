@@ -413,7 +413,7 @@ class TestEnsemblePipelineWiring:
             def __init__(self, dense, sparse, reranker=None):
                 recorded["reranker"] = reranker
 
-            def retrieve(self, query, top_k=10, filters=None, identifier_query=None, query_type=None):
+            def retrieve(self, query, top_k=10, filters=None, identifier_query=None, query_type=None, **kwargs):
                 recorded["identifier_query"] = identifier_query
                 return SearchResult(query=query, query_type="", chunks=[_chunk("c1", 0.9)], total=1, latency_ms=1)
 

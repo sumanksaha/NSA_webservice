@@ -83,6 +83,16 @@ _SECTION_RE = re.compile(
     re.IGNORECASE,
 )
 
+#: The bare "s60" / "s 60" form used in parenthetical shorthand ("sub-standard
+#: food (s60), misbranded food (s61)").  ``_SECTION_RE`` cannot see it: its
+#: ``s.`` alternative requires the literal dot.  The answer contract's
+#: named-section lock needs these â€” a question that says "(s60)" is asking
+#: about section 60, and a model that answers about section 52 is making
+#: exactly the attribution error the contract exists to catch.
+_BARE_SECTION_RE = re.compile(r"\bs\s*(\d{1,4})\b", re.IGNORECASE)
+_BARE_SECTION_ALT_RE = re.compile(r"\bs(\d{1,4})\b", re.IGNORECASE)
+_SECTION_RE_EXT = re.compile(r"\bsection\s*(\d{1,4})\b", re.IGNORECASE)
+
 
 def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
@@ -109,6 +119,33 @@ def detect_section(query: str) -> tuple[str | None, str | None]:
     if not m:
         return None, None
     return m.group(1), m.group(2)
+
+
+def detect_sections(query: str) -> list[str]:
+    """Return every section number the query names, in order of first mention.
+
+    Broader than :func:`detect_section`: that one returns the first match of
+    the "Section 31" family and is what the identifier route uses to build a
+    lexical query (one section at a time).  The answer contract needs *all*
+    of them, because a multi-part question can name several
+    ("penalties for sub-standard food (s60), misbraded food (s61) and
+    misleading advertisement (s53)").
+
+    Both spellings are recognised — "Section 31", "s. 31", "u/s 31" and the
+    bare "s31"/"s 31" shorthand.  Duplicates collapse; order of first
+    mention is preserved.
+    """
+    text = query or ""
+    found: list[tuple[int, str]] = []
+    for rx in (_SECTION_RE, _BARE_SECTION_RE, _BARE_SECTION_ALT_RE, _SECTION_RE_EXT):
+        for m in rx.finditer(text):
+            found.append((m.start(), m.group(1)))
+    found.sort(key=lambda t: t[0])
+    out: list[str] = []
+    for _, num in found:
+        if num not in out:
+            out.append(num)
+    return out
 
 
 def identifier_query(query: str) -> tuple[str | None, dict[str, Any]]:

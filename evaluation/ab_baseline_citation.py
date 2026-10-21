@@ -261,6 +261,49 @@ _CANDIDATES: dict[str, str] = {
     ),
 }
 
+#: 2026-10-20 — MEASURED, NOT SHIPPED. ``cand_scan_cond`` plus a per-ask
+#: decomposition cue ("which authority acts, what procedure, what consequence,
+#: which provision governs") targeting the multi-part partial answers on the
+#: gold-in-prompt slice. Measured: +1 fixed case (within noise) but padding
+#: (``is_padded``) rose 0.16 -> 0.39 and precision fell ~0.05, so the cue was
+#: reverted from the shipped template and is kept here for reproducibility.
+_CANDIDATES["cand_scan_cond_v2"] = (
+    "Relevant legal context:\n"
+    "<legal_context>\n"
+    "{context}\n"
+    "</legal_context>\n\n"
+    "First quote the passages that bear on the question, then answer "
+    "the question using those quotes, citing specific sources with "
+    "[n] markers.\n"
+    "Before answering, go through every numbered source in the context and "
+    "note the ones that bear on the question, including any that add a "
+    "condition, exception, threshold or definition the answer depends on.\n"
+    "Answer every part the question names, each with its own [n] citations. "
+    "If one part is not covered by the context, answer the other parts and "
+    "say which part is uncovered rather than declining the whole question; "
+    "before stating that the context does not address something, point to "
+    "the numbered sources you checked for it.\n"
+    "Before answering, decompose the question into its separate asks — for "
+    "example, which authority acts, what procedure or route applies, what "
+    "consequence or penalty follows, and which provision governs — and "
+    "address each ask explicitly in its own sentence. Do not let uncertainty "
+    "about one ask suppress the answers to the others.\n"
+    "For each material legal proposition, name the exact provision you rely "
+    "on (Act and section) beside its [n] citation. If more than one section "
+    "could apply, say which one governs and why. If the context holds more "
+    "than one version of a provision, use the version the question asks "
+    "about and say which that is.\n"
+    "When a penalty is at issue, state its full structure — base fine and/or "
+    "imprisonment, any continuing daily fine, any escalation on repeat "
+    "conviction — with exact figures as printed in the source, never a "
+    "rounded summary.\n"
+    "If a source is cut off mid-clause, say which point is missing instead "
+    "of reconstructing it, and do not call a list complete unless the "
+    "context establishes it.\n\n"
+    "Question: {query}\n"
+    "Answer:"
+)
+
 
 #: W4 — query-type conditioned candidates.  Each is the shipped conditioning
 #: block plus ONE per-type directive, so a live run restricted to that

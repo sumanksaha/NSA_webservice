@@ -106,7 +106,7 @@ def run(arms: list[str], top_k: int) -> int:
                     payload = payload_index.get(str(cid))
                     if payload is None:
                         continue
-                    if any(matches_gold(payload, u, family_map) for u in units):
+                    if any(matches_gold(payload, u, family_map, text_fallback=True) for u in units):
                         n_hit += 1
                         break
             return n_hit, n_scored

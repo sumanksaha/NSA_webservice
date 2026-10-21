@@ -41,6 +41,12 @@ import re
 from collections import defaultdict
 from typing import Any
 
+from app.rag.retrieval.chunk import (
+    chunk_id as chunk_id_of,
+    field,
+    score as chunk_score,
+    text as chunk_text,
+)
 from app.rag.retrieval.food_query_understanding import FoodQueryUnderstanding
 from app.rag.retrieval.provision_metadata import (
     derive_provision_metadata_cached,
@@ -66,20 +72,6 @@ _SOURCE_FIELDS = ("act", "regulation", "section", "source")
 _CLAUSE_COMMODITY: dict[tuple[str, str], str] = {}
 
 
-def _f(chunk: Any, name: str, default: Any = None) -> Any:
-    if isinstance(chunk, dict):
-        return chunk.get(name, default)
-    return getattr(chunk, name, default)
-
-
-def _cid(chunk: Any) -> str:
-    return str(_f(chunk, "chunk_id", "") or "")
-
-
-def _ctext(chunk: Any) -> str:
-    return str(_f(chunk, "text", "") or "")
-
-
 def group_by_clause(chunks: list[Any]) -> dict[tuple[str, str], list[Any]]:
     """Group chunks by ``(document_id, clause_number)``.
 
@@ -90,12 +82,12 @@ def group_by_clause(chunks: list[Any]) -> dict[tuple[str, str], list[Any]]:
     """
     groups: dict[tuple[str, str], list[Any]] = defaultdict(list)
     for c in chunks:
-        doc = str(_f(c, "document_id", "") or "")
-        clause = str(_f(c, "clause_number", "") or _f(c, "section_number", "") or "")
+        doc = str(field(c, "document_id", "") or "")
+        clause = str(field(c, "clause_number", "") or field(c, "section_number", "") or "")
         if doc and clause:
             groups[(doc, clause)].append(c)
         else:
-            groups[(_cid(c), "")].append(c)
+            groups[(chunk_id_of(c, ""), "")].append(c)
 
     # Publish clause→commodity from each group's best heading/heading-ish
     # chunk (first chunk that yields a non-unknown commodity).
@@ -118,8 +110,8 @@ def clause_commodity_for(chunk: Any) -> str | None:
     Returns ``None`` when the chunk was never grouped (no fabrication): the
     caller then falls back to text-only entity matching.
     """
-    doc = str(_f(chunk, "document_id", "") or "")
-    clause = str(_f(chunk, "clause_number", "") or _f(chunk, "section_number", "") or "")
+    doc = str(field(chunk, "document_id", "") or "")
+    clause = str(field(chunk, "clause_number", "") or field(chunk, "section_number", "") or "")
     if not doc or not clause:
         return None
     return _CLAUSE_COMMODITY.get((doc, clause))
@@ -127,12 +119,12 @@ def clause_commodity_for(chunk: Any) -> str | None:
 
 def _is_heading_chunk(chunk: Any) -> bool:
     """Whether this chunk *leads* its clause (carries the clause heading)."""
-    return bool(_CLAUSE_LEAD_RE.match(_ctext(chunk)))
+    return bool(_CLAUSE_LEAD_RE.match(chunk_text(chunk)))
 
 
 def _heading_sort_key(chunk: Any) -> int:
     """Order chunks so heading chunks come first, then by chunk_index."""
-    idx = _f(chunk, "chunk_index", 0)
+    idx = field(chunk, "chunk_index", 0)
     try:
         idx = int(idx)
     except (TypeError, ValueError):
@@ -199,7 +191,7 @@ def reconstruct_evidence_bundle(
     groups = group_by_clause(ranked_chunks)
     # Rank groups by their best chunk score (pool order is ranked already).
     def _group_rank(item: tuple[tuple[str, str], list[Any]]) -> float:
-        return max((float(_f(c, "score", 0.0) or 0.0) for c in item[1]), default=0.0)
+        return max((chunk_score(c) for c in item[1]), default=0.0)
 
     ordered_groups = sorted(groups.items(), key=lambda kv: -_group_rank(kv))
 
@@ -241,8 +233,8 @@ def reconstruct_evidence_bundle(
             continue
         if entity:
             entity_hit = any(
-                entity.lower() in _ctext(c).lower()
-                or entity.lower() in str(_f(c, "document_title", "") or "").lower()
+                entity.lower() in chunk_text(c).lower()
+                or entity.lower() in str(field(c, "document_title", "") or "").lower()
                 for c in group
             )
             if not entity_hit:
@@ -268,16 +260,16 @@ def _legal_source(primary: list[Any], parent_context: list[Any]) -> dict[str, An
     preferring parent-context (heading) chunks which carry the clause.
     """
     source: dict[str, Any] = {}
-    for field in _SOURCE_FIELDS:
+    for source_field in _SOURCE_FIELDS:
         for chunk in [*parent_context, *primary]:
             if isinstance(chunk, str):
                 continue
             meta = derive_provision_metadata_cached(chunk)
-            val = meta.get(field)
+            val = meta.get(source_field)
             if val and val != "unknown":
-                source[field] = val
+                source[source_field] = val
                 break
-            source.setdefault(field, "unknown")
+            source.setdefault(source_field, "unknown")
     return source
 
 
@@ -292,7 +284,7 @@ def _completeness(fq: FoodQueryUnderstanding, primary: list[Any], parent_context
     def _entity_in(c: Any) -> bool:
         if not fq.entity:
             return False
-        if fq.entity.lower() in _ctext(c).lower():
+        if fq.entity.lower() in chunk_text(c).lower():
             return True
         commodity = clause_commodity_for(c)
         return bool(commodity) and (
@@ -308,7 +300,7 @@ def _completeness(fq: FoodQueryUnderstanding, primary: list[Any], parent_context
         standard_found = bool(primary)
     parameter_complete = True
     if fq.parameters:
-        joined = " ".join(_ctext(c).lower() for c in primary)
+        joined = " ".join(chunk_text(c).lower() for c in primary)
         parameter_complete = all(p.lower() in joined for p in fq.parameters)
     return {
         "entity_found": bool(entity_found),

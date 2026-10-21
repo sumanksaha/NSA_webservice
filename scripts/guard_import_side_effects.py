@@ -1,15 +1,16 @@
-"""Add ``__main__`` guards to the one-shot codegen scripts that rewrite source on import.
+"""Repair scripts that rewrite source on import by adding ``__main__`` guards.
 
 Why
 ---
-``scripts/check_import_side_effects.py`` found 35 committed modules that call
-``open(<some>.py, "w")`` in *module scope*. They sit inside importable packages
+``scripts/check_import_side_effects.py`` found 35 committed modules that called
+``open(<some>.py, "w")`` in *module scope*. They sat inside importable packages
 (``app/rag/evaluation/``, ``app/rag/feedback/``, ``tests/``, ``evaluation/``)
 with no ``if __name__ == "__main__":`` guard, so any package walk - a linter, an
-IDE indexer, a test collector, another agent - silently rewrites the target
-file. This already destroyed ``workflow_evaluator.py`` (9232 B -> 38 B) and
-stripped the quotes off two ``__all__`` blocks, twice re-breaking files that
-had just been repaired.
+IDE indexer, a test collector, another agent - silently rewrote the target
+file. This destroyed ``workflow_evaluator.py`` (9232 B -> 38 B) and stripped
+the quotes off two ``__all__`` blocks, twice re-breaking files that had just
+been repaired. The orphan fragment modules were deleted on 2026-10-20
+(ADR-0015); this repair tool remains for any new import-time writer.
 
 What it does
 ------------

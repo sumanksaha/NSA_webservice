@@ -128,7 +128,9 @@
                 })
                 .then(function (res) {
                     if (!res.ok) {
-                        if (statusEl) statusEl.textContent = "Could not submit rating: " + (res.data.error || "error");
+                        if (statusEl)
+                            statusEl.textContent =
+                                "Could not submit rating: " + (res.data.error || "error");
                         return;
                     }
                     var msg = res.data.enqueued
@@ -137,15 +139,19 @@
                     widget.innerHTML = '<div class="rag-rating-status">' + msg + "</div>";
                 })
                 .catch(function () {
-                    if (statusEl) statusEl.textContent = "Network error \u2014 rating not submitted.";
+                    if (statusEl)
+                        statusEl.textContent = "Network error \u2014 rating not submitted.";
                 });
         }
         Array.prototype.forEach.call(widget.querySelectorAll(".rag-rate-btn"), function (btn) {
             btn.addEventListener("click", function () {
                 var rating = parseInt(btn.getAttribute("data-rating") || "1", 10);
-                Array.prototype.forEach.call(widget.querySelectorAll(".rag-rate-btn"), function (b) {
-                    b.classList.remove("rag-rate-btn--active");
-                });
+                Array.prototype.forEach.call(
+                    widget.querySelectorAll(".rag-rate-btn"),
+                    function (b) {
+                        b.classList.remove("rag-rate-btn--active");
+                    }
+                );
                 btn.classList.add("rag-rate-btn--active");
                 var detailEl = document.getElementById("ragRatingDetail");
                 if (rating >= 5) {

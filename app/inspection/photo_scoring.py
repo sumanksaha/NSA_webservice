@@ -307,7 +307,6 @@ class PhotoEvidenceScorer:
 
         Raises ``ValueError`` when the response is not a usable image.
         """
-        import base64
         import httpx
 
         with httpx.Client(timeout=timeout) as c:

@@ -81,9 +81,10 @@ D2_MW = (
 
 
 class _U:
-    def __init__(self, family: str, section):
+    def __init__(self, family: str, section, title: str = ""):
         self.family = family
         self.section = section
+        self.title = title
         self.provision_id = f"{family}:{section}"
 
 
@@ -236,6 +237,64 @@ def test_em_eligible_adds_target_chunks_first():
     assert rec["uncovered_targets"] == []
     # plan artifacts must never carry the heavy fields
     assert rec["context"] and rec["new_payload_ids"]
+
+
+def _text_fallback_payload():
+    """Chunks where the gold section stamp is on a short (index) chunk that
+    gets dropped by the context builder, while a wrong-stamp in-family chunk
+    carries the title phrase in its text."""
+    return {
+        # epa:7 stub – too short to survive as a citation (index chunk filter)
+        "c_short7": {"chunk_text": "Section 7. EPA directions.", "act_name": EPA, "section_number": "7"},
+        # epa:8 – wrong section stamp, but text contains the gold title phrase
+        "c_long8": {"chunk_text": C1, "act_name": EPA, "section_number": "8"},
+    }
+
+
+def test_em_text_fallback_clears_evidence_gate_when_stamp_fails():
+    """When the gold section is in the index but its stub chunk is filtered
+    out of the context, and a wrong-stamp in-family chunk carries the title
+    phrase, text fallback should resolve the pair and clear the gate.
+    """
+    # gold unit (epa/7) with a distinctive title phrase
+    title_phrase = "discharge of pollutants"
+    q = _Q(
+        "Which provision empowers the Central Government to issue directions "
+        "about discharge of pollutants?",
+        EM_CONCL,
+        [_U("epa", "7", title=title_phrase)],
+    )
+    payload = _text_fallback_payload()
+    # only c_long8 (wrong stamp, has the title phrase) is frozen in O3
+    deps = _mk_deps({"QTF": q}, payload, {"QTF": ["c_long8"]})
+
+    rec = em_precondition("QTF", deps)
+
+    # stamp-based coverage fails (c_long8 is stamped epa:8, not epa:7)
+    # but text fallback resolves via the family guard + title phrase
+    assert rec["verdict"] == "eligible"
+    assert rec["gold_span_in_payload"] is True
+    assert rec["text_fallback_cleared"] is True
+    assert "epa/7" in rec.get("text_fallback_resolved", [])
+    assert rec["uncovered_targets"] == []
+
+
+def test_em_text_fallback_not_triggered_when_stamp_succeeds():
+    """When stamp-based resolution already covers the pair, text fallback
+    should NOT be needed and the reason should not carry the suffix.
+    """
+    q = _Q(
+        "Which provision empowers the Central Government to issue directions?",
+        EM_CONCL,
+        [_U("epa", "7", title="discharge of pollutants")],
+    )
+    deps = _em_deps()  # epa/7 chunk c1 has the correct stamp and survives
+    # override the question to use _em_deps's payload
+    deps.questions["QEM"]._units = [_U("epa", "7", title="discharge of pollutants")]
+    rec = em_precondition("QEM", deps)
+    assert rec["verdict"] == "eligible"
+    assert rec["text_fallback_cleared"] is False
+    assert rec["text_fallback_resolved"] == []
 
 
 def test_em_gold_already_in_payload_without_ref_candidate_is_not_run():

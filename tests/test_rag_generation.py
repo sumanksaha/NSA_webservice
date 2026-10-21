@@ -632,9 +632,9 @@ class TestGroundedLLMClient:
         resp = GroundedLLMClient().call("s", "u")
         assert resp.usage["prompt_tokens"] > 0
 
-    def test_model_default_is_laguna(self):
-        """The default model is poolside/laguna-s-2.1:free."""
-        assert GroundedLLMClient().model == "poolside/laguna-s-2.1:free"
+    def test_model_default_is_minimax(self):
+        """The default model is minimax/minimax-m3.1-flash:free."""
+        assert GroundedLLMClient().model == "minimax/minimax-m3.1-flash:free"
 
     def test_model_not_allowed_arg_raises(self):
         """Only the Laguna allow-list model may be constructed (no silent switch)."""
@@ -894,7 +894,7 @@ class TestGroundedGenerationService:
     def test_full_pipeline_stub(self):
         result = GroundedGenerationService().generate("Question", _make_chunks(3), "section_lookup")
         assert result.answer
-        assert result.llm_model == "stub-poolside/laguna-s-2.1:free"
+        assert result.llm_model == "stub-minimax/minimax-m3.1-flash:free"
         assert result.token_usage["prompt"] == 100
         assert result.debug["chunk_count"] == 3
 
@@ -1031,6 +1031,40 @@ class TestStructuredTwoPass:
         assert "<legal_context>" in user_prompt and "</legal_context>" in user_prompt
         assert '{"issue": "i"}' in user_prompt
 
+    def test_structured_render_honours_the_type_directive(self, monkeypatch):
+        """W3 x W4: the memo and IR prompts carry the same query-type cue."""
+        from app.rag.generation.prompt_template import QUERY_TYPE_DIRECTIVES
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "structured_reasoner", True)
+        monkeypatch.setattr(cfg, "structured_query_type_directives", True)
+        client = _scripted_client(self._IR_JSON, "Memo answer [1].")
+        GroundedGenerationService(llm_client=client).generate(
+            "Which authority may inspect?", _make_chunks(3), "penalty"
+        )
+
+        directive = QUERY_TYPE_DIRECTIVES["penalty"]
+        reason_user = client.calls[0]["user"]
+        answer_user = client.calls[1]["user"]
+        assert directive in reason_user, "IR prompt dropped the W4 directive"
+        assert directive in answer_user, "memo prompt dropped the W4 directive"
+        assert answer_user.index(directive) < answer_user.index("Question:")
+
+    def test_structured_render_drops_the_directive_when_the_flag_is_off(self, monkeypatch):
+        from app.rag.generation.prompt_template import QUERY_TYPE_DIRECTIVES
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "structured_reasoner", True)
+        monkeypatch.setattr(cfg, "structured_query_type_directives", False)
+        client = _scripted_client(self._IR_JSON, "Memo answer [1].")
+        GroundedGenerationService(llm_client=client).generate(
+            "Which authority may inspect?", _make_chunks(3), "penalty"
+        )
+
+        directive = QUERY_TYPE_DIRECTIVES["penalty"]
+        assert directive not in client.calls[0]["user"]
+        assert directive not in client.calls[1]["user"]
+
 
 class TestQueryTypeDirectives:
     """W4: one per-type directive appended before Question: when the operator
@@ -1048,6 +1082,17 @@ class TestQueryTypeDirectives:
         assert typed.index(directive) < typed.index("Question:")
         # And the quoted context/question framing is untouched.
         assert plain.replace(directive + "\n", "") == typed.replace(directive + "\n", "")
+
+    def test_directive_lookup_resolves_legacy_and_benchmark_spellings(self):
+        """Callers pass ``QueryType`` values (``duty``) and benchmark labels
+        (``Penalty``); both must reach the canonical directive."""
+        from app.rag.generation.prompt_template import PromptTemplate, QUERY_TYPE_DIRECTIVES
+
+        pt = PromptTemplate()
+        _, duty = pt.render_default("q?", "[1] ctx", query_type="duty")
+        assert QUERY_TYPE_DIRECTIVES["obligation"] in duty
+        _, labelled = pt.render_default("q?", "[1] ctx", query_type="Penalty")
+        assert QUERY_TYPE_DIRECTIVES["penalty"] in labelled
 
     def test_unknown_type_renders_unchanged(self):
         from app.rag.generation.prompt_template import PromptTemplate

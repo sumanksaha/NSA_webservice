@@ -161,10 +161,14 @@ def test_normalize_query_type_canonicalizes_both_vocabularies():
     assert normalize_query_type("cross-reference") == "cross_reference"
     assert normalize_query_type("cross_reference") == "cross_reference"
     assert normalize_query_type("direct provision") == "direct_provision"
+    assert normalize_query_type("duty") == "obligation"
+    assert normalize_query_type("amendment_query") == "amendment"
+    assert normalize_query_type("Penalty") == "penalty"
     assert normalize_query_type("general_qa") == "general"
     assert normalize_query_type("general") == "general"
     assert normalize_query_type(None) == "general"
     assert normalize_query_type("  ") == "general"
+    assert normalize_query_type("no_such_type") == "no_such_type"
 
 
 def test_effective_query_type_prefers_specific_legal_view():

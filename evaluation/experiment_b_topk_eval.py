@@ -190,7 +190,7 @@ def build_gold_index(payload_index: dict[str, dict], family_map: FamilyMap):
     return by_section, by_family
 
 
-def gold_chunk_ids_for_units(units, idx) -> set[str]:
+def gold_chunk_ids_for_units(units, idx, payload_index=None, family_map=None, text_fallback=False) -> set[str]:
     by_section, by_family = idx
     ids: set[str] = set()
     for u in units:
@@ -198,6 +198,18 @@ def gold_chunk_ids_for_units(units, idx) -> set[str]:
             ids |= by_family.get(u.family, set())
         else:
             ids |= by_section.get(u.family, {}).get(u.section, set())
+        if text_fallback and payload_index is not None and family_map is not None:
+            from evaluation.resolution import matches_gold as _mg
+            # Only scan in-family chunks (by_family already indexes them via
+            # payload_to_keys). resolve_by_text requires unit.family in the
+            # chunk's payload families, so a cross-family chunk can never
+            # match — scanning only in-family candidates is complete.
+            for pid in by_family.get(u.family, set()):
+                if pid in ids:
+                    continue
+                payload = payload_index.get(pid, {})
+                if _mg(payload, u, family_map, text_fallback=True):
+                    ids.add(pid)
     return ids
 
 
@@ -357,7 +369,7 @@ def compute_metrics(
             continue
         ok = False
         for u in gold_units:
-            if matches_gold(payload, u, family_map):
+            if matches_gold(payload, u, family_map, text_fallback=True):
                 covered_units.add(u.provision_id)
                 ok = True
         if ok:
@@ -565,9 +577,9 @@ def phase_build(dry: bool):
         brute = set()
         for u in units:
             for pid, payload in payload_index.items():
-                if matches_gold(payload, u, family_map):
+                if matches_gold(payload, u, family_map, text_fallback=True):
                     brute.add(pid)
-        idxd = gold_chunk_ids_for_units(units, gold_index)
+        idxd = gold_chunk_ids_for_units(units, gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True)
         ok = "OK" if brute == idxd else "MISMATCH"
         print(f"  [verify] {qid}: brute={len(brute)} indexed={len(idxd)} -> {ok}", flush=True)
 
@@ -722,7 +734,7 @@ def _print_dry_context_math(ce_cache, questions, payload_index, family_map):
         qd = ce_cache["questions"][qid]
         q = questions[qid]
         units = q.recall_units()
-        gids = sorted(gold_chunk_ids_for_units(units, gold_index))
+        gids = sorted(gold_chunk_ids_for_units(units, gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True))
         chunks = [to_retrieved_chunk(c, payload_index.get(c, {}), 1.0) for c in gids]
         chunks.sort(key=lambda c: (c.document_title, str(c.chunk_index)))
         built = _ExpBOracleBuilder(min(len(chunks), 200)).build(q.question, chunks, "general_qa")
@@ -774,7 +786,7 @@ def _llm_task(qid, k, question, qd, payload_index, family_map, gold_index, clien
     ce_topk_chunk_ids = [it["key"] for it in chunk_items]
     context_chunks = retrieve_chunks(chunk_items, payload_index)
     gold_units = question.recall_units()
-    gold_chunk_ids = gold_chunk_ids_for_units(gold_units, gold_index)
+    gold_chunk_ids = gold_chunk_ids_for_units(gold_units, gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True)
 
     # gold_present / ce_gold_rank come from the authoritative cached CE ranking
     # (ce_gold_rank was computed in phase_build on the LIVE CE items, which carry
@@ -910,7 +922,7 @@ def phase_llm(use_stub: bool, concurrency: int, resume: bool, limit: int | None)
 # ---------------------------------------------------------------------------
 def _oracle_task(qid, question, qd, payload_index, family_map, gold_index, client):
     gold_units = question.recall_units()
-    gold_ids = sorted(gold_chunk_ids_for_units(gold_units, gold_index))
+    gold_ids = sorted(gold_chunk_ids_for_units(gold_units, gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True))
     if not gold_ids:
         return {"question_id": qid, "error": "no gold chunks in corpus", "k": None}
     chunks = [to_retrieved_chunk(c, payload_index.get(c, {}), 1.0) for c in gold_ids]
@@ -1309,7 +1321,7 @@ def phase_analyze():
             "n_gold_units": qd["n_gold_units"],
             "ce_gold_rank": qd["ce_gold_rank"],
             "pool_size": qd["pool_size"],
-            "n_gold_chunks_total": len(gold_chunk_ids_for_units(questions[qid].recall_units(), gold_index))
+            "n_gold_chunks_total": len(gold_chunk_ids_for_units(questions[qid].recall_units(), gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True))
             if qid in questions
             else 0,
             "k_curve": k_curve_q,
@@ -1928,6 +1940,26 @@ def phase_report():
         )
     A("")
     A("---")
+    A("## 24. Coverage & Error Rate (per K)")
+    A("")
+    A("Coverage disclosure for interpreting 'completed' results: each K attempts all 150 questions; "
+      "records with empty answers / rate-limit errors are counted as n_error.")
+    A("")
+    for row in _tbl(
+        ["K", "attempted", "success (n)", "error (n)", "error_rate"],
+        [
+            [
+                k,
+                150,
+                kc[k]["n"],
+                kc[k]["n_error"],
+                f"{kc[k]['n_error'] / 150 * 100:.1f}%",
+            ]
+            for k in ks
+        ],
+    ):
+        A(row)
+    A("")
     A(
         f"*Generated {time.strftime('%Y-%m-%d %H:%M:%S')} from "
         f"`evaluation/experiment_b_topk_eval.py`. "

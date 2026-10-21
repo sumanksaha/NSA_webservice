@@ -2,16 +2,16 @@
  * Version Control UI (Phase 9).
  * Migrated from version_control.js — compiled to app/static/js/version_control/version_control.js.
  */
-import type {
-    VersionSummary,
-    VersionDiffResponse,
-    VersionBranchResponse,
-} from "../types/api.js";
+import type { VersionSummary, VersionDiffResponse, VersionBranchResponse } from "../types/api.js";
 
 document.addEventListener("DOMContentLoaded", function () {
     "use strict";
 
-    var config = (window.VC_CONFIG || {}) as { caseId: number | null; adjudicationId: number | null; caseType?: string };
+    var config = (window.VC_CONFIG || {}) as {
+        caseId: number | null;
+        adjudicationId: number | null;
+        caseType?: string;
+    };
     var targetId: number | null =
         config.caseId !== null && config.caseId !== undefined
             ? config.caseId
@@ -131,7 +131,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 "<tbody>" +
                 rows +
                 "</tbody>" +
-                "</table>",
+                "</table>"
         );
         if (versionCount)
             versionCount.textContent =
@@ -183,7 +183,7 @@ document.addEventListener("DOMContentLoaded", function () {
             setHTML(diffSummary!, "");
             setHTML(
                 diffOutput!,
-                '<span class="vc-diff-empty">The two versions are identical.</span>',
+                '<span class="vc-diff-empty">The two versions are identical.</span>'
             );
             return;
         }
@@ -202,7 +202,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 '<span class="vc-stat vc-stat-sim">Word-count \u0394 ' +
                 (wordDiff > 0 ? "+" : "") +
                 wordDiff +
-                "</span>",
+                "</span>"
         );
 
         var html = "";
@@ -229,7 +229,7 @@ document.addEventListener("DOMContentLoaded", function () {
             setHTML(diffSummary!, "");
             setHTML(
                 diffOutput!,
-                '<span class="vc-diff-empty">Select both versions to compare.</span>',
+                '<span class="vc-diff-empty">Select both versions to compare.</span>'
             );
             return;
         }
@@ -258,7 +258,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 setHTML(diffSummary!, "");
                 setHTML(
                     diffOutput!,
-                    '<span class="vc-diff-empty">Could not compare versions.</span>',
+                    '<span class="vc-diff-empty">Could not compare versions.</span>'
                 );
             });
     }
@@ -271,7 +271,7 @@ document.addEventListener("DOMContentLoaded", function () {
         var ok = window.confirm(
             "Restore this document to v" +
                 versionNumber +
-                "?\n\nThis makes the snapshot the current document and records a new history entry.",
+                "?\n\nThis makes the snapshot the current document and records a new history entry."
         );
         if (!ok) return;
 
@@ -281,7 +281,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ change_summary: "Restored to version " + versionNumber }),
-            },
+            }
         )
             .then(function (resp: Response) {
                 if (!resp.ok) throw new Error("restore failed: " + resp.status);
@@ -348,7 +348,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 window.alert(
                     "Branch '" +
                         (data.branch && data.branch.branch_name ? data.branch.branch_name : name) +
-                        "' created.",
+                        "' created."
                 );
                 loadHistory();
             })
@@ -371,7 +371,7 @@ document.addEventListener("DOMContentLoaded", function () {
             setHTML(diffSummary!, "");
             setHTML(
                 diffOutput!,
-                '<span class="vc-diff-empty">Select two versions above to see what changed.</span>',
+                '<span class="vc-diff-empty">Select two versions above to see what changed.</span>'
             );
             loadHistory();
         });
@@ -385,7 +385,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (restoreBtn) {
             restoreVersion(
                 restoreBtn.getAttribute("data-restore") || "",
-                restoreBtn.getAttribute("data-version") || "",
+                restoreBtn.getAttribute("data-version") || ""
             );
             return;
         }

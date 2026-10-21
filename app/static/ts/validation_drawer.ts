@@ -133,7 +133,7 @@ import type {
         statusEl: HTMLElement | null,
         btn: HTMLElement,
         originalHtml: string,
-        onDone?: () => void,
+        onDone?: () => void
     ): void {
         (btn as HTMLButtonElement).disabled = true;
         setHTML(btn, '<i class="fa-solid fa-spinner fa-spin"></i> Validating\u2026');
@@ -146,11 +146,16 @@ import type {
             body: JSON.stringify(payload),
         })
             .then(function (resp: Response) {
-                return resp.json().then(function (data: ValidationReportResponse & { error?: string }) {
+                return resp.json().then(function (
+                    data: ValidationReportResponse & { error?: string }
+                ) {
                     return { ok: resp.ok, data: data };
                 });
             })
-            .then(function (out: { ok: boolean; data: ValidationReportResponse & { error?: string } }) {
+            .then(function (out: {
+                ok: boolean;
+                data: ValidationReportResponse & { error?: string };
+            }) {
                 if (!out.ok) {
                     if (statusEl) statusEl.textContent = out.data.error || "Validation failed";
                     return;
@@ -199,7 +204,7 @@ import type {
                         originalHtml,
                         function () {
                             busy = false;
-                        },
+                        }
                     );
                 });
             });
@@ -209,7 +214,9 @@ import type {
     function initForm(opts: ValidationDrawerFormOpts): void {
         ready(function () {
             var btn = document.getElementById(opts.buttonId);
-            var caseIdInput = document.getElementById(opts.caseIdInputId) as HTMLInputElement | null;
+            var caseIdInput = document.getElementById(
+                opts.caseIdInputId
+            ) as HTMLInputElement | null;
             var drawerEl = document.getElementById(opts.drawerId);
             if (!btn || !caseIdInput || !drawerEl) return;
             var statusEl = opts.statusId ? document.getElementById(opts.statusId) : null;
@@ -230,7 +237,7 @@ import type {
                     drawerEl!,
                     statusEl,
                     btn!,
-                    originalHtml,
+                    originalHtml
                 );
             });
         });

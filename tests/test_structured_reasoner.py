@@ -99,6 +99,16 @@ class TestBuildReasoningPrompt:
         for key in ("condition_id", "condition_text", "fact_reference", "status", "explanation"):
             assert key in system
 
+    def test_directive_is_appended_before_the_json_ask(self):
+        _, user = build_reasoning_prompt("Q", "ctx", directive="Name the enforcing authority.")
+        assert "Name the enforcing authority." in user
+        assert user.index("Name the enforcing authority.") < user.index("Structured analysis")
+
+    def test_empty_directive_keeps_the_prompt_byte_identical(self):
+        _, plain = build_reasoning_prompt("Q", "ctx")
+        _, empty = build_reasoning_prompt("Q", "ctx", directive="")
+        assert plain == empty
+
 
 class TestReasonerCallBudget:
     """The IR must fit the token budget, or the IR is never built."""
@@ -107,7 +117,10 @@ class TestReasonerCallBudget:
         # Measured 2026-10-14: a complete argument for a 4.5k-token evidence
         # prompt is 1486 completion tokens, which the old 1024 default cut
         # mid-JSON on every call (fallback skeleton, always).
-        assert DEFAULT_MAX_TOKENS >= 2048
+        # Measured 2026-10-20: the benchmark's 35k-char packed contexts need
+        # ~3.6k completion tokens; 3072 still returned finish_reason='length'
+        # and truncated mid-array, so the lower bound now guards that case.
+        assert DEFAULT_MAX_TOKENS >= 6144
         assert StructuredReasoner(llm_client=FakeLLM(VALID_ARGUMENT_JSON)).max_tokens == DEFAULT_MAX_TOKENS
 
     def test_reason_passes_budget_and_temperature_to_the_client(self):
@@ -129,6 +142,13 @@ class TestStructuredReasoner:
         arg = reasoner.reason("Is a licence needed?", "Section 31 text.")
         assert isinstance(arg, StructuredLegalArgument)
         assert arg.derived_conclusion == "A licence is required under Section 31."
+
+    def test_reason_forwards_the_directive_to_the_prompt(self):
+        llm = FakeLLM(VALID_ARGUMENT_JSON)
+        StructuredReasoner(llm_client=llm).reason(
+            "Which authority may inspect?", "Section 31 text.", directive="Name the authority."
+        )
+        assert "Name the authority." in llm.calls[0][1]
 
     def test_reason_falls_back_on_garbage(self):
         reasoner = StructuredReasoner(llm_client=FakeLLM("not json at all"))

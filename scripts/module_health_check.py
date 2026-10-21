@@ -43,13 +43,11 @@ PACKAGES = ("app", "evaluation", "kg", "scripts")
 IMPORT_PACKAGES = ("app", "kg")
 
 #: Underscore-prefixed modules are excluded from the import pass. This is not
-#: cosmetic: ``app/rag/evaluation/_write_evaluator.py`` and friends are
-#: committed one-shot scaffolding scripts with no ``__main__`` guard and a
-#: hardcoded path, and importing them **overwrites**
-#: ``app/rag/evaluation/workflow_evaluator.py`` -- ``_write_evaluator.py``
-#: writes the literal string ``"Touched - will write full content next"`` and
-#: destroys the 9 KB module. This health check re-triggered that chain on
-#: every run until it was excluded.
+#: cosmetic: the former ``app/rag/evaluation/_write_evaluator.py`` and its
+#: siblings were one-shot scaffolding scripts with a hardcoded path, and
+#: importing them **overwrote** ``app/rag/evaluation/workflow_evaluator.py``.
+#: Those fragment modules were deleted on 2026-10-20 (ADR-0015); the prefix
+#: guard stays as a defence against new import-time writers.
 SKIP_IMPORT_PREFIXES = ("_",)
 
 

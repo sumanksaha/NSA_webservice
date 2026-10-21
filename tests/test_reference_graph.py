@@ -9,8 +9,10 @@ from app.rag.retrieval.reference_extractor import (
     CONFIDENCE_HIGH,
     CONFIDENCE_LOW,
     CONFIDENCE_MEDIUM,
+    Reference,
     extract_references,
     high_confidence_refs,
+    resolve_ref_to_provision,
 )
 from app.rag.retrieval.reference_graph import (
     EDGE_REFS,
@@ -246,3 +248,24 @@ class TestReferenceGraph:
         assert g.edge_count() == 0
         g.add_edge(ReferenceEdge(source_document="c1", target_document="c2", relationship=EDGE_REFS))
         assert g.edge_count() == 1
+
+
+class TestResolveRefToProvision:
+    """The resolver consults the shared legal-section registry.
+
+    Regression: the import pointed at ``app.rag.retrieval.legal_sections``
+    (which does not exist) inside a bare ``except Exception``, so every
+    reference silently resolved to ``None``.
+    """
+
+    def test_known_section_resolves(self):
+        ref = Reference(act="Food Safety and Standards Act, 2006", section="31")
+        assert resolve_ref_to_provision(ref) == "Food Safety and Standards Act, 2006::31"
+
+    def test_unknown_section_does_not_resolve(self):
+        ref = Reference(act="Food Safety and Standards Act, 2006", section="999")
+        assert resolve_ref_to_provision(ref) is None
+
+    def test_unknown_act_does_not_fabricate(self):
+        ref = Reference(act="Imaginary Act, 2099", section="31")
+        assert resolve_ref_to_provision(ref) is None

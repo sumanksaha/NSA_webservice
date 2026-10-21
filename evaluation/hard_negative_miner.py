@@ -290,7 +290,7 @@ def mine_question(
         # Check if this chunk covers any gold unit
         covers_gold = False
         for unit in rel:
-            if matches_gold(payload, unit, family_map):
+            if matches_gold(payload, unit, family_map, text_fallback=True):
                 positives.append({
                     "chunk_id": cid,
                     "text": str(payload.get("chunk_text", ""))[:1500],

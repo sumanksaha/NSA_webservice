@@ -35,6 +35,50 @@ Adding a flag = one table row + one `.env.example` entry (enforced by
 `tests/test_shared_config.py::test_env_example_keys_are_declared`). Never
 hand-roll a `try: current_app.config / except: os.environ` resolver again.
 
+### `Observability` — the error-tracking and metrics seam
+
+**Package:** `app/observability/`. Deliberately thin, and deliberately _not_ the
+audit trail: `RecordAudit` stays the hash-chained record of truth, and nothing
+here may be cited as evidence or history.
+
+- **Error tracking (Sentry, `sentry.py`)** — `init_sentry()`, one call site, in
+  `create_app()`. It **returns early when `SENTRY_DSN` is blank**; that is the
+  off switch. Passing `dsn=None` is _not_ one — the SDK falls back to
+  `os.environ["SENTRY_DSN"]` — so a blank DSN skips `init()` entirely: no DSN,
+  no transport, no network. It never raises: a malformed DSN (a typo in a
+  dashboard field) is logged and leaves tracking disabled rather than taking a
+  deploy down.
+- **PII is hard-wired off** — `send_default_pii=False`, `max_request_body_size="never"`,
+  and a `before_send` scrubber that drops request bodies and cookies. There is
+  deliberately no flag for it: an FSSAI query is a legal question about a named
+  firm, so firm names, licence numbers, addresses and query text are as
+  sensitive as credentials.
+- **Why it earns its keep** — the codebase swallows exceptions on purpose
+  (Ruff `S110`/`S112` ignored; the RAG loggers are "best-effort … logged and
+  swallowed"). The SDK's logging integration turns those already-emitted
+  warnings and errors into grouped, stack-traced issues with **no call-site
+  edits**. Do not sprinkle `capture_exception()` into existing `except` blocks.
+- **Tracing stays off** (`SENTRY_TRACES_SAMPLE_RATE=0.0`) — `a2wsgi` invokes
+  `Flask.__call__`, so one request would otherwise open two server transactions.
+- **Metrics (Prometheus, `metrics.py`)** — every metric object in the app is
+  constructed here and nowhere else (FR-10): one module, one `nsa_` namespace.
+  Each label value passes an allowlist and anything unrecognised becomes
+  `other`; `route` is the matched **rule** (`/inspection/<int:inspection_id>`),
+  never the interpolated path. That is not tidiness — Grafana Cloud bills on
+  active series, and a path label is an unbounded series.
+- **The scrape path lives on the ASGI edge** (`asgi.py`, before the Flask
+  mount). `prometheus-flask-exporter` would never see `/api/v2/rag/generate`
+  and `/api/v2/rag/query/agent`, the two slowest routes in the system.
+  `GET /metrics` is registered only when `METRICS_ENABLED` is set, and fails
+  closed with `503` when enabled without `METRICS_TOKEN`.
+- **Counting is disjoint by construction** — the ASGI middleware counts only
+  `/api/v2/*` (which never reaches Flask) and the Flask hooks skip everything
+  FastAPI owns, so a request is counted exactly once. Both skip `/metrics`,
+  `/health` and `/api/v2/health`: a monitor pinging every 10 s would otherwise
+  flatten the very graph it feeds.
+
+See `docs/OBSERVABILITY_SENTRY_PROMETHEUS_SPEC.md` (decisions D1–D11, FR/NFR/INV/SEC).
+
 ### `BackupRestorer` — the CSV restore adapter (D6)
 
 **Module:** `app/services/backup_restorer.py`. The single deep module
@@ -135,13 +179,28 @@ the photo routes (`app/inspection/routes/photo_routes.py`). Owns:
 The tuple of `Setting` rows inside `app/shared/config.py`. Single source of
 truth for the config surface; doubles as living documentation.
 
+### Query-type registry — the vocabulary seam
+
+**Module:** `app/rag/query_type_registry.py`. Owns the canonical query-type
+ids, every legacy alias, emitted surfaces (`direct provision`,
+`cross-reference`, `insufficient-evidence`), directives, budgets, and the set
+of types the legal classifier may emit.
+
+The classifiers use canonical ids as their pattern keys. `QueryType` remains
+the legacy runtime enum, but its canonical map, triage table, and classifier
+label map are derived through the registry at import time; the legal
+classifier emits each type's declared surface and projects `QUERY_TYPE_CONFIGS`
+through the same table. `get_config()` and `QueryUnderstanding` normalization
+resolve aliases, so `duty` reaches `obligation` and `amendment_query` reaches
+`amendment`. See ADR-0017.
+
 ### `QueryUnderstanding` — the query understanding seam
 
 **Module:** `app/rag/retrieval/query_understanding.py`. The single deep
 module behind "what does the query ask". Owns:
 
 - the **canonical parse rule**: one `understand(query)` pass computing every
-  view — the legacy `QueryType`, the 13-type legal view with confidence,
+  view — the legacy `QueryType`, the 14-type legal view with confidence,
   act/section/subsection/authority/citation/court/jurisdiction entities,
   the `QueryParser` filter dispatch, and the identifier-arm query;
 - the **rerank views**: `rerank_config` (resolved `QueryTypeConfig`) and
@@ -233,6 +292,70 @@ feature stays opt-in (never auto-applied).
 Deleted as zero-caller orphans in the same pass: `confidence_controller`
 (tier function nobody called), `ThreeStageReranker` (weaker parallel
 ranker), `build_kg_queries` (variant builder nobody called).
+
+### `ModelRuntime` — the shared encoder seam
+
+**Module:** `app/rag/model_runtime.py`. The single construction site for every
+torch model the RAG stack loads. Owns:
+
+- the **cache rule**: one process-wide model per `(kind, model_name)`, so the
+  per-collection retrievers/rerankers the multi-domain router builds share one
+  copy of the mpnet/CE weights instead of loading one each;
+- the **construction rule**: lazy import, `cap_torch_threads()` before build,
+  remembered package absence (`None`, never an import-time raise), load errors
+  propagate;
+- the **cold-start hook**: `clear_model_cache()` for harnesses that swap model
+  names. Re-ingestion does not clear it — the weights did not change.
+
+Boundary: constructor injection (`encoder=`) still wins, so tests and callers
+that supply an encoder never touch the registry. The remote clients' lazy local
+fallbacks call the same seam. Glossary entries elsewhere that name
+`EmbeddingService`, `DenseRetriever`, `Reranker` or `EnsembleReranker` describe
+behaviour, not model-loading policy. See ADR-0012.
+
+### `Qdrant seam` — connection, filter, and point conversion
+
+**Modules:** `app/rag/qdrant_client.py` (`build_qdrant_client`, `build_filter`)
+and `app/rag/retrieval/result.py` (`RetrievedChunk.from_qdrant_point`). Owns:
+
+- the **connection rule**: `RAG_QDRANT_URL` / `RAG_QDRANT_API_KEY` resolve
+  through `cfg` (Pattern A) in one place, so ingestion/query work outside a
+  Flask app context; injected clients still win;
+- the **filter rule**: empty → `{}`, pre-shaped `must`/`should`/`must_not`
+  filters pass through, flat dicts expand list values into one `must` clause
+  each. `QdrantStore._build_filter` and `DenseRetriever._build_filter` delegate
+  (callers and tests cross that seam);
+- the **conversion rule**: Qdrant point (object or `scroll` dict) → chunk. It
+  lives in `result.py`, not the orchestrator, so stage modules never import
+  `tasks.py` for data conversion.
+
+See ADR-0013.
+
+### `Chunk access` — the object/payload field seam
+
+**Module:** `app/rag/retrieval/chunk.py`. The single policy for reading and
+writing a retrieved chunk, whether it is a `RetrievedChunk` object or a
+serialized payload dict:
+
+- `field` — dict `.get`, otherwise `getattr`;
+- `text` — always `str`, empty when absent;
+- `chunk_id` — `str` when present, caller-chosen default (`None` for identity,
+  `""` for string keys) when absent;
+- `score` — `float`, default for missing/malformed values;
+- `set_field` / `set_score` — dict assignment or attribute write.
+
+Stages never re-implement the `isinstance(chunk, dict)` branch. Parsing rules
+(legal identity, metadata, section chains) stay in their owning modules;
+`canonical_unit_id` stays in the evidence selector. See ADR-0014.
+
+### `QueryBenchmark` — neutral benchmark entry
+
+**Module:** `app/rag/evaluation/benchmark_entry.py`. The data shape shared by
+`DecompositionBenchmark` (evaluator behaviour) and `decomposition_metrics`
+(requirement-level scoring). It has no imports from either side;
+`benchmark.py` re-exports it for existing callers, and the metrics import it
+directly. This keeps the evaluation type graph acyclic while leaving scoring
+logic in `benchmark.py`. See ADR-0016.
 
 ### Pattern A
 

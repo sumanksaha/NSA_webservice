@@ -294,7 +294,7 @@ def resolve_ref_to_provision(ref: Reference) -> str | None:
     if not ref.section:
         return None
     try:
-        from app.rag.retrieval.legal_sections import is_known_section_for_act
+        from app.rag.legal_sections import is_known_section_for_act
 
         base = section_base(ref.section)
         if ref.act and is_known_section_for_act(base, ref.act):

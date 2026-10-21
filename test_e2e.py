@@ -159,7 +159,7 @@ for it in top10:
 gold_ids = set()
 for unit in q.relevant_units():
     for pid, payload in payload_index.items():
-        if matches_gold(payload, unit, family_map):
+        if matches_gold(payload, unit, family_map, text_fallback=True):
             gold_ids.add(pid)
             break
 
@@ -254,7 +254,7 @@ print(f"  Debug: {json.dumps(response.debug, indent=2)}", flush=True)
 gold_chunks = []
 for unit in q.relevant_units():
     for pid, payload in payload_index.items():
-        if matches_gold(payload, unit, family_map):
+        if matches_gold(payload, unit, family_map, text_fallback=True):
             gold_chunks.append(
                 RetrievedChunk(
                     chunk_id=pid,

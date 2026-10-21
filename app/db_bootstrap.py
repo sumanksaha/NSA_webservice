@@ -255,7 +255,7 @@ def _display_uri(uri: str) -> str:
 
         url = make_url(uri)
         if url.password:
-            return str(url.set(password="***"))
+            return str(url.set(password="***"))  # noqa: S106 — intentional credential redaction for logging, not a hardcoded password
     except Exception:
         pass
     return uri.split("?", 1)[0]

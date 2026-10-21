@@ -65,8 +65,8 @@ def main() -> int:
         missing = g.get("concepts_missing") or []
         in_win = bool((r.get("C_hybrid") or {}).get("in_window"))
         rank = (r.get("C_hybrid") or {}).get("best_gold_rank")
-        rh = float((v.get("retrieval_headroom") or 0))
-        gd = float((v.get("gold_distinctive_cov") or 0))
+        rh = float(v.get("retrieval_headroom") or 0)
+        gd = float(v.get("gold_distinctive_cov") or 0)
         if not missing:
             seg = "GATE_EDGE"
         elif not in_win:
@@ -109,8 +109,7 @@ def main() -> int:
           f"{sum(1 for r in rows if r['segment']=='RETRIEVAL' and not r['rank'])}")
 
     print("\n=== GENERATION: what was dropped? ===")
-    from collections import Counter as C
-    dropped = C()
+    dropped = Counter()
     for r in rows:
         if r["segment"] == "GENERATION":
             for c in r["missing"]:

@@ -83,9 +83,8 @@ def _find_font():
         "C:/Windows/Fonts/arial.ttf",
     ]
     for p in candidates:
-        from pathlib import Path as P
-        if P(p).exists():
-            return P(p)
+        if Path(p).exists():
+            return Path(p)
     # Last resort: return a tiny default that PIL can always load
     return None
 

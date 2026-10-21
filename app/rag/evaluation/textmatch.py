@@ -11,6 +11,9 @@ import re
 
 from rapidfuzz import fuzz
 
+from app.rag.retrieval.chunk import chunk_id as _chunk_id_of
+from app.rag.retrieval.chunk import text as _chunk_text_of
+
 #: Minimal stopword set for content-token extraction.  Deliberately small:
 #  domain words like "section" or "penalty" must survive tokenization.
 STOPWORDS = frozenset([
@@ -85,13 +88,9 @@ def token_coverage(needles: list[str], haystack: str) -> float:
 
 def chunk_text(chunk: object) -> str:
     """Chunk text whether we got a ``RetrievedChunk`` or a serialized dict."""
-    if isinstance(chunk, dict):
-        return str(chunk.get("text") or "")
-    return str(getattr(chunk, "text", "") or "")
+    return _chunk_text_of(chunk)
 
 
 def chunk_id(chunk: object) -> str:
     """Chunk id whether we got a ``RetrievedChunk`` or a serialized dict."""
-    if isinstance(chunk, dict):
-        return str(chunk.get("chunk_id") or "")
-    return str(getattr(chunk, "chunk_id", "") or "")
+    return _chunk_id_of(chunk, "") or ""
