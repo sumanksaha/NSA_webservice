@@ -380,3 +380,15 @@ classifier before using `abstention_discipline` as a gate.
 1. **P3-13 JEV calibration** (`evaluation/experiment_f_calibration_eval.py`, `evaluation/calibrate_ce.py`) — blocked on `ceiling_v5/evaluator_v2_per_question.jsonl` artifact and legal CE-v2 model outputs; use calibrated thresholds to reduce variance across cohorts once artifacts exist.
 2. **W3/W4 live A/B** (`tests/test_decision_eval_tools.py`, structured reasoner / per-type directives) — reserved-budget live A/B scored by W1 rubric; flags remain off until rubric + citation gates + 3 replicates clear. The 2026-10-20 A/B covered the shipped prompt cue, not these two flags; W3/W4 remain unmeasured. Also measure `RAG_ANSWER_CONTRACT` / `_REPAIR` next: the prompt cue's provision gain is real but small, so the deterministic attribution layer is the remaining lever.
 3. **retry_second_pass live run** — retry now triggers on `authority_missing`/`authorities_missing` in addition to `concepts_missing`; needs call budget to run live and confirm soft/binary conversion on the 22 recovered gold-in-window cases.
+
+
+## Iteration: Eliminate abstention + attribution errors (2026-10-21)
+
+**Goal:** Reduce abstention_gate (31) + provision_check (35)=74% of failures. Budget: 600 live LLM calls.
+
+### Changes
+- Answer contract repair: stronger mandatory directives, forbid blanket refusals if governing provision/named sections present; expanded false-abstention detection.
+- Identifier: extended bare/section forms (sN/s N), improved detect_sections.
+- Grounded service/prompt: pass context to contract; require addressing named Act/Order/Rule/sections.
+
+**Status:** Implemented and registered. Ready for paired A/B with RAG_ANSWER_CONTRACT=true, RAG_ANSWER_CONTRACT_REPAIR=true on failure slices.
