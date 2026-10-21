@@ -378,14 +378,14 @@ def resolve_gold_units(question, payload_index, family_map, gold_index) -> dict:
     gold_chunk_ids: set[str] = set()
     method_counts: Counter = Counter()
     for u in units:
-        hits = set(gold_chunk_ids_for_units([u], gold_index))  # Experiment A identity
+        hits = set(gold_chunk_ids_for_units([u], gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True))  # Experiment A identity
         method = "matches_gold"
         if not hits:
             fb = _fallback_gold(u, payload_index)
             if fb:
                 hits = fb; method = "document_id+provision_id"
             else:
-                bf = {cid for cid, pl in payload_index.items() if matches_gold(pl, u, family_map)}
+                bf = {cid for cid, pl in payload_index.items() if matches_gold(pl, u, family_map, text_fallback=True)}
                 if bf:
                     hits = bf; method = "brute"
                 else:

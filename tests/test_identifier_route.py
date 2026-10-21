@@ -206,7 +206,9 @@ class TestPipelineIdentifier:
             def __init__(self, dense, sparse, reranker=None):
                 pass
 
-            def retrieve(self, query, top_k=10, filters=None, identifier_query=None, query_type=None):
+            def retrieve(
+                self, query, top_k=10, filters=None, identifier_query=None, form_query=None, query_type=None, **kwargs
+            ):
                 recorded["query"] = query
                 recorded["identifier_query"] = identifier_query
                 return SearchResult(query=query, query_type="", chunks=[_chunk("c1")], total=1, latency_ms=1)

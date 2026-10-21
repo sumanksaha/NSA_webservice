@@ -126,6 +126,9 @@ class RemoteEmbedClient:
 
         ``None`` when no local model is configured or sentence-transformers /
         torch are unavailable — the caller then degrades further (sparse-only).
+        Uses the shared, thread-capped model cache
+        (:mod:`app.rag.model_runtime`) so the fallback does not load a second
+        copy of the same weights.
         """
         if self._local_attempted:
             return self._local_encoder
@@ -133,14 +136,9 @@ class RemoteEmbedClient:
         if not self.local_model:
             return None
         try:
-            from sentence_transformers import SentenceTransformer
+            from app.rag.model_runtime import get_sentence_transformer
 
-            # Bound torch threads before the model is built (RAG_TORCH_THREADS)
-            # so the fallback does not peg every core on a laptop.
-            from app.rag.torch_runtime import cap_torch_threads
-
-            cap_torch_threads()
-            self._local_encoder = SentenceTransformer(self.local_model)
+            self._local_encoder = get_sentence_transformer(self.local_model)
         except Exception as exc:
             logger.warning("RemoteEmbedClient: local encoder fallback unavailable (%s)", exc)
             self._local_encoder = None

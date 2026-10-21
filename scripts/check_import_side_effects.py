@@ -9,20 +9,23 @@ importable package that turns any package walk into a code generator: a
 linter, an IDE indexer, a test collector, or another agent silently rewrites
 your source.
 
-The instance this was built from
---------------------------------
-``app/rag/evaluation/_write_evaluator.py`` is four lines::
+The incident this was built for
+------------------------------
+``app/rag/evaluation/_write_evaluator.py`` was four lines::
 
     path = r"C:/github/NSA_webservice/app/rag/evaluation/workflow_evaluator.py"
     with open(path, "w", encoding="utf-8") as f:
         f.write("Touched - will write full content next")
 
-No guard. No ``__main__``. A hardcoded absolute path. Importing it replaces a
-9 KB working module with 38 bytes. Its eleven siblings (``_part1..8.py``,
-``_insert_*.py``, ``_fix_order.py``) rebuild the file in stages; the last
-stage to run wins, so the package's contents depend on import order. That
+No guard. No ``__main__``. A hardcoded absolute path. Importing it replaced a
+9 KB working module with 38 bytes. Its siblings (``_part1..8.py``,
+``_insert_*.py``, ``_fix_order.py``) rebuilt the file in stages; the last
+stage to run won, so the package's contents depended on import order. That
 corrupted ``workflow_evaluator.py`` repeatedly during a live evaluation, and
 twice re-broke a file that had already been repaired.
+
+Those one-shot fragment modules were deleted on 2026-10-20 (ADR-0015). This
+scanner remains the guard against reintroducing an import-time source writer.
 
 Two aggravating factors worth keeping in mind when reading the report:
 

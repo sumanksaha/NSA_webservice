@@ -68,27 +68,23 @@ class EmbeddingService:
     # ------------------------------------------------------------------ #
 
     def _get_encoder(self) -> Any | None:
-        """Return a SentenceTransformer, importing sentence-transformers lazily.
+        """Return the shared SentenceTransformer for this service's model.
 
-        Returns ``None`` (with a warning) when the package is not installed so
-        callers can degrade gracefully; never raises at import time.
+        Construction (lazy import, torch-thread cap, process-wide cache) lives
+        in :mod:`app.rag.model_runtime`; this method only resolves the model
+        name. Returns ``None`` (with a warning) when the package is not
+        installed so callers can degrade gracefully.
         """
         if self._encoder is not None:
             return self._encoder
-        try:
-            from sentence_transformers import SentenceTransformer
-        except ImportError:
+        from app.rag.model_runtime import get_sentence_transformer
+
+        self._encoder = get_sentence_transformer(self.model_name)
+        if self._encoder is None:
             logger.warning(
                 "EmbeddingService: sentence-transformers not installed; embeddings unavailable. "
                 "Install it (with a matching model) to enable dense retrieval.",
             )
-            return None
-        # Bound the torch thread pools before the model is built so a single
-        # embedding call does not peg every core on a laptop (RAG_TORCH_THREADS).
-        from app.rag.torch_runtime import cap_torch_threads
-
-        cap_torch_threads()
-        self._encoder = SentenceTransformer(self.model_name)
         return self._encoder
 
     def _require_encoder(self) -> Any:

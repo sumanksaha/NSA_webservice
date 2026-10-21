@@ -48,6 +48,7 @@ from evaluation.answer_scoring import score_answer
 from evaluation.bench_p0_1_packing import RAW_DIR, _chunks_for, _load_jsonl, _load_payload_index
 from evaluation.benchmark import load_questions
 from evaluation.llm_ssl_client import SSLBypassLLMClient
+from evaluation.gold_text_match import matches_gold_enhanced
 from evaluation.resolution import FamilyMap, matches_gold
 
 OUT_FILE = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5" / "window_width_ab.json"
@@ -171,7 +172,7 @@ def main() -> int:
                 gold = {
                     c.chunk_id
                     for c in chunks
-                    if any(matches_gold(payload_index.get(c.chunk_id, {}), u, family_map) for u in q.recall_units())
+                    if any(matches_gold_enhanced(payload_index.get(c.chunk_id, {}), u, family_map, text_fallback=True) for u in q.recall_units())
                 }
                 m = score_answer(answer, q.acceptable_conclusion or "", q.insufficient_evidence)
                 # What the model ACTUALLY cited, via CitationTracker. Using

@@ -105,15 +105,16 @@ class TestShippedScanInstruction:
     def test_shipped_template_is_the_winning_candidate_verbatim(self):
         """The shipped wording must equal the measured candidate exactly.
 
-        Pinned to ``cand_scan_cond`` since the conditioning block landed
-        (2026-10-10): the pin moved deliberately, after the scan line was
-        kept verbatim inside it, so the A/B control (``cand_scan``) stays
-        registered and unchanged. A future move must repeat this: keep
-        cand_scan, register the new candidate, re-point this pin.
+        Pinned to ``cand_scan_cond`` (the 2026-10-10 conditioning block). The
+        2026-10-20 decomposition candidate (``cand_scan_cond_v2``) was measured
+        and **reverted** from the shipped template — it stays registered so the
+        measurement is reproducible. A future move must repeat this: keep the
+        controls, register the new candidate, re-point this pin only if it wins.
         """
         from evaluation.ab_baseline_citation import _CANDIDATES
 
         assert _CANDIDATES["cand_scan_cond"] == GROUND_QA_USER_TEMPLATE
+        assert "cand_scan_cond_v2" in _CANDIDATES, "measured decomposition candidate must stay registered"
         assert "cand_scan" in _CANDIDATES, "A/B control candidate must stay registered"
 
 
@@ -138,6 +139,21 @@ class TestScanLineSurvivesConditioning:
         # needs_deeper_reasoning slice: truncation honesty, no false completeness.
         assert "cut off mid-clause" in lowered
         assert "do not call a list complete" in lowered
+
+    def test_measured_decomposition_candidate_stays_out_of_the_shipped_template(self):
+        """The 2026-10-20 cue was measured and reverted, not shipped.
+
+        Gold-in-prompt A/B: +1 fixed case (within noise) while ``is_padded``
+        rose 0.16 -> 0.39 and precision fell ~0.05. It remains a registered
+        candidate for reproducibility and further iteration.
+        """
+        from evaluation.ab_baseline_citation import _CANDIDATES
+
+        assert "decompose the question into its separate asks" not in GROUND_QA_USER_TEMPLATE.lower()
+        candidate = _CANDIDATES["cand_scan_cond_v2"].lower()
+        assert "decompose the question into its separate asks" in candidate
+        assert "do not let uncertainty about one ask suppress" in candidate
+        assert "address each ask explicitly" in candidate
 
     def test_conditioning_block_readds_no_gate(self):
         banned = (
@@ -277,7 +293,7 @@ class TestShippedVariantRender:
         monkeypatch.setenv("RAG_QUERY_TYPE_DIRECTIVES", "true")
         svc, built = self._svc_and_context()
 
-        _, un_directived = render_prompt_for(svc, None, "q", built, "authority")
+        _, un_directived = render_prompt_for(svc, None, "q", built, "ambiguous")
         for text in QUERY_TYPE_DIRECTIVES.values():
             assert text not in un_directived
 

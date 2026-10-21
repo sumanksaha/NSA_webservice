@@ -106,6 +106,8 @@ class TargetedRetryPlanner:
             plan = self._build_definition(query, ctx, fail_codes)
         elif strategy == "hierarchy_graph":
             plan = self._build_hierarchy(query, ctx, fail_codes)
+        elif strategy == "expand_query":
+            plan = self._build_expand_query(query, ctx, fail_codes)
         elif strategy in ("kg_traversal", "kg_reasoning"):
             plan = self._build_kg(query, ctx, fail_codes, strategy)
         elif strategy == "abstain":
@@ -339,6 +341,56 @@ class TargetedRetryPlanner:
             strategy="hierarchy_graph",
             failures=failures,
             meta={"act": act, "section": section, "adjacent": adjacent, "expanded_candidates": expanded},
+        )
+
+    def _build_expand_query(
+        self, query: str, ctx: dict, failures: tuple[str, ...]
+    ) -> TargetPlan:
+        """Broaden the query when evidence coverage is insufficient.
+
+        Casts a wider lexical net by appending recovered legal tokens
+        (act name, section number, document titles from retrieved chunks)
+        to the original query.  Never raises — degrades to an explicit
+        abstain when no expansion tokens can be mined, per SPEC-2.
+        """
+        from app.rag.retrieval.identifier import detect_act, detect_section
+
+        act = detect_act(query)
+        section, _sub = detect_section(query)
+
+        expansion_terms: list[str] = []
+        if act:
+            expansion_terms.append(act)
+        if section:
+            expansion_terms.append(f"Section {section}")
+        # Pull document titles and section numbers from retrieved chunks as
+        # additional lexical signals — cheap, no graph dependency.
+        for chunk in ctx.get("chunks") or []:
+            if not isinstance(chunk, dict):
+                continue
+            title = str(chunk.get("document_title") or "")
+            if title and title not in expansion_terms:
+                expansion_terms.append(title)
+            sec = str(chunk.get("section_number") or "")
+            if sec and f"Section {sec}" not in expansion_terms:
+                expansion_terms.append(f"Section {sec}")
+
+        seen: list[str] = []
+        for term in expansion_terms:
+            if term not in seen:
+                seen.append(term)
+
+        if not seen:
+            return self._degrade(query, failures, "expand_query", "no_expansion_tokens")
+
+        joined = " ".join(seen)
+        expanded = f"{query} {joined}" if joined.lower() not in query.lower() else query
+        return TargetPlan(
+            query=expanded,
+            arm=ARM_HYBRID,
+            strategy="expand_query",
+            failures=failures,
+            meta={"expansion_terms": seen[:5]},
         )
 
     def _build_kg(self, query: str, ctx: dict, failures: tuple[str, ...], strategy: str) -> TargetPlan:

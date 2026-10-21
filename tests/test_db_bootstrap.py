@@ -208,5 +208,5 @@ def test_lazy_import_skips_module_boot():
         "import app;"
         "print('LAZY_OK' if not hasattr(app, 'app') else 'LAZY_BOOT')"
     )
-    p = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=240)
+    p = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=240)  # noqa: S603 — code is a hardcoded test string, not untrusted input
     assert "LAZY_OK" in p.stdout, p.stdout + p.stderr

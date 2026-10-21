@@ -24,6 +24,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.rag.retrieval.chunk import field as chunk_field
+
 logger = logging.getLogger(__name__)
 
 #: Structural thresholds (characters).
@@ -53,13 +55,6 @@ class ChunkQuality:
             "issues": list(self.issues),
             "field_scores": dict(self.field_scores),
         }
-
-
-def _value(chunk: Any, key: str, default: Any = "") -> Any:
-    """Read a field off a :class:`Chunk` or a §5.1 payload dict."""
-    if isinstance(chunk, dict):
-        return chunk.get(key, default)
-    return getattr(chunk, key, default)
 
 
 class ChunkQualityValidator:
@@ -100,7 +95,7 @@ class ChunkQualityValidator:
 
     def validate_chunk(self, chunk: Any) -> ChunkQuality:
         """Grade a :class:`Chunk` (or §5.1 payload dict)."""
-        text = str(_value(chunk, "chunk_text", "") or "")
+        text = str(chunk_field(chunk, "chunk_text", "") or "")
         quality = ChunkQuality()
 
         # --- Structural rules -------------------------------------------------
@@ -112,7 +107,7 @@ class ChunkQualityValidator:
 
         score = 0.7  # base for a non-empty chunk
 
-        if not _value(chunk, "document_id", ""):
+        if not chunk_field(chunk, "document_id", ""):
             quality.issues.append({
                 "severity": "error",
                 "code": "missing_document_id",
@@ -120,7 +115,7 @@ class ChunkQualityValidator:
             })
             score -= 0.3
 
-        if not _value(chunk, "content_hash", ""):
+        if not chunk_field(chunk, "content_hash", ""):
             quality.issues.append({
                 "severity": "warning",
                 "code": "missing_content_hash",
@@ -160,7 +155,7 @@ class ChunkQualityValidator:
             ("jurisdiction", "default"),
             ("state", "default"),
         ):
-            raw = str(_value(chunk, field_name, "") or "").strip()
+            raw = str(chunk_field(chunk, field_name, "") or "").strip()
             if raw:
                 fields[field_name] = scorer(raw, method, [], field_name=field_name, text_length=char_count)
 

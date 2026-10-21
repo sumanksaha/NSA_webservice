@@ -2,10 +2,11 @@ import os
 import secrets
 import threading
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from dotenv import load_dotenv
-from flask import Flask, redirect, url_for
+from flask import Flask, g, redirect, request, url_for
 from flask_login import current_user
 from flask_migrate import Migrate
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -17,87 +18,6 @@ _fso_sync_lock = threading.Lock()
 
 class App(Flask):
     """Flask app subclass."""
-
-
-def _load_or_create_production_secret_key(app: Flask) -> str:
-    """Return a stable production SECRET_KEY, generating + persisting one if needed.
-
-    Render's ``generateValue: true`` only mints a value when the env var is
-    FIRST created on the service, so services that predate the setting (or
-    were created from the dashboard) can boot with no SECRET_KEY. Instead of
-    crashing the deploy, generate a strong key once and persist it so
-    sessions stay valid across restarts and redeploys.
-
-    Persistence order (first success wins):
-      1. ``app_secrets`` key/value table in the primary DB (survives
-         redeploys on Render's persistent Postgres).
-      2. ``<instance_path>/.secret_key`` file (survives restarts).
-      3. Ephemeral in-memory key — sessions reset on restart, but the app
-         still boots (never blocks a deploy).
-
-    An explicit ``SECRET_KEY`` env var (dashboard-managed or a
-    generateValue-minted value) always takes precedence and bypasses this.
-    """
-    database_url = os.environ.get("DATABASE_URL")
-    if database_url:
-        # Normalize postgres:// -> postgresql:// (same as create_app does)
-        if database_url.startswith("postgres://"):
-            database_url = database_url.replace("postgres://", "postgresql://", 1)
-        try:
-            from sqlalchemy import create_engine, text
-
-            engine = create_engine(database_url)
-            with engine.begin() as conn:
-                conn.execute(
-                    text(
-                        "CREATE TABLE IF NOT EXISTS app_secrets (name VARCHAR(64) PRIMARY KEY, value TEXT NOT NULL)",
-                    ),
-                )
-                row = conn.execute(
-                    text("SELECT value FROM app_secrets WHERE name = 'secret_key'"),
-                ).fetchone()
-                if row:
-                    app.logger.info("SECRET_KEY auto-provisioned (DB — reuse)")
-                    return str(row[0])
-                new_key = secrets.token_hex(32)
-                conn.execute(
-                    text(
-                        "INSERT INTO app_secrets (name, value) VALUES ('secret_key', :v) ON CONFLICT(name) DO NOTHING",
-                    ),
-                    {"v": new_key},
-                )
-                row = conn.execute(
-                    text("SELECT value FROM app_secrets WHERE name = 'secret_key'"),
-                ).fetchone()
-                app.logger.info("SECRET_KEY auto-provisioned (DB — new)")
-                return str(row[0]) if row else new_key
-        except Exception as exc:
-            app.logger.warning("SECRET_KEY DB persistence unavailable: %s", exc)
-
-    # Instance-folder file fallback (survives restarts on the same instance)
-    try:
-        key_file = Path(app.instance_path) / ".secret_key"
-        if key_file.exists():
-            stored = key_file.read_text().strip()
-            if stored:
-                app.logger.info("SECRET_KEY auto-provisioned (file — reuse)")
-                return stored
-        new_key = secrets.token_hex(32)
-        key_file.write_text(new_key)
-        app.logger.info("SECRET_KEY auto-provisioned (file — new)")
-        return new_key
-    except OSError as exc:
-        app.logger.warning("SECRET_KEY file fallback unavailable: %s", exc)
-
-    # Ephemeral last resort — never block a deploy; sessions reset on restart
-    app.logger.warning(
-        "SECRET_KEY not set and no persistence available — using ephemeral key; "
-        "sessions will reset on restart. Provision SECRET_KEY in Render "
-        "(render.yaml generateValue: true for new services, or set it in the "
-        "dashboard for existing services).",
-    )
-    return secrets.token_hex(32)
-
 
 def create_app(db_uri: str | None = None):
     """Application factory.
@@ -130,6 +50,22 @@ def create_app(db_uri: str | None = None):
     load_dotenv()
 
     # ------------------------------------------------------------------
+    # Error tracking (Sentry). Guarded twice over: init_sentry() itself
+    # swallows DSN/transport failures, and this wrapper keeps observability
+    # from ever blocking a boot (NFR-2; same posture as app/utils/logging.py).
+    # A blank SENTRY_DSN makes it a no-op — no transport, no network.
+    #
+    # Single call site: asgi.py reaches this factory, so it must not call
+    # init_sentry() again (spec D2).
+    # ------------------------------------------------------------------
+    try:
+        from app.observability.sentry import init_sentry
+
+        init_sentry()
+    except Exception:  # pragma: no cover - the module is guarded too; belt and braces
+        app.logger.warning("Observability: Sentry init unavailable", exc_info=True)
+
+    # ------------------------------------------------------------------
     # Production detection — shared by the SECRET_KEY guard below and the
     # TLS/security-header config further down. Render sets RENDER on every
     # service; APP_ENV / FLASK_ENV cover other hosts. Hoisted here so the
@@ -157,23 +93,11 @@ def create_app(db_uri: str | None = None):
     # Render: provision it as a managed value (render.yaml generateValue: true)
     # or via the Render dashboard. Never commit a real key to the repo.
     # ------------------------------------------------------------------
-    secret_key = os.environ.get("SECRET_KEY")
-    if not secret_key:
-        if is_production:
-            # Auto-provision so the deploy can never be blocked (Render only
-            # mints generateValue secrets when the env var is first created).
-            secret_key = _load_or_create_production_secret_key(app)
-        else:
-            # In local development, use a fallback so the app can start without
-            # requiring every developer to create a .env file immediately.
-            # Gated behind is_production so production never silently falls
-            # back to a fresh random key (that would rotate every session).
-            secret_key = secrets.token_hex(32)
-            app.logger.warning(
-                "SECRET_KEY not set — using insecure local fallback. "
-                "Set SECRET_KEY in your .env file for local development.",
-            )
-    app.config["SECRET_KEY"] = secret_key
+    # ponytail: env-only secret — DB/file persistence was over-engineered.
+    # Env var (Render generateValue / dashboard) is the correct source.
+    if not os.environ.get("SECRET_KEY"):
+        app.logger.warning("SECRET_KEY not set — using ephemeral key; set it in env for persistence.")
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 
     # Database configuration - PostgreSQL primary, SQLite fallback
     # An explicit ``db_uri`` argument (tests) wins over the environment.
@@ -384,6 +308,72 @@ def create_app(db_uri: str | None = None):
             db.session.info["audit_user_id"] = current_user.get_id() if current_user.is_authenticated else None
         except (RuntimeError, AttributeError):
             db.session.info["audit_user_id"] = None
+
+    @app.before_request
+    def bind_observability_context():
+        """Attach request correlation to the Sentry scope.
+
+        Registered *before* the login/RBAC gates below so it also covers the
+        redirects those gates produce. Binds nothing identifying: an inbound
+        ``X-Request-ID`` when a proxy supplies one, and a bounded role label
+        (never an officer or firm name). A no-op while Sentry is disabled.
+        """
+        try:
+            request_id = (request.headers.get("X-Request-ID") or getattr(g, "request_id", "") or "").strip()
+
+            from app.observability.sentry import bind_request_context
+
+            bind_request_context(current_user, request_id)
+        except Exception:  # pragma: no cover - observability never breaks a request
+            app.logger.debug("Observability: request context binding failed", exc_info=True)
+
+    # ------------------------------------------------------------------
+    # HTTP metrics (OBS3, FR-34/FR-36/FR-37) — the Flask surface.
+    #
+    # Registered only when metrics are enabled, so the disabled path adds zero
+    # work per request and never imports prometheus_client. The ASGI half lives
+    # in asgi.py and counts only /api/v2/*, which never reaches this app: the
+    # two surfaces are disjoint by construction (INV-3).
+    # ------------------------------------------------------------------
+    from app.shared.config import cfg
+
+    if cfg.metrics_enabled:
+        from app.observability import metrics as obs_metrics
+
+        @app.before_request
+        def _metrics_request_started():
+            """Start the timer and the in-flight gauge. Paired with teardown."""
+            if not obs_metrics.is_flask_countable_path(request.path):
+                return None
+            # URL matching has already run, so the *rule* is available here —
+            # never the interpolated path (V-3, FR-37).
+            g._nsa_obs = {
+                "started": perf_counter(),
+                "route": request.url_rule.rule if request.url_rule else None,
+            }
+            obs_metrics.http_request_started("flask", g._nsa_obs["route"])
+            return None
+
+        @app.after_request
+        def _metrics_request_completed(response):
+            """Record status and latency. Does not decrement — teardown owns that."""
+            entry = g.get("_nsa_obs")
+            if entry is not None:
+                obs_metrics.observe_http_request(
+                    surface="flask",
+                    method=request.method,
+                    route=entry["route"],
+                    status=response.status_code,
+                    duration=perf_counter() - entry["started"],
+                )
+            return response
+
+        @app.teardown_request
+        def _metrics_request_finished(exc):
+            """Decrement exactly once, whatever happened to the request."""
+            entry = g.pop("_nsa_obs", None)
+            if entry is not None:
+                obs_metrics.http_request_finished("flask", entry["route"])
 
     # Auth gates (global login + Phase 18 RBAC) live in app/shared/rbac.py —
     # the single home for access policy (2026-09-12 review: the factory was

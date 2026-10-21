@@ -44,6 +44,13 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from app.rag.retrieval.chunk import (
+    chunk_id as chunk_id_of,
+    field,
+    score as chunk_score,
+    set_score,
+    text as chunk_text,
+)
 from app.rag.retrieval.food_query_understanding import FoodQueryUnderstanding
 from app.rag.retrieval.parent_reconstruction import clause_commodity_for
 from app.rag.retrieval.provision_metadata import (
@@ -175,8 +182,8 @@ def _entity_match(chunk: Any, entity: str | None) -> float:
     """
     if not entity:
         return 0.0
-    text = str(getattr(chunk, "text", "") or (chunk.get("text", "") if isinstance(chunk, dict) else ""))
-    title = str(getattr(chunk, "document_title", "") or (chunk.get("document_title", "") if isinstance(chunk, dict) else ""))
+    text = chunk_text(chunk)
+    title = str(field(chunk, "document_title", "") or "")
     derived = str(derive_provision_metadata_cached(chunk).get("commodity", "unknown") or "unknown")
     # Bidirectional agreement: the harvested vocabulary means the query side
     # may carry the full clause name ("mixed masala") while the chunk-side
@@ -285,7 +292,7 @@ def _is_clause_definition_heading(chunk: Any) -> bool:
     plain definition detector; the clause-lead marker + 'means' shape is the
     reliable signature (ablation iteration 3: FI019).
     """
-    text = str(getattr(chunk, "text", "") or (chunk.get("text", "") if isinstance(chunk, dict) else ""))
+    text = chunk_text(chunk)
     if not text or not _DEFINITION_HEAD_RE.match(text):
         return False
     return bool(re.search(r"\bmeans\b", text, re.IGNORECASE))
@@ -331,10 +338,8 @@ def _clause_top_position(chunk: Any) -> int:
     matter …", the operative "shall conform" row that names the standard)
     is position 1.  Used as a stable tie-break among sibling standard rows.
     """
-    text = str(getattr(chunk, "text", "") or (chunk.get("text", "") if isinstance(chunk, dict) else ""))
-    idx = getattr(chunk, "chunk_index", None)
-    if idx is None and isinstance(chunk, dict):
-        idx = chunk.get("chunk_index", None)
+    text = chunk_text(chunk)
+    idx = field(chunk, "chunk_index")
     try:
         idx = int(idx)
     except (TypeError, ValueError):
@@ -350,10 +355,10 @@ def _parent_context_match(chunk: Any, parent_context: list[Any]) -> float:
     """1.0 when the chunk IS part of the reconstructed parent bundle, or is
     the parent itself (a heading chunk with children in the pool).
     """
-    cid = str(getattr(chunk, "chunk_id", "") or (chunk.get("chunk_id", "") if isinstance(chunk, dict) else ""))
+    cid = chunk_id_of(chunk, "")
     if not cid:
         return 0.0
-    if any(cid == str(getattr(p, "chunk_id", "") or (p.get("chunk_id", "") if isinstance(p, dict) else "")) for p in parent_context):
+    if any(cid == chunk_id_of(p, "") for p in parent_context):
         return 1.0
     return 0.0
 
@@ -397,7 +402,7 @@ def _is_table_like(chunk: Any) -> bool:
     commodity identity (iteration 6: the clause 3.1.3 gazette blob beating
     the MIXED MASALA standard clause on a 'standards for mixed masala' ask).
     """
-    text = str(getattr(chunk, "text", "") or (chunk.get("text", "") if isinstance(chunk, dict) else ""))
+    text = chunk_text(chunk)
     if not text:
         return False
     if _CLAUSE_LEAD_RE.match(text):
@@ -416,7 +421,7 @@ def _param_match(chunk: Any, fq: FoodQueryUnderstanding) -> float:
     """
     if not fq.parameters:
         return 0.0
-    text = str(getattr(chunk, "text", "") or (chunk.get("text", "") if isinstance(chunk, dict) else "")).lower()
+    text = chunk_text(chunk).lower()
     if not text:
         return 0.0
     if not any(p.lower() in text for p in fq.parameters):
@@ -436,7 +441,7 @@ def _provision_lexical_signal(chunk: Any, fq: FoodQueryUnderstanding) -> float:
     # row must not outrank the definition the user asked for).
     if not fq.wants_standard:
         return 0.0
-    text = str(getattr(chunk, "text", "") or (chunk.get("text", "") if isinstance(chunk, dict) else "")).lower()
+    text = chunk_text(chunk).lower()
     if not text:
         return 0.0
     # Entity gate
@@ -538,8 +543,10 @@ class LegalAwareReranker:
         fq = food or FoodQueryUnderstanding.from_query(query)
         w = self.weights
         ce = ce_scores or {}
-        ce_norm = _normalise_scores([float(ce.get(_cid(c), 0.0)) for c in chunks]) if ce else [0.5] * len(chunks)
-        dense_norm = _normalise_scores([float(getattr(c, "score", 0.0) or (c.get("score", 0.0) if isinstance(c, dict) else 0.0)) for c in chunks]) if len(chunks) > 1 else [1.0]
+        ce_norm = (
+            _normalise_scores([float(ce.get(chunk_id_of(c, ""), 0.0)) for c in chunks]) if ce else [0.5] * len(chunks)
+        )
+        dense_norm = _normalise_scores([chunk_score(c) for c in chunks]) if len(chunks) > 1 else [1.0]
 
         feats: list[_ChunkFeatures] = []
         for chunk in chunks:
@@ -625,7 +632,7 @@ class LegalAwareReranker:
         )
         result = []
         for i in order:
-            _set_score(chunks[i], finals[i])
+            set_score(chunks[i], finals[i])
             result.append(chunks[i])
         if top_k is not None:
             result = result[:top_k]
@@ -647,10 +654,10 @@ class LegalAwareReranker:
         top = [
             {
                 "rank": i + 1,
-                "chunk_id": _cid(c),
+                "chunk_id": chunk_id_of(c, ""),
                 "document_role": derive_provision_metadata_cached(c).get("document_role"),
-                "text": _ctext(c)[:120],
-                "final_score": round(float(_cscore(c)), 6),
+                "text": chunk_text(c)[:120],
+                "final_score": round(float(chunk_score(c)), 6),
             }
             for i, c in enumerate(ranked[:10])
         ]
@@ -662,30 +669,3 @@ class LegalAwareReranker:
             "weights": self.weights.as_dict(),
             "top_results": top,
         }
-
-
-# ---------------------------------------------------------------------------
-# small helpers
-# ---------------------------------------------------------------------------
-
-def _cid(chunk: Any) -> str:
-    return str(getattr(chunk, "chunk_id", "") or (chunk.get("chunk_id", "") if isinstance(chunk, dict) else ""))
-
-
-def _ctext(chunk: Any) -> str:
-    return str(getattr(chunk, "text", "") or (chunk.get("text", "") if isinstance(chunk, dict) else ""))
-
-
-def _cscore(chunk: Any) -> float:
-    try:
-        return float(getattr(chunk, "score", 0.0) or (chunk.get("score", 0.0) if isinstance(chunk, dict) else 0.0))
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def _set_score(chunk: Any, score: float) -> None:
-    try:
-        chunk.score = float(score)
-    except AttributeError:
-        if isinstance(chunk, dict):
-            chunk["score"] = float(score)

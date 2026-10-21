@@ -102,6 +102,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, UTC
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 warnings.filterwarnings("ignore")
@@ -150,7 +151,8 @@ from evaluation.experiment_c_oracle_eval import (
     _COracleContextBuilder,
 )
 from evaluation.experiment_d_reasoning_eval import extract_json_object
-from evaluation.resolution import FamilyMap, payload_to_keys
+from evaluation.resolution import FamilyMap, matches_gold, payload_to_keys
+from evaluation.gold_text_match import resolve_by_text, _payload_families
 from evaluation.step1_preregister_gates import (
     BUDGET_CAP,
     evaluate_candidate,
@@ -429,6 +431,12 @@ def derive_targets(q: Any) -> dict[str, Any]:
         for u in units
         if getattr(u, "section", None) is not None
     }
+    # (family, section) → title, for text-fallback evidence-presence gate.
+    unit_titles: dict[tuple[str, str], str] = {}
+    for u in units:
+        sec = getattr(u, "section", None)
+        if sec is not None and getattr(u, "title", ""):
+            unit_titles[(str(u.family), str(sec))] = u.title
     instrument_families = sorted({str(u.family) for u in units if getattr(u, "section", None) is None})
     mention_secs = section_mentions(getattr(q, "question", "")) | section_mentions(
         getattr(q, "acceptable_conclusion", ""),
@@ -436,6 +444,7 @@ def derive_targets(q: Any) -> dict[str, Any]:
     return {
         "families": families,
         "unit_pairs": unit_pairs,  # (family, section) — required strictly
+        "unit_titles": unit_titles,  # (family, section) → title for text fallback
         "instrument_families": instrument_families,  # family-level units
         "mention_secs": mention_secs,  # attributed to any family, best effort
     }
@@ -749,18 +758,49 @@ def em_precondition(qid: str, deps: Deps) -> dict[str, Any]:
     built = cb.build(str(getattr(q, "question", "")), chunks, "general_qa")
     cited_ids = {c.get("chunk_id") for c in (built.citations or []) if c.get("chunk_id")}
 
-    def _covered(pair: tuple[str, str]) -> bool:
+    unit_titles = t.get("unit_titles", {})
+
+    def _covered(pair):
+        """Check if a required (family, section) pair is covered by any cited chunk.
+
+        Returns (covered, resolution_method) where resolution_method is one of
+        'stamp_hit', 'text_match', 'no_match'.
+        """
         fam, sec = pair
         for cid in cited_ids:
-            for f, s in payload_to_keys(deps.payload.get(cid, {}), deps.fam_map):
+            pl = deps.payload.get(cid, {})
+            for f, s in payload_to_keys(pl, deps.fam_map):
                 if f == fam and str(s) == sec:
-                    return True
-        return False
+                    return True, "stamp_hit"
+            title = unit_titles.get((fam, sec))
+            if title is not None:
+                unit = SimpleNamespace(family=fam, title=title)
+                if resolve_by_text(pl, unit, deps.fam_map):
+                    return True, "text_match"
+        return False, "no_match"
 
-    required = set(t["unit_pairs"]) | set(needed_pairs)
-    uncovered = sorted(f"{f}/{s}" for (f, s) in required if not _covered((f, s)))
+    gold_pairs = set(t["unit_pairs"])
+    mention_pairs = set(needed_pairs) - gold_pairs
+
+    resolved_via_text = []
+    uncovered_gold = []
+    for pair in sorted(gold_pairs):
+        cov, method = _covered(pair)
+        if not cov:
+            uncovered_gold.append(f"{pair[0]}/{pair[1]}")
+        elif method == "text_match":
+            resolved_via_text.append(f"{pair[0]}/{pair[1]}")
+
+    uncovered_mentions = []
+    for pair in sorted(mention_pairs):
+        cov, _ = _covered(pair)
+        if not cov:
+            uncovered_mentions.append(f"{pair[0]}/{pair[1]}")
+
+    uncovered = sorted(uncovered_gold + uncovered_mentions)
     rec["context_chunk_count"] = len(cited_ids)
     rec["uncovered_targets"] = uncovered
+    rec["text_fallback_resolved"] = resolved_via_text
 
     if uncovered:
         rec.update(
@@ -772,8 +812,9 @@ def em_precondition(qid: str, deps: Deps) -> dict[str, Any]:
 
     rec.update(
         verdict="eligible",
-        reason="text_added_to_payload",
+        reason="text_added_to_payload" + ("|text_fallback" if resolved_via_text else ""),
         gold_span_in_payload=True,
+        text_fallback_cleared=bool(resolved_via_text),
         new_payload_ids=new_ids,
         context=built.context,
         context_chunk_count=len(cited_ids),

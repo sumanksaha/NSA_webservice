@@ -222,7 +222,7 @@ def _section_tokens_present_in_o3(
         res_u = unit_res.get(u.provision_id) or {}
         corpus_hits = list(res_u.get("chunk_ids") or [])
         if not corpus_hits:
-            corpus_hits = sorted(gold_chunk_ids_for_units([u], gold_index))
+            corpus_hits = sorted(gold_chunk_ids_for_units([u], gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True))
         in_o3 = sorted(cid for cid in corpus_hits if cid in o3_ids)
         # Distinctive probe: "section <n>" or bare section number near act name
         probes: list[str] = []

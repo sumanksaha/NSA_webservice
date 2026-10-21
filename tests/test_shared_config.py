@@ -180,9 +180,11 @@ def test_seed_sets_defaults_when_env_unset():
 
 
 # ---------------------------------------------------------------------------
-# Docs-parity meta-test: every documented RAG_/ENABLE_ env var is declared.
-# (Keys read outside the seam are allowlisted explicitly.)
+# Docs-parity meta-test: every documented RAG_/ENABLE_/SENTRY_/METRICS_ env var
+# is declared. (Keys read outside the seam are allowlisted explicitly.)
 # ---------------------------------------------------------------------------
+
+_DOCUMENTED_KEY_PREFIXES = ("RAG", "ENABLE", "SENTRY", "METRICS")
 
 _NOT_SEAM_SETTINGS = {
     "RAG_LLM_MODEL",  # read by GroundedLLMClient config directly
@@ -195,7 +197,8 @@ _NOT_SEAM_SETTINGS = {
 def test_env_example_keys_are_declared():
     env_example = pathlib.Path(__file__).resolve().parents[1] / ".env.example"
     text = env_example.read_text(encoding="utf-8")
-    documented = set(re.findall(r"^(RAG_[A-Z0-9_]+|ENABLE_[A-Z0-9_]+)=", text, re.MULTILINE))
+    prefixes = "|".join(f"{prefix}_[A-Z0-9_]+" for prefix in _DOCUMENTED_KEY_PREFIXES)
+    documented = set(re.findall(rf"^({prefixes})=", text, re.MULTILINE))
     declared = {s.key for s in cfg.table()}
     undocumented_by_seam = documented - declared - _NOT_SEAM_SETTINGS
     assert not undocumented_by_seam, (
@@ -217,3 +220,64 @@ def test_structured_reasoning_flags_default_off():
     """Phase 3: structured reasoner + legal auditor are opt-in (default off)."""
     assert cfg.structured_reasoner is False
     assert cfg.legal_auditor is False
+
+
+# ---------------------------------------------------------------------------
+# Observability (issues #71-#75)
+# ---------------------------------------------------------------------------
+
+
+def test_observability_rows_declared_with_safe_defaults():
+    """OBS1: both integrations are no-ops by default.
+
+    A blank DSN and a disabled metrics endpoint are the *safe* defaults: with no
+    DSN there is no transport, and /metrics is never registered. See
+    docs/OBSERVABILITY_SENTRY_PROMETHEUS_SPEC.md.
+    """
+    table = {s.key: s for s in cfg.table()}
+
+    assert table["SENTRY_DSN"].type is str
+    assert table["SENTRY_DSN"].default == ""
+    assert table["SENTRY_ENVIRONMENT"].default == ""
+    assert table["SENTRY_TRACES_SAMPLE_RATE"].type is float
+    assert table["SENTRY_TRACES_SAMPLE_RATE"].default == 0.0
+    assert table["METRICS_ENABLED"].type is bool
+    assert table["METRICS_ENABLED"].default is False
+    assert table["METRICS_ENABLED"].opt_in is True
+    assert table["METRICS_TOKEN"].default == ""
+
+    assert cfg.sentry_dsn == ""
+    assert cfg.sentry_environment == ""
+    assert cfg.sentry_traces_sample_rate == 0.0
+    assert cfg.metrics_enabled is False
+    assert cfg.metrics_token == ""
+
+
+def test_observability_has_no_footgun_rows():
+    """Deliberately absent: an import-time env var and any PII switch.
+
+    ``PROMETHEUS_MULTIPROC_DIR`` is read by prometheus_client *before* this table
+    exists, so resolving it through ``cfg`` would be silently wrong. And a config
+    row that invited anyone to enable PII capture is a footgun in an
+    FSSAI/legal-records app - ``send_default_pii=False`` is hard-wired instead
+    (spec D5, FR-7).
+    """
+    keys = {s.key for s in cfg.table()}
+    assert "PROMETHEUS_MULTIPROC_DIR" not in keys
+    assert "PROMETHEUS_DISABLE_CREATED_SERIES" not in keys
+    assert not [key for key in keys if "PII" in key]
+
+
+def test_metrics_enabled_is_opt_in(monkeypatch):
+    """Only the exact string "true" enables metrics; "1"/"yes" must not."""
+    for raw, expected in [("true", True), ("TRUE", True), ("1", False), ("yes", False), ("false", False)]:
+        monkeypatch.setenv("METRICS_ENABLED", raw)
+        assert cfg.metrics_enabled is expected, raw
+
+
+def test_sentry_traces_sample_rate_garbage_falls_back(monkeypatch):
+    """A malformed float falls back to the declared default instead of raising."""
+    monkeypatch.setenv("SENTRY_TRACES_SAMPLE_RATE", "abc")
+    assert cfg.sentry_traces_sample_rate == 0.0
+    monkeypatch.setenv("SENTRY_TRACES_SAMPLE_RATE", "0.25")
+    assert cfg.sentry_traces_sample_rate == 0.25

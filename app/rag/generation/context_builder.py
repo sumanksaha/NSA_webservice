@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
+from app.rag import query_type_registry as _registry
 from app.rag.retrieval.result import RetrievedChunk
 from app.shared.config import cfg
 
@@ -183,14 +184,15 @@ class ContextBuilder:
     # These are caps, applied via min() against the configured ceiling, so an
     # operator setting a SMALLER window still wins. They only raise the default
     # when the ceiling is larger.
+    # Derived from :mod:`app.rag.query_type_registry`, which owns the
+    # canonical vocabulary.  Lookup goes through ``resolve()`` so every
+    # alias works: the old table was keyed on the classifier enum and
+    # spelled the fallback ``general`` while the runtime emits
+    # ``general_qa``, so that entry -- and the benchmark's Title-Case
+    # labels -- matched nothing.  Budget values are unchanged.
     _QUERY_TYPE_BUDGETS: ClassVar[dict[str, dict[str, int]]] = {
-        "case_law": {"max_context_chars": 24_000, "max_chunks": 20},
-        "cross_reference": {"max_context_chars": 24_000, "max_chunks": 20},
-        "prohibition": {"max_context_chars": 24_000, "max_chunks": 20},
-        "definition": {"max_context_chars": 20_000, "max_chunks": 16},
-        "penalty": {"max_context_chars": 24_000, "max_chunks": 20},
-        "general": {"max_context_chars": 24_000, "max_chunks": 20},
-        "procedure": {"max_context_chars": 24_000, "max_chunks": 20},
+        canonical: {"max_context_chars": chars, "max_chunks": chunks}
+        for canonical, (chunks, chars) in _registry.BUDGETS.items()
     }
 
     def __init__(
@@ -207,10 +209,12 @@ class ContextBuilder:
         # (which is what made RAG_CONTEXT_MAX_CHUNKS=20 a no-op).
         base_chars = cfg.context_max_chars if max_context_chars is None else max_context_chars
         base_chunks = cfg.context_max_chunks if max_chunks is None else max_chunks
-        budget = self._QUERY_TYPE_BUDGETS.get(query_type.lower(), {})
+        canonical = _registry.resolve(query_type)
+        budget = self._QUERY_TYPE_BUDGETS.get(canonical or "", {})
         self.max_context_chunks = min(budget.get("max_chunks", base_chunks), base_chunks)
         self.max_context_chars = min(budget.get("max_context_chars", base_chars), base_chars)
-        self._query_type = query_type
+        # store the canonical id so every consumer downstream sees one spelling
+        self._query_type = canonical or query_type
 
     def build(
         self,

@@ -86,6 +86,11 @@ dependencies = [
   "asgiref>=3.8.0",
   "a2wsgi>=1.10.10",
   "supabase>=2.0.0",  # Phase 17: cloud-sync bridge (optional; app boots without it via lazy import)
+  # Observability (issues #71-#75): error tracking + Prometheus metrics.
+  # Pinned exactly: the Sentry docs site documents a 3.x line that is alpha-only
+  # on PyPI, so an unpinned install would not be reproducible.
+  "sentry-sdk[flask]==2.72.0",
+  "prometheus-client==0.26.0",
   # NOTE: heavy ML deps (sentence-transformers, fastembed, easyocr,
   # opencv-python-headless) are OPTIONAL — install via the [ocr] and
   # [embeddings] extras, or [all] for both.  The app boots and serves
@@ -227,22 +232,6 @@ ignore = [
 # "T20" (print) covers the harnesses below that already exempt it file by
 # file — their stdout tables ARE the report output.
 "evaluation/*" = [
-  "E701", "E702", "E731", "E741",
-  "F401", "F541", "F841",
-  "B007", "B023", "B905",
-  "N802", "N803", "N806",
-  "S310", "S311", "S501", "S605", "S607",
-  "UP031",
-  "RUF005", "RUF015", "RUF059", "RUF100",
-  "SIM102", "SIM103", "SIM105", "SIM108", "SIM110", "SIM113", "SIM115",
-  "W291", "W292", "W293",
-  "I001",
-  "T20",
-]
-# Same treatment for the workflow-evaluator codegen scripts under the RAG
-# package (_insert_*.py / _part*.py / _test_improvement.py): they are generator
-# helpers run once per schema change, not shipped modules.
-"app/rag/evaluation/*" = [
   "E701", "E702", "E731", "E741",
   "F401", "F541", "F841",
   "B007", "B023", "B905",

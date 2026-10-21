@@ -75,6 +75,57 @@ DEFAULT_PAYLOAD_INDEX_FIELDS: tuple[str, ...] = (
 _DISTANCE_NAMES = {"cosine": "Cosine", "dot": "Dot", "euclid": "Euclid", "euclidean": "Euclid"}
 
 
+def build_qdrant_client() -> Any | None:
+    """Construct a Qdrant client from the config seam, or ``None``.
+
+    The ONE construction rule for both the store (ingestion) and the dense
+    retriever (query): ``qdrant-client`` imported lazily, ``RAG_QDRANT_URL`` /
+    ``RAG_QDRANT_API_KEY`` resolved through :data:`app.shared.config.cfg`
+    (Pattern A), so construction also works outside a Flask app context — the
+    Celery/ingestion path. Returns ``None`` when the package is missing or the
+    URL is unset; callers degrade exactly as before.
+    """
+    try:
+        from qdrant_client import QdrantClient
+    except ImportError:
+        logger.warning("Qdrant: qdrant-client not installed; vector store unavailable.")
+        return None
+    url = str(cfg.qdrant_url or "")
+    if not url:
+        logger.warning("Qdrant: RAG_QDRANT_URL not configured; vector store unavailable.")
+        return None
+    api_key = str(cfg.qdrant_api_key or "") or None
+    return QdrantClient(url=url, api_key=api_key)
+
+
+def build_filter(filters: dict[str, Any] | None) -> dict[str, Any]:
+    """Convert a caller filter into Qdrant's filter shape.
+
+    The canonical rule for every query/scroll path (dense, sparse, hybrid,
+    delete, scroll). Three cases:
+
+    - empty/``None`` -> ``{}``;
+    - an already-shaped filter (``must`` / ``should`` / ``must_not``) passes
+      through untouched, so callers can express an OR over scoping keys that a
+      flat dict cannot (see :mod:`app.rag.retrieval.section_scope`);
+    - a flat ``{field: value}`` dict -> one ``must`` clause per value, with a
+      list expanding to one clause per member.
+
+    Before this helper the store and the dense retriever each owned a copy;
+    the store's copy silently dropped list expansion and wrapped a pre-shaped
+    filter as a literal ``{"key": "must", ...}`` clause.
+    """
+    if not filters:
+        return {}
+    if any(k in filters for k in ("must", "should", "must_not")):
+        return filters
+    must: list[dict[str, Any]] = []
+    for key, value in filters.items():
+        values = value if isinstance(value, list) else [value]
+        must.extend({"key": key, "match": {"value": v}} for v in values)
+    return {"must": must} if must else {}
+
+
 def _detect_search_filter_kwarg(client: Any) -> str:
     """Return the active filter kwarg name for the client's search method.
 
@@ -307,27 +358,13 @@ class QdrantStore:
     def _get_client(self) -> Any | None:
         """Return a QdrantClient, importing qdrant-client lazily.
 
-        Returns ``None`` (with a warning) when the package is missing or no
+        Construction is delegated to :func:`build_qdrant_client` (the single
+        config/import seam); returns ``None`` when the package is missing or no
         ``RAG_QDRANT_URL`` is configured — never raises at import time.
         """
         if self._client is not None:
             return self._client
-        try:
-            from qdrant_client import QdrantClient
-        except ImportError:
-            logger.warning("QdrantStore: qdrant-client not installed; vector store unavailable.")
-            return None
-        try:
-            from flask import current_app
-
-            url = current_app.config.get("RAG_QDRANT_URL", "")
-        except Exception:
-            url = ""
-        if not url:
-            logger.warning("QdrantStore: RAG_QDRANT_URL not configured; vector store unavailable.")
-            return None
-        api_key = current_app.config.get("RAG_QDRANT_API_KEY")
-        self._client = QdrantClient(url=url, api_key=api_key)
+        self._client = build_qdrant_client()
         return self._client
 
     def _require_client(self) -> Any:
@@ -355,10 +392,10 @@ class QdrantStore:
     def _build_filter(filters: dict[str, Any]) -> dict[str, Any]:
         """Convert a flat ``{field: value}`` dict into a Qdrant filter dict.
 
-        Same shape as ``DenseRetriever._build_filter`` (``{"must": [...]}``).
+        Delegates to :func:`build_filter`; kept as a method because callers
+        (and tests) cross this seam.
         """
-        must = [{"key": key, "match": {"value": value}} for key, value in filters.items()]
-        return {"must": must} if must else {}
+        return build_filter(filters)
 
     @staticmethod
     def _search_filter_kwarg(client: Any) -> str:

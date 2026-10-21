@@ -1,5 +1,4 @@
-(
-    """Task entry points for the RAG pipeline.
+"""Task entry points for the RAG pipeline.
 
 ``retrieve_task`` wraps the Phase 1 retrieval pipeline (query
 classification -> hybrid retrieval -> reranking -> logging) so it can
@@ -9,8 +8,6 @@ be dispatched asynchronously via QStash.
 embed -> Qdrant upsert) for async batch embedding, following
 the same pattern as ``retrieve_task``.
 """
-    ""
-)
 
 from __future__ import annotations
 
@@ -769,6 +766,7 @@ def run_generation_pipeline(
         "query": rag_response.query,
         "query_type": rag_response.query_type,
         "answer": rag_response.answer,
+        "has_conclusion": rag_response.has_conclusion,
         "citations": [asdict(c) for c in rag_response.citations],
         "retrieved_chunks": [c.to_dict() for c in rag_response.retrieved_chunks],
         "groundedness_score": rag_response.groundedness_score,
@@ -812,27 +810,6 @@ def run_generation_pipeline(
             (retrieval_data.get("food_understanding") or {}) if isinstance(retrieval_data, dict) else {}
         )
     return out
-
-
-def _point_to_chunk(point: dict[str, Any], pid: str, payload: dict[str, Any]) -> Any:
-    """Payload dict → RetrievedChunk for the clause-sibling fetch (stage 2b)."""
-    from app.rag.retrieval.result import RetrievedChunk
-
-    return RetrievedChunk(
-        chunk_id=pid,
-        score=float(point.get("score", 0.0) or 0.0),
-        text=payload.get("chunk_text", payload.get("text", "")),
-        section_number=payload.get("section_number"),
-        clause_number=payload.get("clause_number"),
-        document_title=payload.get("document_title", ""),
-        act_name=payload.get("act_name", ""),
-        document_type=payload.get("document_type", ""),
-        authority=payload.get("authority", ""),
-        chunk_index=payload.get("chunk_index", 0),
-        hierarchy_level=payload.get("hierarchy_level", 0),
-        parent_chunk_id=payload.get("parent_chunk_id"),
-        document_id=str(payload.get("document_id", "") or ""),
-    )
 
 
 def _generate_food_prompt(

@@ -1,6 +1,7 @@
 """Push the fine-tuned legal cross-encoders to the Hugging Face Hub (M0).
 
-Uploads ``evaluation/out/models/legal_ce_v1`` and ``legal_ce_v2_K500`` as
+Uploads ``evaluation/out/models/legal_ce_v1``, ``legal_ce_v2_K500`` and
+``legal_ce_v3_K500`` as
 sentence-transformers CrossEncoder repos so they can be served by TEI
 (text-embeddings-inference) — see ``docs/HF_HOSTING_LANGGRAPH_INTEGRATION_PLAN.md``
 Part A (§3.1).
@@ -36,6 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 MODEL_KEYS: dict[str, str] = {
     "legal_ce_v1": "legal-ce-v1",
     "legal_ce_v2_K500": "legal-ce-v2-k500",
+    "legal_ce_v3_K500": "legal-ce-v3-k500",
 }
 
 #: Relative path from the repo root to the local checkpoints.

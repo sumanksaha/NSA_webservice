@@ -242,6 +242,7 @@ def collect_evidence_anchor(
     manifest: dict,
     payload_index: dict[str, dict],
     gold_index: tuple,
+    family_map: Any = None,
 ) -> dict:
     """Verbatim O3 payload text for the question's primary gold units.
 
@@ -262,7 +263,7 @@ def collect_evidence_anchor(
 
     o3_ids = load_o3_chunk_ids(manifest, qid)
     o3_set = set(o3_ids)
-    gold_cids = sorted(gold_chunk_ids_for_units(list(question.primary_units()), gold_index))
+    gold_cids = sorted(gold_chunk_ids_for_units(list(question.primary_units()), gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True))
     anchor_ids = [cid for cid in gold_cids if cid in o3_set]
     fallback = False
 
@@ -353,7 +354,9 @@ def build_anchor_map(residual_needed: bool = True) -> tuple[dict[str, dict], lis
     from evaluation.experiment_b_topk_eval import build_gold_index
     from evaluation.resolution import FamilyMap
 
-    gold_index = build_gold_index(payload_index, FamilyMap())
+    family_map = FamilyMap()
+
+    gold_index = build_gold_index(payload_index, family_map)
     targets = dual_score_targets()
     anchors: dict[str, dict] = {}
     errors: list[str] = []
@@ -363,7 +366,7 @@ def build_anchor_map(residual_needed: bool = True) -> tuple[dict[str, dict], lis
             errors.append(f"{qid}: not in benchmark")
             continue
         try:
-            anchors[qid] = collect_evidence_anchor(qid, q, manifest, payload_index, gold_index)
+            anchors[qid] = collect_evidence_anchor(qid, q, manifest, payload_index, gold_index, family_map)
         except Exception as exc:
             errors.append(f"{qid}: anchor failed: {exc}")
     return anchors, errors

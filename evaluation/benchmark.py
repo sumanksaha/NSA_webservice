@@ -54,6 +54,7 @@ class GoldUnit:
     document_id: str | None  # registry document id
     gain: float  # 2 primary / 1 acceptable / 0 supporting
     role: str  # "primary" | "acceptable" | "supporting"
+    title: str = ""  # distinctive provision title from the registry (for text-based resolution)
 
 
 @dataclass
@@ -229,6 +230,7 @@ def _resolve_units(raw: dict[str, Any], registry: dict[str, dict[str, Any]]) -> 
                 document_id=rec.get("document_id"),
                 gain=gain,
                 role=role,
+                title=rec.get("title") or "",
             ),
         )
 

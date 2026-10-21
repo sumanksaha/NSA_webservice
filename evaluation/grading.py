@@ -105,7 +105,7 @@ def grade_answer(
         for unit in all_units:
             from evaluation.resolution import matches_gold
 
-            if matches_gold(payload, unit, family_map):
+            if matches_gold(payload, unit, family_map, text_fallback=True):
                 gold_covered_by_cites.add(unit.provision_id)
     provision_correct = any(u.provision_id in gold_covered_by_cites for u in units)
     citation_correct = provision_correct and not markers  # no markers -> can't verify

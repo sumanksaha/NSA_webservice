@@ -5,11 +5,7 @@
  * Migrated from task_status.js — compiled output is served from
  * app/static/js/task_status.js via tsc.
  */
-import type {
-    TaskPollResult,
-    PollOptions,
-    TaskStatusRecord,
-} from "./types/api.js";
+import type { TaskPollResult, PollOptions, TaskStatusRecord } from "./types/api.js";
 
 (function () {
     "use strict";
@@ -63,15 +59,14 @@ import type {
      * is what callers used to display verbatim. */
     function nonJsonError(resp: Response): SubmitFetchError {
         var err: SubmitFetchError =
-            resp.redirected ||
-            (resp.url && resp.url.indexOf("/auth/login") !== -1)
+            resp.redirected || (resp.url && resp.url.indexOf("/auth/login") !== -1)
                 ? new Error(
-                      "Your session may have expired. Please reload the page, log in again, and retry.",
+                      "Your session may have expired. Please reload the page, log in again, and retry."
                   )
                 : new Error(
                       "Unexpected response from the server (HTTP " +
                           resp.status +
-                          "). The record may still have been created — reload the list to check, then retry.",
+                          "). The record may still have been created — reload the list to check, then retry."
                   );
         err.status = resp.status;
         err.errors = null;
@@ -82,29 +77,24 @@ import type {
     function submitAndPoll(
         form: HTMLFormElement,
         onDone: (result: TaskPollResult) => void,
-        opts?: PollOptions,
+        opts?: PollOptions
     ): void {
         var resolvedOpts = opts || {};
         var formData = new FormData(form);
         fetch(form.action, { method: "POST", body: formData })
             .then(function (resp: Response) {
                 var contentType = resp.headers.get("content-type") || "";
-                if (
-                    resp.redirected ||
-                    contentType.indexOf("application/json") === -1
-                ) {
+                if (resp.redirected || contentType.indexOf("application/json") === -1) {
                     throw nonJsonError(resp);
                 }
                 return resp.json().then(
                     function (data: Record<string, unknown>) {
                         if (!resp.ok) {
                             var err: SubmitFetchError = new Error(
-                                (data.error as string) ||
-                                    "Request failed (" + resp.status + ")",
+                                (data.error as string) || "Request failed (" + resp.status + ")"
                             );
                             err.status = resp.status;
-                            err.errors =
-                                (data.errors as Record<string, string>) || null;
+                            err.errors = (data.errors as Record<string, string>) || null;
                             err.data = data; // full body — e.g. bill_id when only the PDF step failed
                             throw err;
                         }
@@ -113,7 +103,7 @@ import type {
                     function () {
                         // Body claimed to be JSON but did not parse.
                         throw nonJsonError(resp);
-                    },
+                    }
                 );
             })
             .then(function (data: Record<string, unknown>) {
@@ -147,7 +137,7 @@ import type {
     function pollStatus(
         taskId: string,
         onDone: (result: TaskPollResult) => void,
-        opts?: PollOptions,
+        opts?: PollOptions
     ): void {
         var resolvedOpts = opts || {};
         var interval = resolvedOpts.interval || POLL_INTERVAL_MS;
@@ -210,10 +200,7 @@ import type {
     /**
      * Build a download link markup for a completed task result.
      */
-    function downloadLink(
-        result: Record<string, unknown> | null,
-        label?: string,
-    ): string {
+    function downloadLink(result: Record<string, unknown> | null, label?: string): string {
         var filePath = result && (result.file_path as string | undefined);
         if (!filePath) return "";
         var text = label || "Download file";
