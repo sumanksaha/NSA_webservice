@@ -308,7 +308,11 @@ class GroundedLLMClient:
             try:
                 import httpx
 
-                with httpx.Client(timeout=cfg.llm_timeout_s, verify=False) as client:
+                # TLS certificate verification stays ON (httpx default, enforced
+                # via certifi). Disabling it would let a MITM read the API key
+                # and every prompt; it was the only verify=False in app/ and
+                # tripped Bandit B501 (High) in the Security Scan gate.
+                with httpx.Client(timeout=cfg.llm_timeout_s) as client:
                     resp = client.post(url, headers=headers, json=body)
                     if resp.status_code in self.RETRYABLE_STATUS:
                         # Rate limit / transient server error.  Honour the
