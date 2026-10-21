@@ -12,6 +12,11 @@ possibly-fresh or partially-migrated database usable at boot:
    columns never applied — ``flask db upgrade`` is a no-op at head).
 5. FTS5 search virtual table creation (SQLite no-op on PostgreSQL).
 6. Default admin account seed on first boot.
+7. Mutual exclusion + read-your-writes: a cross-process file lock around
+   the whole bootstrap and a fresh inspector per read, so concurrent boots
+   (web + worker, overlapping harnesses) and stale reflection caches can no
+   longer produce the 2026-10-12 flake family (``no such table`` vs
+   ``already exists`` on healthy databases).
 
 Behaviour is intentionally identical to the previous inline block — this is
 a move, not a rewrite.
@@ -19,12 +24,112 @@ a move, not a rewrite.
 
 from __future__ import annotations
 
+import contextlib
+import logging
 import os
+import time
 from pathlib import Path
 
 from flask import Flask
 
 from app.extensions import db
+
+logger = logging.getLogger(__name__)
+
+#: How long a boot waits for a concurrent bootstrap to finish before
+#: proceeding unlocked (and logging loudly). Boots are rare; correctness of
+#: concurrent DDL beats boot latency. Override with DB_BOOTSTRAP_LOCK_TIMEOUT.
+_LOCK_TIMEOUT_S = float(os.environ.get("DB_BOOTSTRAP_LOCK_TIMEOUT", "120"))
+
+
+@contextlib.contextmanager
+def _bootstrap_lock(db_uri: str):
+    """Cross-process exclusive lock for the bootstrap, best-effort.
+
+    Yields True when the lock is held. SQLite DDL (CREATE TABLE) from two
+    processes against one file is exactly the 2026-10-12 flake family
+    (``table X already exists`` vs ``no such table: X`` on healthy
+    databases), so the whole bootstrap runs inside this. Non-file databases
+    (:memory:, Postgres) and un-lockable paths yield False with a warning and
+    keep today's behaviour — never block boot on the lock itself.
+    """
+    locked = False
+    fh = None
+    try:
+        path = db_uri.split("sqlite:///", 1)[1] if "sqlite:///" in db_uri else ""
+        path = path.split("?", 1)[0]
+        if not path or path == ":memory:":
+            yield False
+            return
+        lock_path = Path(path).with_suffix(Path(path).suffix + ".bootstrap.lock")
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        fh = open(lock_path, "a+b")  # noqa: PTH123 — lockfile, not data
+        deadline = time.monotonic() + _LOCK_TIMEOUT_S
+        while True:
+            try:
+                if os.name == "nt":
+                    import msvcrt
+
+                    fh.seek(0)
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                locked = True
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(0.2)
+    except Exception as exc:  # pragma: no cover — lock infra failure
+        logger.warning("Bootstrap lock unavailable (%s) — proceeding unlocked.", exc)
+        if fh is not None:
+            try:
+                fh.close()
+            except Exception:
+                pass
+        yield False
+        return
+    # NOTE: no `except` around this yield — an exception from the bootstrap
+    # body must propagate (fail-loud schema checks depend on it). Catching it
+    # here and yielding again raises "generator didn't stop after throw()"
+    # and swallows the original error (caught 2026-10-14: fail-loud tests
+    # went green-on-broken).
+    try:
+        yield locked
+    finally:
+        try:
+            if locked:
+                try:
+                    if os.name == "nt":
+                        import msvcrt
+
+                        fh.seek(0)
+                        msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+                    else:
+                        import fcntl
+
+                        fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+                except OSError:
+                    pass
+            fh.close()
+        except Exception:
+            pass
+
+
+def _table_names(engine) -> set[str]:
+    """Table names from a FRESH inspector, every call.
+
+    SQLAlchemy inspectors cache reflection per object: reusing one inspector
+    across ``create_all()`` reads back the pre-DDL snapshot, so a table
+    created moments ago reports as missing (the ``no such table`` half of the
+    2026-10-12 flake family). A new inspector per read costs one sqlite_master
+    query and is always current.
+    """
+    from sqlalchemy import inspect as sa_inspect
+
+    return set(sa_inspect(engine).get_table_names())
 
 
 #: Tables whose mapped columns must exist on disk, not just on the model.
@@ -126,19 +231,51 @@ def bootstrap_database(app: Flask) -> None:
 
     with app.app_context():
         from sqlalchemy import create_engine
-        from sqlalchemy import inspect as sa_inspect
 
-        engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
         from app.guard_rail import install_guard
 
+        uri = app.config["SQLALCHEMY_DATABASE_URI"]
+        app.logger.info("Bootstrap start (pid=%s, db=%s).", os.getpid(), _display_uri(uri))
+        engine = create_engine(uri)
         install_guard(engine)
-        inspector = sa_inspect(engine)
-        if "fso" not in inspector.get_table_names():
+        with _bootstrap_lock(uri) as locked:
+            if not locked:
+                app.logger.warning(
+                    "Bootstrap proceeding WITHOUT the mutual-exclusion lock — "
+                    "concurrent boots may collide (see 2026-10-12 flake family)."
+                )
+            _bootstrap_locked(app, engine)
+        app.logger.info("Bootstrap complete (pid=%s).", os.getpid())
+
+
+def _display_uri(uri: str) -> str:
+    """DB URI with any credentials redacted (logs must never carry secrets)."""
+    try:
+        from sqlalchemy.engine.url import make_url
+
+        url = make_url(uri)
+        if url.password:
+            return str(url.set(password="***"))  # noqa: S106 — intentional credential redaction for logging, not a hardcoded password
+    except Exception:
+        pass
+    return uri.split("?", 1)[0]
+
+
+def _bootstrap_locked(app: Flask, engine) -> None:
+    """The bootstrap steps; runs under the file lock (see bootstrap_database).
+
+    Called with the app context already pushed. Uses a fresh inspector per
+    read (see _table_names) — never the pre-DDL snapshot.
+    """
+    with app.app_context():
+        if "fso" not in _table_names(engine):
             db.create_all()
             app.logger.info("Created missing tables via db.create_all() fallback")
             # Only stamp when there is NO migration history at all — never
-            # clobber a partially-migrated database.
-            if "alembic_version" not in inspector.get_table_names():
+            # clobber a partially-migrated database. Fresh read: create_all()
+            # above just wrote, so a reused inspector would still report the
+            # pre-DDL snapshot here.
+            if "alembic_version" not in _table_names(engine):
                 try:
                     from flask_migrate import stamp as alembic_stamp
 
@@ -166,18 +303,20 @@ def bootstrap_database(app: Flask) -> None:
                 migrations_dir = Path(__file__).resolve().parent.parent / "migrations"
                 alembic_cfg = AlembicConfig(str(migrations_dir / "alembic.ini"))
                 alembic_cfg.set_main_option("script_location", str(migrations_dir))
-                if "alembic_version" in inspector.get_table_names():
+                if "alembic_version" in _table_names(engine):
                     with engine.connect() as conn:
                         db_version = conn.execute(
                             text("SELECT version_num FROM alembic_version"),
                         ).scalar()
                     if db_version and db_version == ScriptDirectory.from_config(alembic_cfg).get_current_head():
-                        before = set(inspector.get_table_names())
-                        # Concurrent boots (web + Celery worker) may both reach
-                        # this; create_all only adds genuinely missing tables and
-                        # a duplicate-CREATE race is caught below (non-fatal).
+                        before = _table_names(engine)
+                        # The file lock above serialises concurrent boots (web +
+                        # Celery worker); create_all only adds genuinely missing
+                        # tables. Belt-and-braces: a duplicate-CREATE from a
+                        # lock-less contender is caught by the except below
+                        # (non-fatal warning, never a boot failure).
                         db.create_all()
-                        created = sorted(set(sa_inspect(engine).get_table_names()) - before)
+                        created = sorted(_table_names(engine) - before)
                         if created:
                             app.logger.warning(
                                 "Schema self-heal: created missing model tables %s (DB stamped at "
@@ -218,11 +357,28 @@ def bootstrap_database(app: Flask) -> None:
         if _user_count == 0 and not os.environ.get("SKIP_ADMIN_SEED"):
             from werkzeug.security import generate_password_hash
 
+            from sqlalchemy.exc import IntegrityError, OperationalError
+
             default_admin = User(
                 username="admin",
                 password_hash=generate_password_hash("admin123"),
                 is_admin=True,
             )
             db.session.add(default_admin)
-            db.session.commit()
-            app.logger.info("Default admin account created (username=admin). Change the password after first login.")
+            try:
+                db.session.commit()
+            except (IntegrityError, OperationalError) as exc:
+                # Lost a race with a concurrent boot (duplicate admin) or the
+                # table vanished under us (concurrent DDL where the file lock
+                # was unavailable). Roll back and continue booting: the admin
+                # either exists now (re-check below is unnecessary — login
+                # reads it live) or the schema check above already failed loud
+                # for a genuinely broken database.
+                db.session.rollback()
+                app.logger.warning(
+                    "Admin seed collided (%s) — continuing boot; the account "
+                    "exists if a concurrent boot committed it.",
+                    type(exc).__name__,
+                )
+            else:
+                app.logger.info("Default admin account created (username=admin). Change the password after first login.")

@@ -9,6 +9,9 @@ Modules:
         Qdrant corpus; maps gaps to source documents and emits ingestion
         requests.  Extends the Step 0 pre-annotation (question-centric,
         human-gated) into an autonomous, provision-centric discovery.
+    failure_queue — the autoresearch input list: every badly-answered
+        question (low human rating today, detector + eval failures later) is
+        deduplicated here as a research target for the next session.
 """
 
 from __future__ import annotations
@@ -21,6 +24,12 @@ from app.rag.research.corpus_discovery import (
     SourceDocumentGap,
     discover_corpus_gaps,
 )
+from app.rag.research.failure_queue import (
+    enqueue_from_feedback,
+    enqueue_research_target,
+    open_targets,
+    query_hash,
+)
 
 __all__ = [
     "DiscoveryReport",
@@ -29,4 +38,8 @@ __all__ = [
     "ProvisionGap",
     "SourceDocumentGap",
     "discover_corpus_gaps",
+    "enqueue_from_feedback",
+    "enqueue_research_target",
+    "open_targets",
+    "query_hash",
 ]

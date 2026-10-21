@@ -540,7 +540,13 @@ def targeted_retry_node(state: dict[str, Any]) -> dict[str, Any]:
             {
                 "node": "targeted_retry",
                 "latency_ms": _ms(start),
-                "detail": {"target": target, "arm": arm, "strategy": strategy, "failures": [str(f) for f in failures], "meta": (plan_dict or {}).get("meta", {})},
+                "detail": {
+                    "target": target,
+                    "arm": arm,
+                    "strategy": strategy,
+                    "failures": [str(f) for f in failures],
+                    "meta": (plan_dict or {}).get("meta", {}),
+                },
             },
         ],
     }
@@ -556,13 +562,13 @@ def expand_query_node(state: dict[str, Any]) -> dict[str, Any]:
     terminates.
     """
     start = time.monotonic()
-    from app.rag.generation.llm_client import GroundedLLMClient
+    from app.shared.llm_client import get_llm_client
 
     original = state.get("query") or ""
     expanded = original
     detail: dict[str, Any] = {"changed": False}
     try:
-        client = GroundedLLMClient()
+        client = get_llm_client()
         resp = client.call(
             "You are a legal-retrieval query rewriter.",
             (
@@ -688,19 +694,23 @@ def finalize_node(state: dict[str, Any]) -> dict[str, Any]:
     # replaced. Observational only — the served answer above is untouched,
     # because the adopt rule needs gold-referenced scores that production
     # does not have (see app/rag/agent/retry_guard.observe_retry_arms).
+    # Always runs when a pair is present: this is a cheap, read-only
+    # comparison, not a verifier-shadow feature (that gate lives in
+    # generate_node's hardened-scorer block above).
     try:
-        from app.shared.config import cfg as _cfg4
+        from app.rag.agent.retry_guard import observe_retry_arms
 
-        if bool(_cfg4.verifier_shadow):
-            from app.rag.agent.retry_guard import observe_retry_arms
-
-            observation = observe_retry_arms(
-                state.get("retry_guard_baseline"), state.get("retry_guard_retry"),
-            )
-            if observation.get("available"):
-                response.setdefault("retry_guard", observation)
+        observation = observe_retry_arms(
+            state.get("retry_guard_baseline"),
+            state.get("retry_guard_retry"),
+        )
+        if observation.get("available"):
+            response.setdefault("retry_guard", observation)
     except Exception as exc:
         logger.debug("retry-guard observation failed: %s", exc)
+    # Surface the rag_query_log row id so a human rating (POST /api/rag/
+    # feedback) can join back to the exact logged answer.
+    response["query_log_id"] = state.get("log_id")
     response["agent"] = {
         "retry_count": state.get("retry_count", 0),
         "expanded_query": state.get("expanded_query"),
@@ -1071,7 +1081,10 @@ def multi_hop_retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
         try:
             min_rank = _MULTIHOP_CONFIDENCE_RANK[settings["confidence_min"]]
             canons, n_found, def_rel, n_covered = _mined_followup_targets(
-                chunks, query, min_rank, exclude_canons=fetched_canons,
+                chunks,
+                query,
+                min_rank,
+                exclude_canons=fetched_canons,
             )
         except Exception as exc:
             logger.warning("multi_hop_retrieve_node: cross-ref extraction failed (%s)", exc)

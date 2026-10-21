@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
+from app.rag import query_type_registry as _registry
 from app.rag.retrieval.result import RetrievedChunk
 from app.shared.config import cfg
 
@@ -80,6 +81,47 @@ _MASTHEAD_METADATA_RE = re.compile(
 #: nothing a model could cite.
 _INDEX_MIN_CHARS = 60
 
+#: Gazette amendment-notification prose detection (config
+#: ``RAG_CONTEXT_DROP_AMENDMENT_PROSE``, default on).
+#:
+#: The predicate is the stamper's own ``AMENDMENT_NOTIFICATION_RE`` — one
+#: home, imported lazily.  A second copy here would be exactly the
+#: duplication the provision-currency seam was built to prevent, and the
+#: engine import stays lazy so a deployment without the package still boots
+#: (same pattern as ``app/services/legal_engine.get_legal_engine``).
+_amendment_re: re.Pattern[str] | None = None
+_amendment_re_resolved = False
+
+
+def _resolve_amendment_re() -> re.Pattern[str] | None:
+    """The engine's amendment regex, or ``None`` when the engine is absent."""
+    global _amendment_re, _amendment_re_resolved
+    if not _amendment_re_resolved:
+        _amendment_re_resolved = True
+        try:
+            from legal_paragraph_detection_engine.src.legal_engine import AMENDMENT_NOTIFICATION_RE
+
+            _amendment_re = AMENDMENT_NOTIFICATION_RE
+        except Exception as exc:  # pragma: no cover - packaging-dependent
+            logger.debug("amendment regex unavailable (%s); amendment drop disabled", exc)
+            _amendment_re = None
+    return _amendment_re
+
+
+def is_amendment_prose(text: str) -> bool:
+    """True when *text* is a gazette amendment notification.
+
+    Such a chunk *refers to* a provision ("In section 63, for the words
+    X, the words Y shall be substituted") without containing one — it
+    carries the reference of an operative clause but none of its
+    content, so a packed window slot spent on it is a slot the answer
+    cannot cite.  This is the same defect class the stamper fix removed
+    from ``section_number`` (poisoned stamps 141 -> 0, no gold unit lost,
+    ``evaluation/FINDINGS_89_STATUS.md``).
+    """
+    rx = _resolve_amendment_re()
+    return bool(rx and rx.search(text or ""))
+
 
 def is_index_chunk(text: str) -> bool:
     """True when *text* is navigation/heading material, not a provision.
@@ -142,14 +184,15 @@ class ContextBuilder:
     # These are caps, applied via min() against the configured ceiling, so an
     # operator setting a SMALLER window still wins. They only raise the default
     # when the ceiling is larger.
+    # Derived from :mod:`app.rag.query_type_registry`, which owns the
+    # canonical vocabulary.  Lookup goes through ``resolve()`` so every
+    # alias works: the old table was keyed on the classifier enum and
+    # spelled the fallback ``general`` while the runtime emits
+    # ``general_qa``, so that entry -- and the benchmark's Title-Case
+    # labels -- matched nothing.  Budget values are unchanged.
     _QUERY_TYPE_BUDGETS: ClassVar[dict[str, dict[str, int]]] = {
-        "case_law": {"max_context_chars": 24_000, "max_chunks": 20},
-        "cross_reference": {"max_context_chars": 24_000, "max_chunks": 20},
-        "prohibition": {"max_context_chars": 24_000, "max_chunks": 20},
-        "definition": {"max_context_chars": 20_000, "max_chunks": 16},
-        "penalty": {"max_context_chars": 24_000, "max_chunks": 20},
-        "general": {"max_context_chars": 24_000, "max_chunks": 20},
-        "procedure": {"max_context_chars": 24_000, "max_chunks": 20},
+        canonical: {"max_context_chars": chars, "max_chunks": chunks}
+        for canonical, (chunks, chars) in _registry.BUDGETS.items()
     }
 
     def __init__(
@@ -166,10 +209,12 @@ class ContextBuilder:
         # (which is what made RAG_CONTEXT_MAX_CHUNKS=20 a no-op).
         base_chars = cfg.context_max_chars if max_context_chars is None else max_context_chars
         base_chunks = cfg.context_max_chunks if max_chunks is None else max_chunks
-        budget = self._QUERY_TYPE_BUDGETS.get(query_type.lower(), {})
+        canonical = _registry.resolve(query_type)
+        budget = self._QUERY_TYPE_BUDGETS.get(canonical or "", {})
         self.max_context_chunks = min(budget.get("max_chunks", base_chunks), base_chunks)
         self.max_context_chars = min(budget.get("max_context_chars", base_chars), base_chars)
-        self._query_type = query_type
+        # store the canonical id so every consumer downstream sees one spelling
+        self._query_type = canonical or query_type
 
     def build(
         self,
@@ -226,16 +271,34 @@ class ContextBuilder:
 
         ranked = sorted(chunks, key=lambda c: c.score, reverse=True)
 
+        # P0-1 roles are resolved first because the index drop below has to
+        # know which chunks the evidence selector explicitly picked.
+        roles: dict[Any, str] = {}
+        if evidence_set:
+            roles = self._roles_from_evidence_set(evidence_set, chunks)
+
         # GIP packing fix: drop index/navigation chunks before selection so the
         # freed slots go to substantive provisions ranked below them. Applied
         # after the answerability gate (the gate has already judged the full
-        # pool) and before role packing, so P0-1 behaviour is unchanged when
-        # *evidence_set* is supplied.
+        # pool) and before role packing, so the ranked order the packer sees is
+        # score order minus index material.
+        #
+        # A chunk the evidence selector *selected* is never dropped. That
+        # selector is the downstream, better-informed decision, and silently
+        # discarding what it chose would leave ``_pack_by_role`` reordering a
+        # set it never receives. ``is_index_chunk`` also fires on anything
+        # under ``_INDEX_MIN_CHARS``, and a short selected provision is exactly
+        # the kind of chunk a role packer is meant to promote. Amendment prose
+        # (``is_amendment_prose``) is exempt the same way.
         dropped_index = 0
-        if cfg.context_drop_index_chunks:
+        drop_index = bool(cfg.context_drop_index_chunks)
+        drop_amendment = bool(cfg.context_drop_amendment_prose)
+        if drop_index or drop_amendment:
             keep: list[RetrievedChunk] = []
             for chunk in ranked:
-                if is_index_chunk(chunk.text):
+                if chunk.chunk_id not in roles and (
+                    (drop_index and is_index_chunk(chunk.text)) or (drop_amendment and is_amendment_prose(chunk.text))
+                ):
                     dropped_index += 1
                     continue
                 keep.append(chunk)
@@ -244,14 +307,12 @@ class ContextBuilder:
             if keep:
                 ranked = keep
                 if dropped_index:
-                    logger.debug("Dropped %d index chunks before packing", dropped_index)
+                    logger.debug("Dropped %d index/amendment chunks before packing", dropped_index)
 
         # P0-1: evidence-set packing.  The answerability gate above has
         # already judged the FULL pool — packing happens strictly after, so
         # filtering can never shrink the set that gate considered.
-        roles: dict[Any, str] = {}
         if evidence_set:
-            roles = self._roles_from_evidence_set(evidence_set, chunks)
             ranked = self._pack_by_role(ranked, roles)
         selected = ranked[: self.max_context_chunks]
 

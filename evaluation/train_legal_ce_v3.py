@@ -71,6 +71,11 @@ V3_BATCH_SIZE = 8
 V3_MAX_LEN = 192
 V3_LR = 1e-5
 
+# Checkpoint cadence: a resumable train_state.pt every 50 optimizer steps so a
+# long run can be interrupted and resumed later. Asserted by
+# tests/test_train_legal_ce_v3.py.
+V3_SAVE_EVERY = 50
+
 # T3 mass cap: when T3 is more than `T3_RATIO` times the combined T1+T2 mass,
 # downsample T3 with a deterministic cap so the lighter 2-epoch v3 budget is not
 # eaten by the adversarial tier. The cap preserves the T3 ordering (kept slice is
@@ -248,8 +253,8 @@ def main() -> int:
     parser.add_argument(
         "--save-every",
         type=int,
-        default=25,
-        help="Save a resumable checkpoint every N optimizer steps (default 25).",
+        default=V3_SAVE_EVERY,
+        help=f"Save a resumable checkpoint every N optimizer steps (default {V3_SAVE_EVERY}).",
     )
     parser.add_argument(
         "--t3-ratio",

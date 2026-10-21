@@ -18,6 +18,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import pytest
 
 from app.rag.generation.structured_reasoner import (
+    DEFAULT_MAX_TOKENS,
     StructuredLegalArgument,
     StructuredReasoner,
     build_reasoning_prompt,
@@ -82,6 +83,58 @@ class TestBuildReasoningPrompt:
         assert "Section 31 text here." in user
         assert "JSON" in system
 
+    def test_prompt_pins_every_field_shape(self):
+        # reason() fail-closes to a skeleton on any validation error, so a
+        # shape the prompt does not pin is a shape the model is free to get
+        # wrong.  Both keys asserted here were emitted in the wrong shape by
+        # the live model (2026-10-14) and silently disabled two-pass reasoning.
+        system, _ = build_reasoning_prompt("Q", "ctx")
+        assert "definitions_applied is an OBJECT mapping" in system
+        assert "never an array" in system
+        assert "exceptions_considered is an array of OBJECTS" in system
+        assert "never bare strings" in system
+
+    def test_prompt_still_pins_condition_entry_keys(self):
+        system, _ = build_reasoning_prompt("Q", "ctx")
+        for key in ("condition_id", "condition_text", "fact_reference", "status", "explanation"):
+            assert key in system
+
+    def test_directive_is_appended_before_the_json_ask(self):
+        _, user = build_reasoning_prompt("Q", "ctx", directive="Name the enforcing authority.")
+        assert "Name the enforcing authority." in user
+        assert user.index("Name the enforcing authority.") < user.index("Structured analysis")
+
+    def test_empty_directive_keeps_the_prompt_byte_identical(self):
+        _, plain = build_reasoning_prompt("Q", "ctx")
+        _, empty = build_reasoning_prompt("Q", "ctx", directive="")
+        assert plain == empty
+
+
+class TestReasonerCallBudget:
+    """The IR must fit the token budget, or the IR is never built."""
+
+    def test_default_budget_covers_a_complete_ir(self):
+        # Measured 2026-10-14: a complete argument for a 4.5k-token evidence
+        # prompt is 1486 completion tokens, which the old 1024 default cut
+        # mid-JSON on every call (fallback skeleton, always).
+        # Measured 2026-10-20: the benchmark's 35k-char packed contexts need
+        # ~3.6k completion tokens; 3072 still returned finish_reason='length'
+        # and truncated mid-array, so the lower bound now guards that case.
+        assert DEFAULT_MAX_TOKENS >= 6144
+        assert StructuredReasoner(llm_client=FakeLLM(VALID_ARGUMENT_JSON)).max_tokens == DEFAULT_MAX_TOKENS
+
+    def test_reason_passes_budget_and_temperature_to_the_client(self):
+        seen: dict = {}
+
+        class _Recorder(FakeLLM):
+            def call(self, system_prompt: str, user_prompt: str, **kwargs: object) -> object:
+                seen.update(kwargs)
+                return super().call(system_prompt, user_prompt, **kwargs)
+
+        StructuredReasoner(llm_client=_Recorder(VALID_ARGUMENT_JSON)).reason("Q?", "ctx")
+        assert seen["max_tokens"] == DEFAULT_MAX_TOKENS
+        assert seen["temperature"] == 0.1
+
 
 class TestStructuredReasoner:
     def test_reason_parses_llm_json(self):
@@ -89,6 +142,13 @@ class TestStructuredReasoner:
         arg = reasoner.reason("Is a licence needed?", "Section 31 text.")
         assert isinstance(arg, StructuredLegalArgument)
         assert arg.derived_conclusion == "A licence is required under Section 31."
+
+    def test_reason_forwards_the_directive_to_the_prompt(self):
+        llm = FakeLLM(VALID_ARGUMENT_JSON)
+        StructuredReasoner(llm_client=llm).reason(
+            "Which authority may inspect?", "Section 31 text.", directive="Name the authority."
+        )
+        assert "Name the authority." in llm.calls[0][1]
 
     def test_reason_falls_back_on_garbage(self):
         reasoner = StructuredReasoner(llm_client=FakeLLM("not json at all"))

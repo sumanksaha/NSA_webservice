@@ -10,6 +10,11 @@ versions, evidence selector, evidence metrics).  These are independently
 feature-flagged and do NOT modify the CE reranking experiment.
 """
 
+from app.rag.retrieval.decision_selector import (
+    DecisionModelClient,
+    decision_enabled,
+    select_decision_set,
+)
 from app.rag.retrieval.dense_retriever import DenseRetriever
 from app.rag.retrieval.evidence_metrics import (
     EvidenceBatchResult,
@@ -108,6 +113,7 @@ __all__ = [
     "VALIDITY_VALID",
     "AuthorityQueryParser",
     "CaseLawQueryParser",
+    "DecisionModelClient",
     "DenseRetriever",
     "EnsembleReranker",
     "EvidenceBatchResult",
@@ -138,6 +144,7 @@ __all__ = [
     "adjacent_section",
     "build_provision_family_id",
     "compare_identities",
+    "decision_enabled",
     "effective_query_type",
     "evaluate_evidence_batch",
     "evaluate_evidence_set",
@@ -164,6 +171,7 @@ __all__ = [
     "same_chapter",
     "same_section_family",
     "section_base",
+    "select_decision_set",
     "select_evidence_set",
     "sibling",
     "subsection_relationship",

@@ -5,6 +5,7 @@ from evaluation.train_legal_ce_v3 import (
     V3_EPOCHS,
     V3_LR,
     V3_MAX_LEN,
+    V3_SAVE_EVERY,
     apply_pool,
     downsample_t3,
 )
@@ -117,3 +118,7 @@ def test_pool_empty_pool_is_noop():
     assert out == pairs
     assert info["applied"] is False
     assert info["dropped"] == 0
+
+
+def test_v3_checkpoints_every_50_steps():
+    assert V3_SAVE_EVERY == 50

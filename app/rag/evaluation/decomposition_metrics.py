@@ -24,14 +24,12 @@ import logging
 import re
 from collections import Counter
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from app.rag.evaluation.benchmark_entry import QueryBenchmark
 from app.rag.evidence_task import AnswerRequirement, AnswerRequirementGraph
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    from app.rag.evaluation.benchmark import QueryBenchmark
 
 # ---------------------------------------------------------------------------
 # Requirement-level gold expectations (optional extension of GoldEntry)

@@ -17,9 +17,15 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field as dataclass_field
 from typing import Any
 
+from app.rag.retrieval.chunk import (
+    chunk_id as chunk_id_of,
+    field,
+    score as chunk_score,
+    text as chunk_text,
+)
 from app.rag.retrieval.legal_hierarchy import (
     parse_section_chain,
     section_base,
@@ -83,11 +89,8 @@ class EvidenceItem:
     text_snippet: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        chunk_id = getattr(self.chunk, "chunk_id", None)
-        if chunk_id is None and isinstance(self.chunk, dict):
-            chunk_id = self.chunk.get("chunk_id")
         return {
-            "chunk_id": chunk_id,
+            "chunk_id": chunk_id_of(self.chunk),
             "evidence_type": self.evidence_type,
             "confidence": round(self.confidence, 4),
             "redundancy": round(self.redundancy, 4),
@@ -112,13 +115,13 @@ class EvidenceSet:
     """
 
     query: str
-    items: list[EvidenceItem] = field(default_factory=list)
+    items: list[EvidenceItem] = dataclass_field(default_factory=list)
     total_pool: int = 0
     selection_rationale: str = ""
 
     @property
     def chunk_ids(self) -> list[str | None]:
-        return [getattr(item.chunk, "chunk_id", None) for item in self.items]
+        return [chunk_id_of(item.chunk) for item in self.items]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -140,14 +143,10 @@ def _detect_evidence_type(chunk: Any, query_section: str | None) -> str:
     Heuristic-based — no ML.  Uses the chunk's section text, authority field,
     and relationship to the query's target section.
     """
-    text = getattr(chunk, "text", "") or ""
-    if isinstance(chunk, dict):
-        text = chunk.get("text", "") or ""
+    text = chunk_text(chunk)
     text_lower = text.lower()
 
-    section_number = getattr(chunk, "section_number", None)
-    if section_number is None and isinstance(chunk, dict):
-        section_number = chunk.get("section_number")
+    section_number = field(chunk, "section_number")
 
     # Is this the primary provision (matches query section)?
     if query_section and section_number and section_base(section_number) == query_section:
@@ -214,23 +213,6 @@ def re_search_section_ref(text: str) -> bool:
 # --------------------------------------------------------------------------- #
 
 
-def _chunk_score(chunk: Any) -> float:
-    score = getattr(chunk, "score", None)
-    if score is None and isinstance(chunk, dict):
-        score = chunk.get("score")
-    try:
-        return float(score or 0.0)
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def _chunk_id(chunk: Any) -> str | None:
-    chunk_id = getattr(chunk, "chunk_id", None)
-    if chunk_id is None and isinstance(chunk, dict):
-        chunk_id = chunk.get("chunk_id")
-    return str(chunk_id) if chunk_id is not None else None
-
-
 def canonical_unit_id(chunk: Any) -> str:
     """Canonical legal-unit id for a chunk (never fabricated).
 
@@ -243,7 +225,7 @@ def canonical_unit_id(chunk: Any) -> str:
     except Exception:
         canonical = "UNKNOWN"
     if not canonical or canonical == "UNKNOWN":
-        return f"chunk:{_chunk_id(chunk)}"
+        return f"chunk:{chunk_id_of(chunk)}"
     return canonical
 
 
@@ -258,8 +240,8 @@ def group_chunks_by_unit(ranked_chunks: list[Any]) -> dict[str, list[Any]]:
     for chunk in ranked_chunks:
         groups.setdefault(canonical_unit_id(chunk), []).append(chunk)
     for members in groups.values():
-        members.sort(key=_chunk_score, reverse=True)
-    return dict(sorted(groups.items(), key=lambda kv: _chunk_score(kv[1][0]), reverse=True))
+        members.sort(key=chunk_score, reverse=True)
+    return dict(sorted(groups.items(), key=lambda kv: chunk_score(kv[1][0]), reverse=True))
 
 
 # --------------------------------------------------------------------------- #
@@ -403,18 +385,12 @@ def select_evidence_set(
     units: list[str] = []
 
     for _i, chunk in enumerate(ranked_chunks):
-        text = getattr(chunk, "text", "") or ""
-        if isinstance(chunk, dict):
-            text = chunk.get("text", "") or ""
-        section_number = getattr(chunk, "section_number", None) or (
-            chunk.get("section_number") if isinstance(chunk, dict) else None
-        )
-        act_name = (
-            act_hint or getattr(chunk, "act_name", None) or (chunk.get("act_name") if isinstance(chunk, dict) else None)
-        )
+        text = chunk_text(chunk)
+        section_number = field(chunk, "section_number")
+        act_name = act_hint or field(chunk, "act_name")
 
         evidence_type = _detect_evidence_type(chunk, query_section)
-        confidence = _chunk_score(chunk)
+        confidence = chunk_score(chunk)
         unit = canonical_unit_id(chunk)
         units.append(unit)
 
@@ -514,15 +490,8 @@ def select_evidence_set(
 _DEFINED_TERM_RE = re.compile(r"""['"]([^'"]{2,40})['"]\s+means\b""", re.IGNORECASE)
 
 
-def _chunk_text(chunk: Any) -> str:
-    text = getattr(chunk, "text", "") or ""
-    if isinstance(chunk, dict):
-        text = chunk.get("text", "") or ""
-    return text
-
-
 def _defined_term(chunk: Any) -> str | None:
-    match = _DEFINED_TERM_RE.search(_chunk_text(chunk))
+    match = _DEFINED_TERM_RE.search(chunk_text(chunk))
     return match.group(1).lower() if match else None
 
 
@@ -543,11 +512,11 @@ def _as_item(chunk: Any, evidence_type: str, existing: list[EvidenceItem]) -> Ev
     item = EvidenceItem(
         chunk=chunk,
         evidence_type=evidence_type,
-        confidence=_chunk_score(chunk),
+        confidence=chunk_score(chunk),
         legal_identity=unit,
         section_number=section_number,
         act_name=act_name,
-        text_snippet=_chunk_text(chunk)[:500],
+        text_snippet=chunk_text(chunk)[:500],
     )
     item.redundancy = _compute_redundancy(item, existing)
     item.complementarity = _compute_complementarity(item, existing)
@@ -588,7 +557,7 @@ def expand_evidence_units(
     present_type_by_unit: dict[str, set[str]] = {}
     for it in evidence.items:
         present_type_by_unit.setdefault(canonical_unit_id(it.chunk), set()).add(it.evidence_type)
-    set_texts = " ".join(_chunk_text(it.chunk).lower() for it in evidence.items)
+    set_texts = " ".join(chunk_text(it.chunk).lower() for it in evidence.items)
     set_sections = {section_base(it.section_number or "") for it in evidence.items if it.section_number}
 
     def _unit(chunk: Any) -> str:
@@ -612,19 +581,19 @@ def expand_evidence_units(
 
     # 1. Definitions of terms the set actually uses (word-boundary matched).
     if EVIDENCE_DEFINITION not in present_types:
-        for chunk in _take(lambda c: detect_provision_type(_chunk_text(c)) == "definition", EVIDENCE_DEFINITION):
+        for chunk in _take(lambda c: detect_provision_type(chunk_text(c)) == "definition", EVIDENCE_DEFINITION):
             term = _defined_term(chunk)
             if term and re.search(rf"\b{re.escape(term)}\b", set_texts):
                 additions.append((chunk, EVIDENCE_DEFINITION))
 
     # 2. Exceptions qualifying the set's rules (same section family or cited).
     if EVIDENCE_EXCEPTION not in present_types:
-        for chunk in _take(lambda c: detect_provision_type(_chunk_text(c)) == "exception", EVIDENCE_EXCEPTION):
+        for chunk in _take(lambda c: detect_provision_type(chunk_text(c)) == "exception", EVIDENCE_EXCEPTION):
             try:
                 section = parse_legal_identity(chunk).section
             except Exception:
                 section = None
-            text = _chunk_text(chunk)
+            text = chunk_text(chunk)
             if (section and section_base(section) in set_sections) or any(
                 _mentions_section(text, s) for s in set_sections
             ):

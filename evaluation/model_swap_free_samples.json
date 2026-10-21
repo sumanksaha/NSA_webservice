@@ -1,0 +1,996 @@
+{
+  "created": "2026-10-18",
+  "purpose": "Free-model replacement candidates for retiring openrouter/poolside laguna-s-2.1:free (expires 2026-10-31). Two-stage paired evaluation against cached laguna baselines; saved for future analysis.",
+  "harness": "evaluation/ab_model.py (paired: only the model changes per QID; laguna side reused from cache)",
+  "seed": 20261018,
+  "models": [
+    {
+      "slug": "nvidia/nemotron-3.5-super-vl:free",
+      "aa_intelligence_index": 26.5,
+      "notes": "highest-AA free candidate; recommended free pick in laguna-s-2.1 retirement eval",
+      "run_2026_10_18": "stage1+stage2 DONE: n=39 paired soft 0.387->0.384 (-0.0025, parity) binary 6->5 elim 11->6 len +30%; holds binary on Q015/Q047/Q002; LOST Q060 abstention credit (veto; every tested alternative also loses it - laguna-specific credit?); 2x502 (Q084 recovered, Q110 pending requeue); zero 429s/empties; best free candidate by mean"
+    },
+    {
+      "slug": "thinkingmachines/inkling-small:free",
+      "aa_intelligence_index": null,
+      "notes": "user-selected candidate; AA index not yet published - record observed ii during run",
+      "run_2026_10_18": "stage1 10/10 HTTP 403 - OpenRouter agentic-harness gate, DISQUALIFIED for API use"
+    },
+    {
+      "slug": "google/gemma-4-26b-a4b-it:free",
+      "aa_intelligence_index": 16.7,
+      "notes": "26B MoE / 3.8B active, reasoning default OFF, 262K ctx (chosen over 31b ii 14.7)",
+      "run_2026_10_18": "stage1 10/10 HTTP 429 - upstream Google AI Studio shared pool, retryable, stage1 requeue same day, else deferred"
+    },
+    {
+      "slug": "minimax/minimax-m3.1-flash:free",
+      "aa_intelligence_index": null,
+      "notes": "added 2026-10-19 at user request; 1M ctx, no expiration, provider Minimax, reasoning null",
+      "run_2026_10_19": "stage1+stage2 DONE 40/40 zero errors: paired n=40 soft 0.384->0.395 (+0.0111, BEATS laguna) binary 6->6 elim 11->11 all vetoes PASS; len 3179->4995 (+57%); latency avg 12.6s; PROVISIONAL PICK"
+    },
+    {
+      "slug": "z-ai/glm-5.3-flash",
+      "aa_intelligence_index": null,
+      "notes": "paid (first paid candidate, user-requested 2026-10-19); 1M ctx, no expiration, reasoning-capable (CoT in a separate field, no leak), 30+ providers $0.048-0.225/Mtok in",
+      "run_2026_10_19": "probe 1 call OK (HTTP 200, finish=stop, no CoT leak, $0.000487, Q052 +0.145) + N=40 40/40 zero errors: paired soft 0.384->0.392 (+0.0085, median -0.0087) binary 6->6 elim 11->9 len +19%; ALL vetoes PASS (Q060 credit held); total spend $0.0306 (~$0.00075/call); RUNNER-UP to minimax"
+    },
+    {
+      "slug": "anthropic/claude-sonnet-5.5",
+      "aa_intelligence_index": null,
+      "notes": "frontier paid candidate requested 2026-10-19; $2.00/$10.00 per Mtok, 1M ctx, no expiration, not moderated, reasoning-capable; 40-call cost estimated first per user instruction",
+      "probe_2026_10_19": "1 call (Q052) HTTP 200, provider 'Claude Platform on AWS', finish=length/max_tokens - TRUNCATED at max_tokens=1024; prompt 7,834 tok (tokenizer ~50% larger than GLM/GPT on the same text), completion 1,024 tok of which 791 reasoning; content 768 chars, no CoT leak (separate reasoning field); billed $0.025908; grade soft 0.413 vs laguna 0.4865 - WORSE than the baseline it would replace (and 2 of 5 concepts never reached: the answer is only the Step-1 quotations). Full run DECLINED by user - not retained in ALLOWED_MODELS."
+    },
+    {
+      "slug": "openai/gpt-6.1-sol",
+      "aa_intelligence_index": null,
+      "notes": "frontier paid candidate requested 2026-10-19; $2.00/$10.00 per Mtok (doubles to $4/$15 above a 272k-token prompt - unreachable here), 1.05M ctx, no expiration, is_moderated=true, reasoning-capable; -pro variant is pro-mode (far more reasoning spend)",
+      "probe_2026_10_19": "1 call (Q052) HTTP 200, provider OpenAI, finish=length/max_output_tokens - TRUNCATED at max_tokens=1024; prompt 5,154 tok, completion 1,024 tok of which 191 reasoning; wrote the full prompt to cache (cache_write_tokens=5151, no read); content 3,562 chars, no CoT leak; billed $0.023124; grade soft 0.501 binary 1 elim True vs laguna 0.4865/0/True - the only model tested to beat laguna on this QID (soft +0.014, and the only one to get the binary right), on a truncated answer. Full run DECLINED by user - not retained in ALLOWED_MODELS."
+    }
+  ],
+  "samples": {
+    "small": {
+      "n": 10,
+      "qids": [
+        "Q052",
+        "Q015",
+        "Q047",
+        "Q002",
+        "Q060",
+        "Q084",
+        "Q023",
+        "Q123",
+        "Q007",
+        "Q020"
+      ],
+      "composition": "5 sentinels (4 must-hold passes + Q060 IE abstention guard) + 3 elimination-flip near-misses + 2 plain near-misses",
+      "canonical13_deferred_to_stage2": [
+        "Q025",
+        "Q016",
+        "Q014"
+      ]
+    },
+    "medium": {
+      "n": 40,
+      "qids": [
+        "Q002",
+        "Q005",
+        "Q007",
+        "Q014",
+        "Q015",
+        "Q016",
+        "Q020",
+        "Q021",
+        "Q023",
+        "Q025",
+        "Q031",
+        "Q032",
+        "Q034",
+        "Q037",
+        "Q040",
+        "Q047",
+        "Q049",
+        "Q052",
+        "Q053",
+        "Q054",
+        "Q055",
+        "Q058",
+        "Q060",
+        "Q073",
+        "Q075",
+        "Q076",
+        "Q079",
+        "Q084",
+        "Q085",
+        "Q088",
+        "Q096",
+        "Q108",
+        "Q110",
+        "Q112",
+        "Q123",
+        "Q127",
+        "Q137",
+        "Q138",
+        "Q141",
+        "Q149"
+      ],
+      "includes_small": true,
+      "new_qids_vs_stage1": [
+        "Q005",
+        "Q014",
+        "Q016",
+        "Q021",
+        "Q025",
+        "Q031",
+        "Q032",
+        "Q034",
+        "Q037",
+        "Q040",
+        "Q049",
+        "Q053",
+        "Q054",
+        "Q055",
+        "Q058",
+        "Q073",
+        "Q075",
+        "Q076",
+        "Q079",
+        "Q085",
+        "Q088",
+        "Q096",
+        "Q108",
+        "Q110",
+        "Q112",
+        "Q127",
+        "Q137",
+        "Q138",
+        "Q141",
+        "Q149"
+      ],
+      "composition": "all 36 QIDs with cached laguna baselines + 4 seeded control-cohort laguna fills",
+      "cohort_split": {
+        "control": 6,
+        "failure": 34
+      }
+    }
+  },
+  "laguna_fills": {
+    "qids": [
+      "Q037",
+      "Q108",
+      "Q137",
+      "Q138"
+    ],
+    "why": "only 36/150 QIDs carry a cached laguna baseline (34 failure / 2 control); 4 control-cohort QIDs need a laguna baseline before the poolside model disappears",
+    "deadline": "2026-10-31",
+    "cost": "~4 calls x ~7-8k tokens = ~30k free-tier tokens",
+    "command": "python -m evaluation.ab_model --models poolside/laguna-s-2.1:free --qids Q037,Q108,Q137,Q138 --max-calls 4 --delay 5",
+    "writes": "cond 'laguna-s-2.1' rows into evaluation/out/ceiling_v5/reeval_89/model_ab.jsonl (3rd-priority baseline source)"
+  },
+  "commands": {
+    "fill_baselines_first": "python -m evaluation.ab_model --models poolside/laguna-s-2.1:free --qids Q037,Q108,Q137,Q138 --max-calls 4 --delay 5",
+    "stage1_small_30_calls": "python -m evaluation.ab_model --qids Q052,Q015,Q047,Q002,Q060,Q084,Q023,Q123,Q007,Q020 --models nvidia/nemotron-3.5-super-vl:free,thinkingmachines/inkling-small:free,google/gemma-4-26b-a4b-it:free --max-calls 30 --delay 5",
+    "stage2_medium_90_calls": "python -m evaluation.ab_model --qids Q002,Q005,Q007,Q014,Q015,Q016,Q020,Q021,Q023,Q025,Q031,Q032,Q034,Q037,Q040,Q047,Q049,Q052,Q053,Q054,Q055,Q058,Q060,Q073,Q075,Q076,Q079,Q084,Q085,Q088,Q096,Q108,Q110,Q112,Q123,Q127,Q137,Q138,Q141,Q149 --models nvidia/nemotron-3.5-super-vl:free,thinkingmachines/inkling-small:free,google/gemma-4-26b-a4b-it:free --max-calls 120 --delay 5",
+    "requeue_empty_answers": "python -m evaluation.ab_model --requeue-errors <errors-file> --models nvidia/nemotron-3.5-super-vl:free,thinkingmachines/inkling-small:free,google/gemma-4-26b-a4b-it:free",
+    "note": "stage2 passes the full 40: ab_model skips (qid, cond) pairs already cached, so stage-1 rows are not re-billed",
+    "paid_glm_5_3_flash_40_calls": "python -m evaluation.ab_model --qids <medium-40 from samples.medium.qids> --models z-ai/glm-5.3-flash --max-calls 45 --delay 3"
+  },
+  "quota_and_cost": {
+    "free_tier": "20 RPM, 50 req/day (1,000/day after $10 lifetime credits) account-wide across all :free slugs",
+    "total_requests": "4 laguna fills + 30 stage1 + 90 stage2 (+ retries) ~= 124 - comfortably under 1,000/day, needs the $10-funded tier to fit one day",
+    "wall_clock": "delay 5s x 120 req ~ 10 min (20 RPM floor is 6 min) per stage",
+    "model_cost_usd": "~$0 - all three candidates are :free",
+    "max_llm_calls": ".env MAX_LLM_CALLS=700 (per process) - no budget risk"
+  },
+  "prerequisites": {
+    "allowlist": "app/shared/llm_client.py ALLOWED_MODELS must contain all 3 candidate slugs, else SSLBypassLLMClient(model=...) raises at construction OUTSIDE the per-question try and the run crashes before writing any record",
+    "allowlist_current_state": "updated 2026-10-18 to include the 3 candidates (laguna retained); revert with git checkout -- app/shared/llm_client.py",
+    "tests_unaffected": "tests/test_llm_kill_switch.py + tests/test_rag_generation.py disallow-list tests use deepseek/gpt-4o-mini/jev-router/llama-3.3 slugs - unaffected by adding these 3",
+    "laguna_still_present": "LAGUNA baseline rows must stay readable; laguna slug stays in the allow-list until the swap is decided"
+  },
+  "decision_criteria": {
+    "primary": "paired soft mean delta vs cached laguna per model (ab_model _report)",
+    "veto": "losing must-hold passes Q052/Q015/Q047/Q002 or the Q060 abstention credit vetoes a swap regardless of mean",
+    "structural_checks": [
+      "answer length blowup = chain-of-thought leaking into answer body (length-punishing jaccard gate)",
+      "empty 200 responses (haiku 5.5 failure mode) -> --requeue-errors",
+      "elimination flips on Q084/Q023/Q123"
+    ],
+    "run_context": "see evaluation/CURRENT_STAGE_ASSESSMENT.md section 10 for prior swap attempts (apodex, nemotron-lightning, claude-haiku-5.5)"
+  },
+  "storage": {
+    "records": "evaluation/out/ceiling_v5/reeval_89/model_ab.jsonl keyed by (qid, cond); cond = model slug last path segment without ':free'",
+    "this_manifest": "evaluation/model_swap_free_samples.json",
+    "plan_doc": "evaluation/MODEL_SWAP_FREE_PLAN.md"
+  },
+  "per_qid": {
+    "Q002": {
+      "cohort": "control",
+      "laguna_soft": 0.5522,
+      "laguna_binary": 1,
+      "eliminated": true,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 0,
+      "answer_length": 1797,
+      "baseline_source": "retry_live.jsonl:veto",
+      "roles": [
+        "stage1-sentinel",
+        "control"
+      ]
+    },
+    "Q005": {
+      "cohort": "failure",
+      "laguna_soft": 0.3941,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 2,
+      "answer_length": 1433,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q007": {
+      "cohort": "failure",
+      "laguna_soft": 0.4389,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 2,
+      "answer_length": 2766,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "stage1-near-miss"
+      ]
+    },
+    "Q014": {
+      "cohort": "failure",
+      "laguna_soft": 0.3552,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 3,
+      "answer_length": 2493,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "canonical-13-deferred-from-stage1"
+      ]
+    },
+    "Q015": {
+      "cohort": "failure",
+      "laguna_soft": 0.5851,
+      "laguna_binary": 1,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 0,
+      "answer_length": 2362,
+      "baseline_source": "retry_live.jsonl:veto",
+      "roles": [
+        "stage1-sentinel"
+      ]
+    },
+    "Q016": {
+      "cohort": "failure",
+      "laguna_soft": 0.3189,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 1,
+      "answer_length": 4609,
+      "baseline_source": "kg_live_verify.jsonl:base",
+      "roles": [
+        "canonical-13-deferred-from-stage1"
+      ]
+    },
+    "Q020": {
+      "cohort": "failure",
+      "laguna_soft": 0.4152,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 1,
+      "answer_length": 2156,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "stage1-near-miss"
+      ]
+    },
+    "Q021": {
+      "cohort": "failure",
+      "laguna_soft": 0.3051,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 2,
+      "answer_length": 3808,
+      "baseline_source": "kg_live_verify.jsonl:base",
+      "roles": [
+        "baseline-available-pool"
+      ]
+    },
+    "Q023": {
+      "cohort": "failure",
+      "laguna_soft": 0.4696,
+      "laguna_binary": 0,
+      "eliminated": true,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 0,
+      "answer_length": 4537,
+      "baseline_source": "model_ab.jsonl:laguna-s-2.1",
+      "roles": [
+        "stage1-near-miss"
+      ]
+    },
+    "Q025": {
+      "cohort": "failure",
+      "laguna_soft": 0.4285,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 2,
+      "answer_length": 3182,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "canonical-13-deferred-from-stage1"
+      ]
+    },
+    "Q031": {
+      "cohort": "failure",
+      "laguna_soft": 0.319,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 6,
+      "answer_length": 3223,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "baseline-available-pool"
+      ]
+    },
+    "Q032": {
+      "cohort": "failure",
+      "laguna_soft": 0.3938,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 3,
+      "answer_length": 4151,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "baseline-available-pool"
+      ]
+    },
+    "Q034": {
+      "cohort": "failure",
+      "laguna_soft": 0.2204,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 2,
+      "answer_length": 3524,
+      "baseline_source": "kg_live_verify.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q037": {
+      "cohort": "control",
+      "laguna_soft": 0.431,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 2,
+      "answer_length": 3038,
+      "baseline_source": "model_ab.jsonl:laguna-s-2.1",
+      "roles": [
+        "laguna-fill-baseline-needed"
+      ]
+    },
+    "Q040": {
+      "cohort": "failure",
+      "laguna_soft": 0.3386,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 2,
+      "answer_length": 4005,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q047": {
+      "cohort": "failure",
+      "laguna_soft": 0.5392,
+      "laguna_binary": 1,
+      "eliminated": true,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 0,
+      "answer_length": 3247,
+      "baseline_source": "retry_live.jsonl:veto",
+      "roles": [
+        "stage1-sentinel"
+      ]
+    },
+    "Q049": {
+      "cohort": "failure",
+      "laguna_soft": 0.3895,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 1,
+      "answer_length": 2770,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q052": {
+      "cohort": "failure",
+      "laguna_soft": 0.4865,
+      "laguna_binary": 0,
+      "eliminated": true,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 0,
+      "answer_length": 2765,
+      "baseline_source": "retry_live.jsonl:veto",
+      "roles": [
+        "stage1-sentinel"
+      ]
+    },
+    "Q053": {
+      "cohort": "failure",
+      "laguna_soft": 0.2848,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 1,
+      "answer_length": 3561,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q054": {
+      "cohort": "failure",
+      "laguna_soft": 0.3403,
+      "laguna_binary": 0,
+      "eliminated": true,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 0,
+      "answer_length": 4505,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q055": {
+      "cohort": "failure",
+      "laguna_soft": 0.2981,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 3,
+      "answer_length": 3627,
+      "baseline_source": "kg_live_verify.jsonl:base",
+      "roles": [
+        "baseline-available-pool"
+      ]
+    },
+    "Q058": {
+      "cohort": "failure",
+      "laguna_soft": 0.2631,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 1,
+      "answer_length": 1913,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q060": {
+      "cohort": "control",
+      "laguna_soft": 0.489,
+      "laguna_binary": 1,
+      "eliminated": true,
+      "abstained": false,
+      "abstention_credit": 1,
+      "concepts_missing": 3,
+      "answer_length": 2694,
+      "baseline_source": "retry_live.jsonl:veto",
+      "roles": [
+        "stage1-sentinel",
+        "control"
+      ]
+    },
+    "Q073": {
+      "cohort": "failure",
+      "laguna_soft": 0.3025,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 3,
+      "answer_length": 3125,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q075": {
+      "cohort": "failure",
+      "laguna_soft": 0.4815,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 2,
+      "answer_length": 4115,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q076": {
+      "cohort": "failure",
+      "laguna_soft": 0.357,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 1,
+      "answer_length": 1891,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q079": {
+      "cohort": "failure",
+      "laguna_soft": 0.3688,
+      "laguna_binary": 0,
+      "eliminated": true,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 0,
+      "answer_length": 2686,
+      "baseline_source": "kg_live_verify.jsonl:base",
+      "roles": [
+        "baseline-available-pool"
+      ]
+    },
+    "Q084": {
+      "cohort": "failure",
+      "laguna_soft": 0.4244,
+      "laguna_binary": 0,
+      "eliminated": true,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 0,
+      "answer_length": 3669,
+      "baseline_source": "model_ab.jsonl:laguna-s-2.1",
+      "roles": [
+        "stage1-sentinel"
+      ]
+    },
+    "Q085": {
+      "cohort": "failure",
+      "laguna_soft": 0.3711,
+      "laguna_binary": 0,
+      "eliminated": true,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 0,
+      "answer_length": 4059,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q088": {
+      "cohort": "failure",
+      "laguna_soft": 0.2685,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 1,
+      "answer_length": 2340,
+      "baseline_source": "kg_live_verify.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q096": {
+      "cohort": "failure",
+      "laguna_soft": 0.4429,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 1,
+      "answer_length": 3268,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q108": {
+      "cohort": "control",
+      "laguna_soft": 0.3593,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 2,
+      "answer_length": 2960,
+      "baseline_source": "model_ab.jsonl:laguna-s-2.1",
+      "roles": [
+        "laguna-fill-baseline-needed"
+      ]
+    },
+    "Q110": {
+      "cohort": "failure",
+      "laguna_soft": 0.2757,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 2,
+      "answer_length": 2401,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q112": {
+      "cohort": "failure",
+      "laguna_soft": 0.3398,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 2,
+      "answer_length": 4351,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q123": {
+      "cohort": "failure",
+      "laguna_soft": 0.4422,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 1,
+      "answer_length": 3903,
+      "baseline_source": "model_ab.jsonl:laguna-s-2.1",
+      "roles": [
+        "stage1-near-miss"
+      ]
+    },
+    "Q127": {
+      "cohort": "failure",
+      "laguna_soft": 0.4224,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 1,
+      "answer_length": 4072,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "near-miss-band"
+      ]
+    },
+    "Q137": {
+      "cohort": "control",
+      "laguna_soft": 0.361,
+      "laguna_binary": 1,
+      "eliminated": true,
+      "abstained": false,
+      "abstention_credit": 1,
+      "concepts_missing": 0,
+      "answer_length": 3042,
+      "baseline_source": "model_ab.jsonl:laguna-s-2.1",
+      "roles": [
+        "laguna-fill-baseline-needed"
+      ]
+    },
+    "Q138": {
+      "cohort": "control",
+      "laguna_soft": 0.4216,
+      "laguna_binary": 1,
+      "eliminated": true,
+      "abstained": false,
+      "abstention_credit": 1,
+      "concepts_missing": 0,
+      "answer_length": 2166,
+      "baseline_source": "model_ab.jsonl:laguna-s-2.1",
+      "roles": [
+        "laguna-fill-baseline-needed"
+      ]
+    },
+    "Q141": {
+      "cohort": "failure",
+      "laguna_soft": 0.2912,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 3,
+      "answer_length": 4450,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "baseline-available-pool"
+      ]
+    },
+    "Q149": {
+      "cohort": "failure",
+      "laguna_soft": 0.366,
+      "laguna_binary": 0,
+      "eliminated": false,
+      "abstained": false,
+      "abstention_credit": 0,
+      "concepts_missing": 1,
+      "answer_length": 2523,
+      "baseline_source": "retry_live.jsonl:base",
+      "roles": [
+        "baseline-available-pool"
+      ]
+    }
+  },
+  "default_swapped_2026_10_19": "minimax/minimax-m3.1-flash:free is now DEFAULT_ANSWER_MODEL/DEFAULT_MODEL/TokenCounter/AI-assistant/.env RAG_LLM_MODEL; laguna kept in ALLOWED_MODELS + ab_model.LAGUNA for eval baselines until 2026-10-31 retirement; revert: git checkout -- app/ tests/ .env.example scripts/ + .env RAG_LLM_MODEL line",
+  "glm_5_3_flash_eval_2026_10_19": {
+    "model": "z-ai/glm-5.3-flash",
+    "paid": true,
+    "cost_measured_usd": {
+      "probe_plus_40_calls": 0.0306,
+      "per_call": 0.00075,
+      "source": "GET /api/v1/credits total_usage delta 1.684273557 -> 1.714881024"
+    },
+    "cost_estimate_basis": "3 harness-path calls reading provider-reported usage: prompt avg 5,101 tokens (2,269 / 5,227 / 7,808), completion 1,024/call (minimax hits the max_tokens cap)",
+    "tier_pricing_usd_per_mtok_in_out": {
+      "z-ai/glm-5.3-flash": [
+        0.048,
+        0.16
+      ],
+      "z-ai/glm-4.7-flash": [
+        0.0605,
+        0.4
+      ],
+      "z-ai/glm-5.3": [
+        0.079,
+        1.4
+      ],
+      "z-ai/glm-5.3-flashx": [
+        0.37,
+        1.25
+      ],
+      "z-ai/glm-5.3-prime": [
+        2.8,
+        8.8
+      ]
+    },
+    "routing_caveat": "default route picked Wafer ($0.074/$0.20 per Mtok), not the cheapest listing (OpenInference $0.048/$0.16); budget ~1.2-2x the headline price",
+    "account": {
+      "credits_total_usd": 10.0,
+      "remaining_before_run_usd": 8.32,
+      "key_daily_limit_usd": 3.0
+    },
+    "result_paired_n40": {
+      "soft_delta": 0.0085,
+      "median_delta": -0.0087,
+      "binary": "6->6",
+      "elim": "11->9",
+      "answer_len": "+19%",
+      "veto": "PASS",
+      "errors": 0,
+      "latency_s": {
+        "avg": 10.4,
+        "median": 8.8,
+        "max": 37.0
+      }
+    },
+    "command": "python -m evaluation.ab_model --qids <medium-40> --models z-ai/glm-5.3-flash --max-calls 45 --delay 3",
+    "note": "z-ai/glm-5.3-flash added to ALLOWED_MODELS for the run (marked paid eval candidate); remove if the allow-list should stay free-only"
+  },
+  "frontier_paid_probe_2026_10_19": {
+    "slugs": {
+      "anthropic/claude-sonnet-5.5": {
+        "pricing_usd_per_mtok_in_out": [
+          2.0,
+          10.0
+        ],
+        "cache_read_usd_per_mtok": 0.1,
+        "context_length": 1000000,
+        "moderated": false,
+        "expiration_date": null,
+        "batch_variant": "anthropic/claude-sonnet-5.5:batch ($1/$5, async only - unusable by harness)"
+      },
+      "openai/gpt-6.1-sol": {
+        "pricing_usd_per_mtok_in_out": [
+          2.0,
+          10.0
+        ],
+        "pricing_override": "$4/$15 once prompt > 272,000 tokens (not reachable: RAG_CONTEXT_MAX_CHARS=24000)",
+        "cache_read_usd_per_mtok": 0.1,
+        "context_length": 1050000,
+        "moderated": true,
+        "expiration_date": null,
+        "batch_variant": "openai/gpt-6.1-sol:batch ($1/$5, async only - unusable by harness)",
+        "sibling": "openai/gpt-6.1-sol-pro = same model, reasoning.mode=pro, 'spends far more'; openai/gpt-6-luna = $0.10/$0.50 cheap tier"
+      }
+    },
+    "cost_basis": "measured token basis from 3 harness-path calls (5,101 in / 1,024 out per call) before probing; realised per-call billing taken from provider usage fields after",
+    "cost_estimate_40_calls_usd": {
+      "pre_probe": {
+        "claude-sonnet-5.5": 0.82,
+        "gpt-6.1-sol": 0.82,
+        "both": 1.64
+      },
+      "measured_per_call_usd": {
+        "claude-sonnet-5.5": 0.025908,
+        "gpt-6.1-sol": 0.023124
+      },
+      "revised_40_calls_usd": {
+        "claude-sonnet-5.5": 1.04,
+        "gpt-6.1-sol": 0.92,
+        "both": 1.96
+      },
+      "production_per_question_usd": {
+        "claude-sonnet-5.5": 0.052,
+        "gpt-6.1-sol": 0.046,
+        "glm-5.3-flash": 0.0015,
+        "minimax-m3.1-flash:free": 0.0
+      }
+    },
+    "probe_cost_usd": 0.049,
+    "probe_findings": [
+      "both truncate at the repo's max_tokens=1024 because both reason by default with no reasoning param and the cap covers reasoning + answer",
+      "claude spent 791 of 1,024 completion tokens on reasoning (77%)",
+      "claude tokenizes the identical prompt at 7,834 tokens vs 5,154 (gpt-6.1) and 5,221 (glm) - ~50% more input cost despite identical headline pricing",
+      "gpt-6.1-sol wrote the entire prompt to cache with no read (cache_write_tokens=5151); one call per QID makes that write unrecoverable overhead",
+      "neither was blocked; gpt-6.1-sol is moderated but returned content",
+      "n=1 Q052 quality probe favoured gpt-6.1-sol (soft 0.501, bin 1, elim True) over laguna (0.4865, bin 0, elim True) and far over claude-sonnet-5.5 (0.413, bin 0, elim False) - but all three frontier/candidate numbers rest on truncated answers"
+    ],
+    "decision": {
+      "date": "2026-10-19",
+      "outcome": "full N=40 run NOT executed - user reviewed the probe and declined",
+      "reason": "predictably handicapped run (measures the 1,024 cap, not the models); ~30x the GLM cost for no demonstrated gate advantage; production ~$0.046-0.052/question vs $0 for minimax",
+      "allow_list": "both slugs removed from ALLOWED_MODELS (one-line re-add if revisited)",
+      "if_revisited": "raise max_tokens >= 4096 for the frontier arm and treat it as a separate, non-comparable evaluation"
+    },
+    "q052_baseline_correction": "The Q052 laguna baseline quoted when these probes were taken (0.321) was wrong: it is the gen_C_hybrid.jsonl (C_hybrid pipeline arm) score for Q052, not laguna. The paired harness baseline for Q052 is retry_live.jsonl cond=veto: soft 0.4865, binary 0, elim True, authority_hit True, 5/5 concepts, 2765 chars, 13.94s. Corrected 2026-10-19."
+  },
+  "per_qid_note": "laguna_soft / laguna_binary / eliminated / abstained / abstention_credit / concepts_missing / answer_length / baseline_source are the values returned by evaluation.ab_model.laguna_base() (the exact record the paired harness uses as the baseline). Corrected 2026-10-19: the original per_qid block was built from gen_C_hybrid.jsonl, which is the C_hybrid pipeline arm, not a laguna record - all 40 QIDs were wrong (mean laguna soft 0.3374 recorded vs 0.3838 actual; Q037/Q108/Q141/Q149 recorded 0.0 because those laguna fills ran after the block was written). Deltas and scoreboard figures in MODEL_SWAP_FREE_PLAN.md are unaffected: the harness always read the baseline from laguna_base(), never from this file.",
+  "q052_five_way_2026_10_19": {
+    "question": "Under the Water (Prevention and Control of Pollution) Act, 1974, what is the maximum penalty for carrying out a polluting process in contravention of an order, and is the offence cognizable?",
+    "gold": {
+      "acceptable_conclusion": "Contravention of an order under the Water Act is punishable with imprisonment up to 3 months (5 months for subsequent convictions) and a fine of at least 2000 rupees per day for continuing offences, and is cognizable.",
+      "gold_concepts": [
+        "penalty",
+        "imprisonment",
+        "fine",
+        "continuing offence",
+        "cognizable"
+      ],
+      "gold_authorities": [
+        "court"
+      ],
+      "insufficient_evidence": false,
+      "question_types": [
+        "Penalty",
+        "Direct provision"
+      ]
+    },
+    "design": "same top-20 C_hybrid chunks and prompt for all five; candidate rows from model_ab.jsonl, frontier rows from the 2026-10-19 probes, laguna from retry_live.jsonl cond=veto (what ab_model.laguna_base() returns)",
+    "results": {
+      "laguna-s-2.1": {
+        "source": "retry_live.jsonl:veto",
+        "soft": 0.4865,
+        "binary": 0,
+        "eliminated": true,
+        "authority_hit": true,
+        "concepts": "5/5",
+        "answer_length": 2765,
+        "latency_s": 13.94,
+        "truncated": false,
+        "delta_vs_laguna": null,
+        "read": "full s.45A quote; refuses to call it cognizable (s.43 text absent); elim True is carried by the word 'court' inside an s.46 quote"
+      },
+      "openai/gpt-6.1-sol": {
+        "source": "probe (2026-10-19)",
+        "paid": true,
+        "cost_usd": 0.0231235,
+        "soft": 0.5006,
+        "binary": 1,
+        "eliminated": true,
+        "authority_hit": true,
+        "concepts": "5/5",
+        "answer_length": 3562,
+        "latency_s": 20.7,
+        "truncated": true,
+        "delta_vs_laguna": 0.0141,
+        "read": "only model to score bin=1 and the only one besides laguna to reach elim; highest soft of the five; achieved on an answer truncated at the cap"
+      },
+      "z-ai/glm-5.3-flash": {
+        "source": "model_ab.jsonl",
+        "paid": true,
+        "soft": 0.4659,
+        "binary": 0,
+        "eliminated": false,
+        "authority_hit": false,
+        "concepts": "5/5",
+        "answer_length": 1926,
+        "latency_s": 4.42,
+        "truncated": false,
+        "delta_vs_laguna": -0.0206,
+        "read": "strongest on substance (34% shorter than laguna, 3x faster, and it catches the 2024 omission of s.45 that laguna misses) but never says 'court', so authority_hit fails and elim drops"
+      },
+      "minimax/minimax-m3.1-flash:free": {
+        "source": "model_ab.jsonl",
+        "is_default": true,
+        "soft": 0.4162,
+        "binary": 0,
+        "eliminated": false,
+        "authority_hit": false,
+        "concepts": "5/5",
+        "answer_length": 4635,
+        "latency_s": 19.83,
+        "truncated": false,
+        "coT_leaked_into_answer": true,
+        "delta_vs_laguna": -0.0703,
+        "read": "answer body is raw chain-of-thought ('We need answer legal. Need parse question...') re-deriving statute from model memory, incl. an unretrieved guess at s.41; never reached its own Step 2 before the cap"
+      },
+      "anthropic/claude-sonnet-5.5": {
+        "source": "probe (2026-10-19)",
+        "paid": true,
+        "cost_usd": 0.025908,
+        "soft": 0.4127,
+        "binary": 0,
+        "eliminated": false,
+        "authority_hit": false,
+        "concepts": "3/5",
+        "answer_length": 768,
+        "latency_s": 11.1,
+        "truncated": true,
+        "reasoning_tokens": 791,
+        "delta_vs_laguna": -0.0738,
+        "read": "never left Step 1; 791 of 1,024 completion tokens went to reasoning; lowest soft of the five"
+      }
+    },
+    "scorer_artifacts": [
+      "authority_hit on Q052 is a one-word keyword test: gold_authorities=['court'] with >=50% token overlap, so laguna's elim=True rides on a stray mention inside an s.46 quote while glm's more precise answer fails it",
+      "laguna's own cached Q052 records disagree by more than any candidate delta: retry_live:veto 0.4865 bin 0 (paired baseline), kg_live_verify:base 0.5157 bin 1, kg 0.5234 bin 1 - a 0.037 spread with the binary flipping; every delta above except sonnet's is inside that spread",
+      "the repo's own C_hybrid pipeline scores 0.3209 on Q052 (gen_C_hybrid.jsonl) - the record once mistaken for laguna's baseline; every model here clears it by 0.09-0.20"
+    ],
+    "criteria_ambiguity": "MODEL_SWAP_FREE_PLAN.md §5 lists Q052 among must-hold passes whose loss kills a swap, and minimax lost its elim flag, yet §7 recorded veto PASS on the grounds that the loss was elim not binary. Either restate the must-hold as binary-only (Q052 is bin 0 on both sides) or record the elim loss as a documented veto waiver (overall elim 11->11 parity)."
+  }
+}

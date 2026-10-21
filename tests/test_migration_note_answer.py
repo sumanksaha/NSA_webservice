@@ -24,6 +24,7 @@ _COLUMNS = {
     "question",
     "answer",
     "citations",
+    "sub_queries",
     "note_snapshot",
     "groundedness_score",
     "hallucination_detected",
@@ -108,11 +109,16 @@ class TestNoteAnswerMigration:
 
     def test_migration_is_the_sole_head(self):
         """``flask db upgrade`` on deploy only applies a migration when it is
-        the single head; a second head would silently skip this one."""
+        the single head; a second head would silently skip this one.
+
+        The durable invariant is single-head; the *specific* current head is
+        pinned by each newer migration's own test (e.g.
+        ``tests/test_migration_widen_record_audit.py`` for the head that
+        chained off this one)."""
         from pathlib import Path
 
         repo_root = Path(__file__).resolve().parent.parent
         cfg = Config()
         cfg.set_main_option("script_location", str(repo_root / "migrations"))
         script = ScriptDirectory.from_config(cfg)
-        assert script.get_heads() == ["add_note_answer_table"]
+        assert len(script.get_heads()) == 1

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import datetime as _dt
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 
 from app.diary import FIELD_ACTIVITY, resolve_owner
@@ -52,6 +52,11 @@ def search():
     result = None
     if query:
         result = premises_resolver.resolve(query)
+        if result.error:
+            # The UI deliberately hides the reason (SEC-*); the log must not,
+            # or a deployment-level failure (missing SUPABASE_DB_URL, refused
+            # connection) is undiagnosable from server logs alone.
+            current_app.logger.warning(f"Premises search failed: {result.error}")
 
     # Split canonical matches from look-alike roads so the UI never presents
     # Sarat Bose Road as if it were NSC Bose Road (FR-27).

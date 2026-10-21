@@ -220,12 +220,13 @@ class HybridRetriever:
                 logger.debug("HybridRetriever: no section scope detected in query; structural arm skipped")
             else:
                 try:
-                    # Section-scoped arm is precision-oriented: the filter
-                    # already pins the instrument, so top_k is enough. The
-                    # act-only arm benefits from a wider fetch (the Act's
-                    # sections compete for the governing provision), so it
-                    # gets the same 2x width the identifier/form arms use.
-                    width = top_k if scope_meta["mode"] == "act_section" else max(top_k * 2, 20)
+                    # Only act_only widens the fetch: with no section pin the
+                    # Act's sections genuinely compete for the governing
+                    # provision. Both section-bearing modes (act_section and
+                    # section_only) are already constrained by the pin, and
+                    # widening section_only — the least precise mode — bought
+                    # recall the reranker then had to undo.
+                    width = max(top_k * 2, 20) if scope_meta["mode"] == "act_only" else top_k
                     # The caller's own payload filters (QueryParser output and
                     # anything the HTTP body supplied) still apply: the arm
                     # must not be a way to retrieve outside the caller's scope.

@@ -1144,7 +1144,7 @@ def main() -> int:
 def _matches(payload: dict, unit, family_map) -> bool:
     from evaluation.resolution import matches_gold
 
-    return matches_gold(payload, unit, family_map)
+    return matches_gold(payload, unit, family_map, text_fallback=True)
 
 
 def _gold_in_kg(unit, family_map, kg_map: dict) -> bool:

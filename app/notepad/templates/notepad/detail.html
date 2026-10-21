@@ -1,5 +1,39 @@
 {% extends "base.html" %} {% block title %}{{ note.status|capitalize }} Note{% endblock %} {% block
 content %}
+{# One answer turn's body: sub-queries note, answer, citations, verification
+   strip and meta line (spec FR-12/FR-19). Used for the primary card and the
+   collapsed history alike. #}
+{% macro answer_body(ans, cites, subs) %}
+{% if subs %}
+<p class="text-muted small mb-1">
+    The pipeline also searched (automatic split, not your fragments): {{ subs|join('; ') }}
+</p>
+{% endif %}
+<p style="white-space: pre-wrap">{{ ans.answer }}</p>
+{% if cites %}
+<ul class="list-unstyled small mb-1">
+    {% for c in cites %}
+    <li>
+        {{ c.section_number }} — {{ c.document_title }} ({{ c.authority }}){% if c.url %}
+        <a href="{{ c.url }}">source</a>{% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+<p class="small mb-1">
+    {% if ans.hallucination_detected %}
+    <span class="text-danger">⚠ may be ungrounded — check the citations.</span>
+    {% endif %} {% if ans.degraded %}
+    <span class="badge bg-warning text-dark">degraded — stub answer</span>
+    {% endif %}
+    Groundedness: {% if ans.groundedness_score is not none %}{{ '%.0f'|format(ans.groundedness_score * 100)
+    }}%{% else %}n/a{% endif %}
+</p>
+<small class="text-muted">
+    {{ ans.provider_model or 'unknown model' }}{% if ans.token_usage %} · {{ ans.token_usage }} tokens{% endif %} ·
+    {{ ans.created_at.strftime('%Y-%m-%d %H:%M') if ans.created_at else '' }}
+</small>
+{% endmacro %}
 <div class="container">
     <p><a href="{{ url_for('notepad.index') }}">&larr; Back to Notepad</a></p>
     <h1>Note</h1>
@@ -14,18 +48,55 @@ content %}
     <div class="card mb-3">
         <div class="card-body">
             <pre style="white-space: pre-wrap">{{ note.content_text }}</pre>
+            {% if current_user.id == note.author_id %}
+            <form method="post" action="{{ url_for('notepad.edit', note_id=note.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <label class="form-label small text-muted" for="content_text">Edit statement</label>
+                <textarea
+                    id="content_text"
+                    name="content_text"
+                    class="form-control mb-2"
+                    rows="4"
+                >{{ note.content_text }}</textarea>
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Save statement</button>
+            </form>
+            {% endif %}
         </div>
     </div>
 
     {% if current_user.id == note.author_id %}
     <div class="d-flex flex-wrap gap-2 mb-3">
+        {% if rag_available %}
+        <form
+            method="post"
+            action="{{ url_for('notepad.ask', note_id=note.id) }}"
+            onsubmit="this.querySelector('button').disabled = true"
+            style="max-width: 640px"
+        >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <label class="form-label" for="question">Ask Legal RAG</label>
+            <textarea
+                id="question"
+                name="question"
+                class="form-control mb-2"
+                rows="3"
+                placeholder="Ask a legal question — or split into fragments, one per line"
+            ></textarea>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-scale-balanced"></i> Get legal answer
+            </button>
+        </form>
+        {% else %}
+        <p class="text-muted mb-0">Legal RAG is disabled on this deployment.</p>
+        {% endif %}
         <form
             method="post"
             action="{{ url_for('notepad.evaluate', note_id=note.id) }}"
             onsubmit="this.querySelector('button').disabled = true"
         >
-            <button type="submit" class="btn btn-primary btn-sm">
-                <i class="fa-solid fa-wand-magic-sparkles"></i> Evaluate with AI
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Evaluate idea (7 lenses)
             </button>
         </form>
         <form
@@ -34,6 +105,7 @@ content %}
             class="input-group input-group-sm"
             style="max-width: 480px"
         >
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <select name="status" class="form-select form-select-sm">
                 <option value="implemented">implemented</option>
                 <option value="dismissed">dismissed</option>
@@ -46,6 +118,7 @@ content %}
             <button type="submit" class="btn btn-outline-secondary btn-sm">Set</button>
         </form>
         <form method="post" action="{{ url_for('notepad.set_visibility', note_id=note.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <input
                 type="hidden"
                 name="is_shared"
@@ -56,6 +129,37 @@ content %}
             </button>
         </form>
     </div>
+    {% endif %}
+
+    <h3>Legal RAG thread <small class="text-muted">(newest first)</small></h3>
+    {% if answers %}
+    {% set latest, latest_cites, latest_subs = answers[-1] %}
+    <div class="card mb-3 border-primary">
+        <div class="card-body">
+            <h5>{{ latest.question }}</h5>
+            {% if stale %}
+            <p class="text-warning small mb-2">
+                ⚠ statement edited after this answer — ask again to refresh
+            </p>
+            {% endif %}
+            {{ answer_body(latest, latest_cites, latest_subs) }}
+        </div>
+    </div>
+    {% if answers|length > 1 %}
+    <details class="mb-3">
+        <summary>Earlier answers (oldest first)</summary>
+        {% for ans, cites, subs in answers[:-1] %}
+        <div class="card mb-2 mt-2">
+            <div class="card-body">
+                <h6>{{ ans.question }}</h6>
+                {{ answer_body(ans, cites, subs) }}
+            </div>
+        </div>
+        {% endfor %}
+    </details>
+    {% endif %}
+    {% else %}
+    <p class="text-muted">No answers yet.</p>
     {% endif %}
 
     <h3>Evaluations <small class="text-muted">(oldest first)</small></h3>

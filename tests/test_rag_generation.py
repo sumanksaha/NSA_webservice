@@ -13,6 +13,8 @@ from __future__ import annotations
 import hashlib
 import typing
 
+import pytest
+
 from app.rag.generation import (
     CitationTracker,
     ContextBuilder,
@@ -24,8 +26,30 @@ from app.rag.generation import (
     ResponseSanitizer,
 )
 from app.rag.generation.context_builder import is_index_chunk
+from app.rag.generation.prompt_template import QUERY_TYPE_DIRECTIVES
 from app.rag.retrieval.result import Citation, RetrievedChunk
 from app.rag.tasks import run_generation_pipeline
+
+
+def _scripted_client(*texts):
+    """A fake LLM client: records prompts, returns scripted texts in order."""
+
+    class _ScriptedClient:
+        def __init__(self):
+            self.responses = list(texts)
+            self.calls = []
+
+        def call(self, system_prompt, user_prompt, *, temperature=0.1, max_tokens=1024, **extra):
+            self.calls.append({"system": system_prompt, "user": user_prompt})
+            text = self.responses.pop(0) if self.responses else ""
+            return GroundedLLMResponse(
+                text=text,
+                model="fake",
+                usage={"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+                latency=0.01,
+            )
+
+    return _ScriptedClient()
 
 
 def _make_chunks(n=3):
@@ -171,6 +195,145 @@ class TestIndexChunkDropping:
         ]
         built = ContextBuilder(max_chunks=2).build("query", chunks, query_type="general")
         assert len(built.citations) == 2
+
+    def test_index_drop_never_removes_a_selected_evidence_chunk(self):
+        """The evidence selector is the downstream, better-informed decision.
+
+        Dropping what it chose would leave ``_pack_by_role`` reordering a set
+        it never receives, so an explicitly selected provision is exempt from
+        the index heuristic — including a short one, which trips the
+        ``_INDEX_MIN_CHARS`` floor.
+        """
+        selected_stub = RetrievedChunk(
+            chunk_id="selected-stub",
+            score=0.4,  # ranks below the unselected chunks
+            text=_THIN_FRAGMENT,
+            section_number="3",
+            document_title="Bengal Act 1944",
+            document_type="act",
+            authority="State",
+        )
+        chunks = [*_make_chunks(2), selected_stub]
+        evidence_set = {"items": [{"chunk_id": "selected-stub", "evidence_type": "primary"}]}
+        built = ContextBuilder(max_chunks=2).build("q", chunks, evidence_set=evidence_set)
+        ids = [c["chunk_id"] for c in built.citations]
+        assert ids[0] == "selected-stub", "a selected provision must lead the pack"
+        assert "c0" in ids
+
+    def test_index_drop_still_applies_to_unselected_chunks_with_an_evidence_set(self):
+        """Exempting selected chunks must not disable the drop for the rest."""
+        chunks = [
+            RetrievedChunk(
+                chunk_id="stub",
+                score=0.99,
+                text=_ARRANGEMENT_STUB,
+                section_number="1",
+                document_title="Water Act 1974",
+                document_type="act",
+                authority="CPCB",
+            ),
+            *_make_chunks(2),
+        ]
+        evidence_set = {"items": [{"chunk_id": "c0", "evidence_type": "primary"}]}
+        built = ContextBuilder(max_chunks=1).build("q", chunks, evidence_set=evidence_set)
+        assert [c["chunk_id"] for c in built.citations] == ["c0"]
+
+
+class TestAmendmentProseDropping:
+    """Gazette amendment prose must not occupy window slots.
+
+    Measured offline (``evaluation/bench_context_hygiene.py``): the drop
+    reclaims ~160 window slots across three cached arms while gold-in-prompt
+    is unchanged (95/95, 91/91, 92/92) — an amendment notification refers to a
+    provision ("In section 63, for the words X, the words Y shall be
+    substituted") without containing one, so a slot spent on it cannot be
+    cited.
+    """
+
+    #: Gazette amendment-notification shape, per the engine's
+    #: AMENDMENT_NOTIFICATION_RE.
+    _AMENDMENT_STUB = (
+        "11. In section 63 of the principal Act, for the words 'fine of ten "
+        "thousand rupees', the words 'fine of fifty thousand rupees' shall be "
+        "substituted and the said section shall be renumbered as sub-section (1)."
+    )
+
+    @staticmethod
+    def _amendment_chunk(**overrides):
+        base = {
+            "chunk_id": "amendment",
+            "score": 0.99,
+            "text": TestAmendmentProseDropping._AMENDMENT_STUB,
+            "section_number": "63",
+            "document_title": "Notification 2026",
+            "document_type": "notification",
+            "authority": "FSSAI",
+        }
+        base.update(overrides)
+        return RetrievedChunk(**base)
+
+    def test_is_amendment_prose_recognises_the_notification_shape(self):
+        from app.rag.generation.context_builder import is_amendment_prose
+
+        assert is_amendment_prose(self._AMENDMENT_STUB)
+        assert not is_amendment_prose(
+            "Whoever contravenes any provision of this Act shall be punishable "
+            "with imprisonment for a term which may extend to six months and "
+            "with fine which may extend to five lakh rupees."
+        )
+
+    def test_amendment_prose_does_not_consume_the_window_slot(self):
+        chunks = [self._amendment_chunk(), *_make_chunks(2)]
+        built = ContextBuilder(max_chunks=1).build("query", chunks, query_type="general")
+        ids = [c["chunk_id"] for c in built.citations]
+        assert "amendment" not in ids
+        assert ids == ["c0"]
+
+    def test_flag_off_keeps_legacy_behavior(self, monkeypatch):
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "context_drop_amendment_prose", False)
+        chunks = [self._amendment_chunk(), *_make_chunks(2)]
+        built = ContextBuilder(max_chunks=1).build("query", chunks, query_type="general")
+        assert [c["chunk_id"] for c in built.citations] == ["amendment"]
+
+    def test_amendment_drop_never_removes_a_selected_evidence_chunk(self):
+        """The selector's decision is the better-informed one, exactly as for index chunks."""
+        chunks = [*_make_chunks(2), self._amendment_chunk()]
+        evidence_set = {"items": [{"chunk_id": "amendment", "evidence_type": "primary"}]}
+        built = ContextBuilder(max_chunks=2).build("q", chunks, evidence_set=evidence_set)
+        ids = [c["chunk_id"] for c in built.citations]
+        assert ids[0] == "amendment"
+
+    def test_all_amendment_window_falls_back_to_unfiltered(self, monkeypatch):
+        # Never return an empty context just because every chunk looked like
+        # amendment prose; answerability is patched open to isolate packing.
+        from app.rag.generation.context_builder import ContextBuilder as CB
+
+        monkeypatch.setattr(CB, "_check_answerability", lambda self, q, c, t: (True, []))
+        chunks = [self._amendment_chunk(chunk_id=f"m{i}") for i in range(2)]
+        built = ContextBuilder(max_chunks=2).build("query", chunks, query_type="general")
+        assert len(built.citations) == 2
+
+    def test_both_drops_can_be_disabled_together(self, monkeypatch):
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "context_drop_index_chunks", False)
+        monkeypatch.setattr(cfg, "context_drop_amendment_prose", False)
+        chunks = [
+            RetrievedChunk(
+                chunk_id="masthead",
+                score=0.99,
+                text=_MASTHEAD_STUB,
+                section_number="1",
+                document_title="Bengal Act 1944",
+                document_type="act",
+                authority="State",
+            ),
+            *_make_chunks(1),
+        ]
+        built = ContextBuilder(max_chunks=1).build("query", chunks, query_type="general")
+        assert [c["chunk_id"] for c in built.citations] == ["masthead"]
 
     def test_truncation_respects_char_budget_with_tags(self):
         built = ContextBuilder(max_context_chars=600, max_chunks=10).build("query", _make_chunks(3))
@@ -469,21 +632,20 @@ class TestGroundedLLMClient:
         resp = GroundedLLMClient().call("s", "u")
         assert resp.usage["prompt_tokens"] > 0
 
-    def test_model_default_is_laguna(self):
-        """The default model is poolside/laguna-s-2.1:free."""
-        assert GroundedLLMClient().model == "poolside/laguna-s-2.1:free"
+    def test_model_default_is_minimax(self):
+        """The default model is minimax/minimax-m3.1-flash:free."""
+        assert GroundedLLMClient().model == "minimax/minimax-m3.1-flash:free"
 
-    def test_model_explicit_arg_overrides(self):
-        """An explicit model arg overrides the default."""
-        assert (
-            GroundedLLMClient(model="meta-llama/llama-3.3-70b-instruct:free").model
-            == "meta-llama/llama-3.3-70b-instruct:free"
-        )
+    def test_model_not_allowed_arg_raises(self):
+        """Only the Laguna allow-list model may be constructed (no silent switch)."""
+        with pytest.raises(RuntimeError, match="allow-list"):
+            GroundedLLMClient(model="meta-llama/llama-3.3-70b-instruct:free")
 
-    def test_model_env_var_overrides_default(self, monkeypatch):
-        """RAG_LLM_MODEL env var overrides the default model."""
-        monkeypatch.setenv("RAG_LLM_MODEL", "openai/gpt-4o-mini")
-        assert GroundedLLMClient().model == "openai/gpt-4o-mini"
+    def test_model_env_var_rejects_disallowed(self, monkeypatch):
+        """A disallowed RAG_LLM_MODEL raises instead of switching providers."""
+        monkeypatch.setenv("RAG_LLM_MODEL", "deepseek/deepseek-v4.1-flash")
+        with pytest.raises(RuntimeError, match="allow-list"):
+            GroundedLLMClient()
 
 
 class TestLLMRateLimitRetry:
@@ -732,7 +894,7 @@ class TestGroundedGenerationService:
     def test_full_pipeline_stub(self):
         result = GroundedGenerationService().generate("Question", _make_chunks(3), "section_lookup")
         assert result.answer
-        assert result.llm_model == "stub-poolside/laguna-s-2.1:free"
+        assert result.llm_model == "stub-minimax/minimax-m3.1-flash:free"
         assert result.token_usage["prompt"] == 100
         assert result.debug["chunk_count"] == 3
 
@@ -769,6 +931,203 @@ class TestGroundedGenerationService:
         assert "high" in cited
 
 
+class TestStructuredTwoPass:
+    """W3: the default generation path renders the answer from a reasoner IR
+    when ENABLE_STRUCTURED_REASONER is on, and stays byte-identical to the
+    shipped single-pass template when it is off (the FSSAI-triggered default).
+
+    The two-pass flow exists so the structured reasoning is built out of band
+    in its own LLM call instead of competing with the answer for the shared
+    ~1024-token output budget. It is fail-closed: any reasoner failure
+    degrades to the single-pass template rather than an error.
+    """
+
+    _IR_JSON = (
+        '{"issue": "Is a licence required?", '
+        '"applicable_provisions": ["FSS Act s55(1)"], '
+        '"definitions_applied": {"food business": "any undertaking carrying on food trade [1]"}, '
+        '"legal_rules": ["No person shall commence a food business without a licence [1]"], '
+        '"exceptions_considered": [{"exception": "Small food businesses are exempt [2]"}], '
+        '"condition_evaluations": [{"condition_id": "C1", "condition_text": "annual turnover below '
+        '12 lakh", "fact_reference": "grocer with turnover 8 lakh", "status": "unknown", '
+        '"explanation": "the sources do not state the turnover"}], '
+        '"derived_conclusion": "Yes, unless the small-business exemption applies", '
+        '"supporting_citations": ["[1]", "[2]"], '
+        '"uncertainties": []}'
+    )
+
+    def test_flag_off_uses_single_pass_template(self, monkeypatch):
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "structured_reasoner", False)
+        client = _scripted_client("Single-pass answer [1].")
+        result = GroundedGenerationService(llm_client=client).generate(
+            "What is the penalty under Section 55?", _make_chunks(3), "penalty"
+        )
+        assert result.answer == "Single-pass answer [1]."
+        assert len(client.calls) == 1
+        assert "Structured legal reasoning" not in client.calls[0]["user"]
+        assert "senior legal counsel" not in client.calls[0]["system"]
+        assert result.debug["structured_argument"] is None
+
+    def test_flag_on_reasons_first_then_answers_from_the_ir(self, monkeypatch):
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "structured_reasoner", True)
+        client = _scripted_client(self._IR_JSON, "Memo answer [1].")
+        result = GroundedGenerationService(llm_client=client).generate(
+            "Is a licence required?", _make_chunks(3), "definition"
+        )
+        assert result.answer == "Memo answer [1]."
+        assert len(client.calls) == 2
+        reason_user = client.calls[0]["user"]
+        answer_user = client.calls[1]["user"]
+        assert "Structured analysis" in reason_user and "JSON" in reason_user
+        assert "Legal evidence" in reason_user
+        # The final answer prompt carries the IR and the memo layout.
+        assert "Structured legal reasoning" in answer_user
+        assert "No person shall commence a food business without a licence" in answer_user
+        assert "legal memo" in answer_user
+        assert "senior legal counsel" in client.calls[1]["system"]
+        assert "<legal_context>" in answer_user
+        # The IR rides along in debug for the rubric harness.
+        arg = result.debug["structured_argument"]
+        assert arg is not None
+        assert arg["issue"] == "Is a licence required?"
+        assert arg["applicable_provisions"] == ["FSS Act s55(1)"]
+        assert arg["legal_rules"] == ["No person shall commence a food business without a licence [1]"]
+
+    def test_flag_on_reasoner_failure_degrades_to_single_pass(self, monkeypatch):
+        from app.rag.generation.structured_reasoner import StructuredReasoner
+
+        from app.shared.config import cfg
+
+        def boom(self, query, context):
+            raise RuntimeError("llm down")
+
+        monkeypatch.setattr(cfg, "structured_reasoner", True)
+        monkeypatch.setattr(StructuredReasoner, "reason", boom)
+        client = _scripted_client("Fallback answer [1].")
+        result = GroundedGenerationService(llm_client=client).generate("q?", _make_chunks(3), "general_qa")
+        assert result.answer == "Fallback answer [1]."
+        assert len(client.calls) == 1
+        assert "Structured legal reasoning" not in client.calls[0]["user"]
+        assert result.debug["structured_argument"] is None
+
+    def test_structured_template_keeps_citation_and_qualification_contract(self):
+        from app.rag.generation.prompt_template import PromptTemplate
+
+        pt = PromptTemplate()
+        system_prompt, user_prompt = pt.render(
+            "grounded_qa_structured",
+            query="q?",
+            context="[1] context",
+            extra_vars={"reasoning": '{"issue": "i"}'},
+        )
+        assert "[n]" in system_prompt and "[n]" in user_prompt
+        assert "never fabricate" in system_prompt.lower()
+        assert "qualify" in system_prompt.lower()
+        assert "Issue" in system_prompt and "Rule" in system_prompt and "Conclusion" in system_prompt
+        assert "<legal_context>" in user_prompt and "</legal_context>" in user_prompt
+        assert '{"issue": "i"}' in user_prompt
+
+    def test_structured_render_honours_the_type_directive(self, monkeypatch):
+        """W3 x W4: the memo and IR prompts carry the same query-type cue."""
+        from app.rag.generation.prompt_template import QUERY_TYPE_DIRECTIVES
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "structured_reasoner", True)
+        monkeypatch.setattr(cfg, "structured_query_type_directives", True)
+        client = _scripted_client(self._IR_JSON, "Memo answer [1].")
+        GroundedGenerationService(llm_client=client).generate(
+            "Which authority may inspect?", _make_chunks(3), "penalty"
+        )
+
+        directive = QUERY_TYPE_DIRECTIVES["penalty"]
+        reason_user = client.calls[0]["user"]
+        answer_user = client.calls[1]["user"]
+        assert directive in reason_user, "IR prompt dropped the W4 directive"
+        assert directive in answer_user, "memo prompt dropped the W4 directive"
+        assert answer_user.index(directive) < answer_user.index("Question:")
+
+    def test_structured_render_drops_the_directive_when_the_flag_is_off(self, monkeypatch):
+        from app.rag.generation.prompt_template import QUERY_TYPE_DIRECTIVES
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "structured_reasoner", True)
+        monkeypatch.setattr(cfg, "structured_query_type_directives", False)
+        client = _scripted_client(self._IR_JSON, "Memo answer [1].")
+        GroundedGenerationService(llm_client=client).generate(
+            "Which authority may inspect?", _make_chunks(3), "penalty"
+        )
+
+        directive = QUERY_TYPE_DIRECTIVES["penalty"]
+        assert directive not in client.calls[0]["user"]
+        assert directive not in client.calls[1]["user"]
+
+
+class TestQueryTypeDirectives:
+    """W4: one per-type directive appended before Question: when the operator
+    enables RAG_QUERY_TYPE_DIRECTIVES; the default render is unmodified."""
+
+    def test_directive_appended_before_question(self):
+        from app.rag.generation.prompt_template import PromptTemplate, QUERY_TYPE_DIRECTIVES
+
+        pt = PromptTemplate()
+        _, plain = pt.render_default("q?", "[1] ctx")
+        _, typed = pt.render_default("q?", "[1] ctx", query_type="penalty")
+        directive = QUERY_TYPE_DIRECTIVES["penalty"]
+        assert directive in typed
+        # The directive must precede, not follow, the "Answer:" slot.
+        assert typed.index(directive) < typed.index("Question:")
+        # And the quoted context/question framing is untouched.
+        assert plain.replace(directive + "\n", "") == typed.replace(directive + "\n", "")
+
+    def test_directive_lookup_resolves_legacy_and_benchmark_spellings(self):
+        """Callers pass ``QueryType`` values (``duty``) and benchmark labels
+        (``Penalty``); both must reach the canonical directive."""
+        from app.rag.generation.prompt_template import PromptTemplate, QUERY_TYPE_DIRECTIVES
+
+        pt = PromptTemplate()
+        _, duty = pt.render_default("q?", "[1] ctx", query_type="duty")
+        assert QUERY_TYPE_DIRECTIVES["obligation"] in duty
+        _, labelled = pt.render_default("q?", "[1] ctx", query_type="Penalty")
+        assert QUERY_TYPE_DIRECTIVES["penalty"] in labelled
+
+    def test_unknown_type_renders_unchanged(self):
+        from app.rag.generation.prompt_template import PromptTemplate
+
+        pt = PromptTemplate()
+        assert pt.render_default("q?", "[1] ctx", query_type="no_such_type") == pt.render_default("q?", "[1] ctx")
+
+    def test_empty_type_renders_byte_identical(self):
+        from app.rag.generation.prompt_template import PromptTemplate
+
+        pt = PromptTemplate()
+        assert pt.render_default("q?", "[1] ctx", query_type="") == pt.render_default("q?", "[1] ctx")
+        assert pt.render_default("q?", "[1] ctx", query_type=None) == pt.render_default("q?", "[1] ctx")
+
+    def test_service_off_renders_shipped_template_verbatim(self, monkeypatch):
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "query_type_directives", False)
+        client = _scripted_client("a [1].")
+        svc = GroundedGenerationService(llm_client=client)
+        built = svc.context_builder.build("q?", _make_chunks(3), query_type="penalty")
+        _, user_prompt = svc._render_prompt("q?", built, query_type="penalty")
+        assert QUERY_TYPE_DIRECTIVES["penalty"] not in user_prompt
+
+    def test_service_on_appends_the_matching_directive(self, monkeypatch):
+        from app.shared.config import cfg
+
+        monkeypatch.setattr(cfg, "query_type_directives", True)
+        client = _scripted_client("a [1].")
+        svc = GroundedGenerationService(llm_client=client)
+        built = svc.context_builder.build("q?", _make_chunks(3), query_type="penalty")
+        _, user_prompt = svc._render_prompt("q?", built, query_type="penalty")
+        assert QUERY_TYPE_DIRECTIVES["penalty"] in user_prompt
+
+
 class TestRunGenerationPipeline:
     def test_evidence_set_ignored_when_flag_off(self, monkeypatch):
         # P0-1 gate: ENABLE_EVIDENCE_SELECTOR off must leave the prompt path
@@ -781,9 +1140,9 @@ class TestRunGenerationPipeline:
         seen = {}
         original = GroundedGenerationService._render_prompt
 
-        def spy(self, query, built):
+        def spy(self, query, built, **kwargs):
             seen["context"] = built.context
-            return original(self, query, built)
+            return original(self, query, built, **kwargs)
 
         monkeypatch.setattr(GroundedGenerationService, "_render_prompt", spy)
 
@@ -816,10 +1175,10 @@ class TestRunGenerationPipeline:
         seen = {}
         original = GroundedGenerationService._render_prompt
 
-        def spy(self, query, built):
+        def spy(self, query, built, **kwargs):
             seen["context"] = built.context
             seen["citations"] = built.citations
-            return original(self, query, built)
+            return original(self, query, built, **kwargs)
 
         monkeypatch.setattr(GroundedGenerationService, "_render_prompt", spy)
 

@@ -47,7 +47,7 @@
                     '<button type="button" class="btn btn-secondary btn-sm" data-index="' +
                     index +
                     '" title="Remove">' +
-                    '<i class="fa-solid fa-xmark"></i></button>',
+                    '<i class="fa-solid fa-xmark"></i></button>'
             );
             row.querySelector("button")!.addEventListener("click", function () {
                 selectedFiles.splice(index, 1);
@@ -106,7 +106,7 @@
         if (selectedFiles.length === 0) {
             showStatus(
                 '<i class="fa-solid fa-circle-exclamation"></i> Add at least one file.',
-                true,
+                true
             );
             return;
         }
@@ -115,24 +115,21 @@
         selectedFiles.forEach(function (file: File) {
             fd.append("files", file);
         });
-        [
-            "evidence_type",
-            "caption",
-            "tags",
-            "case_id",
-            "adjudication_id",
-            "inspection_id",
-        ].forEach(function (name: string) {
-            var field = form!.querySelector('[name="' + name + '"]') as HTMLInputElement | null;
-            if (field && field.value) {
-                fd.append(name, field.value);
+        ["evidence_type", "caption", "tags", "case_id", "adjudication_id", "inspection_id"].forEach(
+            function (name: string) {
+                var field = form!.querySelector('[name="' + name + '"]') as HTMLInputElement | null;
+                if (field && field.value) {
+                    fd.append(name, field.value);
+                }
             }
-        });
+        );
 
         var originalText = uploadBtn!.innerHTML;
         setHTML(
             uploadBtn!,
-            '<i class="fa-solid fa-spinner fa-spin"></i> Uploading ' + selectedFiles.length + "\u2026",
+            '<i class="fa-solid fa-spinner fa-spin"></i> Uploading ' +
+                selectedFiles.length +
+                "\u2026"
         );
         (uploadBtn as HTMLButtonElement).disabled = true;
         showStatus('<i class="fa-solid fa-spinner fa-spin"></i> Uploading\u2026', false);
@@ -148,7 +145,11 @@
             })
             .then(function (out: { resp: Response; data: Record<string, unknown> }) {
                 var data = out.data;
-                var results = (data.results || []) as Array<{ status: string; filename: string; error?: string }>;
+                var results = (data.results || []) as Array<{
+                    status: string;
+                    filename: string;
+                    error?: string;
+                }>;
                 var rows = results.map(function (r) {
                     if (r.status === "ok") {
                         return (
@@ -175,7 +176,7 @@
                         results.length +
                         " uploaded</strong>" +
                         rows.join(""),
-                    out.resp.status >= 400 && out.resp.status !== 207,
+                    out.resp.status >= 400 && out.resp.status !== 207
                 );
                 if (out.resp.ok || out.resp.status === 207) {
                     selectedFiles = [];
@@ -189,7 +190,7 @@
                 showStatus(
                     '<i class="fa-solid fa-circle-exclamation"></i> Upload failed: ' +
                         escapeHtml(err.message),
-                    true,
+                    true
                 );
             })
             .finally(function () {
@@ -216,11 +217,14 @@
                 return;
             }
 
-            fetch((htmlBtn.dataset.updateUrl || "").replace("__ID__", encodeURIComponent(id || "")), {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ caption: caption, tags: tags, evidence_type: type }),
-            })
+            fetch(
+                (htmlBtn.dataset.updateUrl || "").replace("__ID__", encodeURIComponent(id || "")),
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ caption: caption, tags: tags, evidence_type: type }),
+                }
+            )
                 .then(function (resp: Response) {
                     return resp.json();
                 })
@@ -241,9 +245,15 @@
             if (!window.confirm("Delete this evidence file?")) {
                 return;
             }
-            fetch((htmlBtn.dataset.deleteUrl || "").replace("__ID__", encodeURIComponent(htmlBtn.dataset.id || "")), {
-                method: "POST",
-            })
+            fetch(
+                (htmlBtn.dataset.deleteUrl || "").replace(
+                    "__ID__",
+                    encodeURIComponent(htmlBtn.dataset.id || "")
+                ),
+                {
+                    method: "POST",
+                }
+            )
                 .then(function (resp: Response) {
                     return resp.json();
                 })

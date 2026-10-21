@@ -36,6 +36,7 @@ def upgrade() -> None:
         sa.Column("question", sa.Text(), nullable=False),
         sa.Column("answer", sa.Text(), nullable=False),
         sa.Column("citations", sa.Text(), nullable=True),
+        sa.Column("sub_queries", sa.Text(), nullable=True),
         sa.Column("note_snapshot", sa.Text(), nullable=True),
         sa.Column("groundedness_score", sa.Float(), nullable=True),
         sa.Column("hallucination_detected", sa.Boolean(), nullable=True),

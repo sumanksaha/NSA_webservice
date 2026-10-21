@@ -103,7 +103,11 @@ class HallucinationDetector:
         self.evidence_verifier = evidence_verifier or EvidenceVerifier()
         self.citation_validator = citation_validator or CitationValidator()
         self.scorer = scorer or GroundednessScorer()
-        self.llm_client = llm_client or GroundedLLMClient()
+        if llm_client is None:
+            from app.shared.llm_client import get_llm_client
+
+            llm_client = get_llm_client()
+        self.llm_client = llm_client
         self.groundedness_threshold = groundedness_threshold
         # Only use the LLM double-check if we're not in stub mode.  In
         # stub mode the LLM returns canned text that can't actually verify

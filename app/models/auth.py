@@ -48,7 +48,7 @@ class RecordAudit(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"), nullable=True, index=True)
     action = db.Column(db.String(20), nullable=False)  # create|update|delete|login_success|login_failed
     record_type = db.Column(db.String(50), nullable=False, index=True)
-    record_id = db.Column(db.String(50), nullable=False, index=True)
+    record_id = db.Column(db.String(255), nullable=False, index=True)
     changes = db.Column(db.Text, nullable=True)  # JSON string: {"field": {"old": ..., "new": ...}}
     timestamp = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC), index=True)
     ip_address = db.Column(db.String(45), nullable=True)

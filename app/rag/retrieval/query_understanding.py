@@ -31,6 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.rag import query_type_registry as _registry
 from app.rag.retrieval.form_references import detect_form, form_query
 from app.rag.retrieval.identifier import detect_act, detect_section, identifier_query
 from app.rag.retrieval.legal_query_classifier import (
@@ -56,25 +57,31 @@ __all__ = [
 
 #: Normalized values treated as "no specific legal signal" — callers fall
 #: back to the other view (see :func:`effective_query_type`).
-_NON_SPECIFIC_TYPES = frozenset({"", "general", "general_qa", "ambiguous"})
+_NON_SPECIFIC_TYPES = frozenset({"", "general", "ambiguous"})
 
 
 def normalize_query_type(value: str | None) -> str:
-    """Normalize a query-type string across both classifier vocabularies.
+    """Normalize a query-type string through the canonical registry.
 
-    Lowercases, maps hyphens/spaces to underscores, so ``"cross-reference"``,
-    ``"cross_reference"``, ``"general_qa"``/``"general"`` compare equal to
-    their canonical forms. ``None``/empty/whitespace maps to ``"general"``.
+    ``"cross-reference"``, ``"cross_reference"`` and ``"Cross-reference"`` all
+    map to ``cross_reference``; legacy runtime spellings follow the registry's
+    aliases (``duty`` -> ``obligation``, ``amendment_query`` -> ``amendment``).
+    The legacy ``general_qa`` bucket maps to ``"general"`` for routing
+    comparisons. ``None``/empty/whitespace maps to ``"general"``. Unknown
+    values are lowercased and hyphen/space-normalized so they stay visible
+    instead of being silently coerced.
     """
     if value is None:
         return "general"
-    text = str(value).strip().lower()
+    text = str(value).strip()
     if not text:
         return "general"
-    text = text.replace("-", "_").replace(" ", "_")
-    if text == "general_qa":
+    canonical = _registry.resolve(text)
+    if canonical is None:
+        return text.lower().replace("-", "_").replace(" ", "_")
+    if canonical == "general_qa":
         return "general"
-    return text
+    return canonical
 
 
 def effective_query_type(

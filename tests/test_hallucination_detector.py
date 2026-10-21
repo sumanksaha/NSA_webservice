@@ -8,6 +8,7 @@ No Qdrant/network required — all verification runs against in-memory
 from __future__ import annotations
 
 import pytest
+from rapidfuzz import fuzz
 
 from app.rag.retrieval.result import Citation, RetrievedChunk
 from app.rag.verification import (
@@ -206,6 +207,51 @@ class TestClaimEntailmentGates:
         assert not ver.verified
         assert ver.reason == "polarity_mismatch"
 
+    def test_cited_section_fallthrough_scans_past_a_failing_best_match(self):
+        """Both fuzzy paths walk the candidate list, not just the top hit.
+
+        This branch (a claim citing a section no chunk is stamped with) used to
+        gate only the single best fuzzy match, so a claim whose top match
+        failed a gate was rejected even when a lower-ranked chunk stated the
+        asserted figure.
+
+        The decoy must outrank the gold on ``partial_ratio`` or the test
+        proves nothing: with both chunks near-verbatim the gold wins the
+        ranking outright and the old best-only code reaches the same verdict.
+        Here the decoy is a near-verbatim mismatch (Rs. 10,000 -> fails the
+        numeric gate) while the gold is reworded enough to rank second but
+        still states the asserted Rs. 50,000.
+        """
+        chunks = [
+            self._chunk(
+                "Under Section 55, a penalty of Rs. 10,000 may be imposed on the operator.",
+                chunk_id="decoy",
+            ),
+            self._chunk(
+                "Where an offence under Section 55 is committed, a monetary penalty of Rs. 50,000 may be imposed.",
+                chunk_id="gold",
+            ),
+        ]
+        claim = ClaimExtractor().extract(
+            "Under Section 55, a penalty of Rs. 50,000 may be imposed on the operator.",
+        )[0]
+        assert claim.section_numbers, "fixture must exercise the cited-section branch"
+
+        # The decoy must be the best fuzzy match, else this does not test the
+        # scan. Assert it rather than trusting the wording above.
+        ranked = sorted(
+            chunks,
+            key=lambda c: fuzz.partial_ratio(claim.text, c.text),
+            reverse=True,
+        )
+        assert ranked[0].chunk_id == "decoy", "fixture no longer exercises the fallthrough"
+
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert ver.verified
+        assert ver.method == "text"
+        assert ver.supporting_chunks == ["gold"]
+        assert ver.reason == ""
+
     # -- Polarity regex coverage ------------------------------------------ #
     @pytest.mark.parametrize(
         "text",
@@ -295,7 +341,14 @@ class TestClaimEntailmentGates:
 
     # -- Regression: existing paths unchanged ----------------------------- #
     def test_section_match_unaffected_by_gates(self):
-        """An exact section stamp is not fuzzy-matched; the gates do not apply."""
+        """A neutral claim/chunk pair passes both gates, so the section path
+        still returns its stamp confidence unchanged.
+
+        The gates now apply on this path too (P1 item 5.5) — a section stamp
+        is metadata, not entailment — but a claim with no polarity language
+        and no figures cannot trip either gate, so the exact-stamp behaviour
+        the legacy tests pinned is preserved.
+        """
         chunks = [self._chunk("Section 55 text.", section_number="55")]
         claim = ClaimExtractor().extract("Section 55 requires a license.")[0]
         ver = EvidenceVerifier().verify_claim(claim, chunks)
@@ -303,6 +356,93 @@ class TestClaimEntailmentGates:
         assert ver.method == "section"
         assert ver.confidence == 0.85
         assert ver.reason == ""
+
+    def test_section_match_polarity_gate_rejects_stamped_amendment_note(self):
+        """The Q015 defect: a gazette amendment note stamped with the cited
+        section carries the stamp but its quoted replacement text is a
+        permission where the claim is a prohibition.
+
+        The stamp match no longer short-circuits the entailment gates; the
+        claim is rejected with the gate's reason rather than verified at
+        0.85 confidence.
+        """
+        chunks = [
+            self._chunk(
+                "(C) In section 63, for the words 'unlicensed sale', "
+                "the words 'sale shall be permitted' shall be substituted.",
+                section_number="63",
+                chunk_id="amendment",
+            ),
+        ]
+        claim = ClaimExtractor().extract("Under Section 63, no person shall sell adulterated food.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert not ver.verified
+        assert ver.reason == "polarity_mismatch"
+
+    def test_section_match_numeric_gate_rejects_wrong_figure(self):
+        """A stamped chunk stating a different penalty figure does not verify
+        the claim's figure, and the claim does not fall back to a general
+        verify either."""
+        chunks = [
+            self._chunk(
+                "Whoever contravenes section 63 shall be liable to a penalty which may extend to ten thousand rupees.",
+                section_number="63",
+                chunk_id="stamped",
+            ),
+        ]
+        claim = ClaimExtractor().extract("Under Section 63, a penalty which may extend to Rs. 1,00,000 applies.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert not ver.verified
+        assert ver.reason == "numeric_mismatch"
+
+    def test_section_match_scans_to_a_stamped_chunk_that_passes_the_gates(self):
+        """One poisoned stamp must not veto another correctly-stamped chunk.
+
+        Both chunks carry section 55; the first states the wrong figure, the
+        second the asserted one. The claim verifies via the section path on
+        the chunk that entails it.
+        """
+        chunks = [
+            self._chunk(
+                "A penalty of Rs. 10,000 may be imposed under Section 55.",
+                section_number="55",
+                chunk_id="decoy",
+                score=0.95,
+            ),
+            self._chunk(
+                "A penalty of Rs. 50,000 may be imposed under Section 55.",
+                section_number="55",
+                chunk_id="gold",
+                score=0.9,
+            ),
+        ]
+        claim = ClaimExtractor().extract("Under Section 55, a penalty of Rs. 50,000 may be imposed.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert ver.verified
+        assert ver.method == "section"
+        assert ver.supporting_chunks == ["gold"]
+        assert ver.reason == ""
+
+    def test_section_gate_failure_still_falls_through_to_text_support(self):
+        """A rejected stamp is not a veto: an unstamped chunk that genuinely
+        states the rule still supports the claim via the fuzzy path."""
+        chunks = [
+            self._chunk(
+                "In section 55, for the words 'fine of Rs. 10,000', the words "
+                "'fine of Rs. 25,000' shall be substituted.",
+                section_number="55",
+                chunk_id="stamped",
+            ),
+            self._chunk(
+                "Whoever contravenes section 55 of the FSS Act, 2006 shall be liable to a penalty of Rs. 50,000.",
+                chunk_id="operative",
+            ),
+        ]
+        claim = ClaimExtractor().extract("Under Section 55, the penalty is Rs. 50,000.")[0]
+        ver = EvidenceVerifier().verify_claim(claim, chunks)
+        assert ver.verified
+        assert ver.method == "text"
+        assert ver.supporting_chunks == ["operative"]
 
     def test_asserted_numerics_helper(self):
         assert EvidenceVerifier._asserted_numerics("Rs. 1,000 and 50% and INR 200") == {"1000", "50", "200"}

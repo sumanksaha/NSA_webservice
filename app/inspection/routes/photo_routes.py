@@ -6,10 +6,17 @@ Evidence persistence, stamping, and OCR dispatch. These handlers parse
 the request, delegate to the module, and return JSON.
 """
 
+import json
+
 from flask import jsonify, request
 
 from app.extensions import db
 from app.inspection import inspection_bp
+from app.inspection.photo_scoring import (
+    PROMPT_VERSION,
+    PhotoEvidenceScorer,
+    form_value_for_violation,
+)
 from app.inspection.photo_service import InspectionPhotoService
 
 _photo_service = InspectionPhotoService()
@@ -97,7 +104,13 @@ def upload_photo_evidence():
 
 @inspection_bp.route("/<int:adjudication_id>/photos", methods=["POST"])
 def upload_adjudication_photo(adjudication_id):
-    """Upload a photo for an adjudication via R2/B2 storage."""
+    """Upload a photo for an adjudication.
+
+    Persists to R2/B2 (Cloudinary when configured), then — when
+    ``PHOTO_SCORING_ENABLED`` — scores the stored image and writes the photo and
+    its assessment in one transaction. See ``assess_photo_evidence`` for scoring
+    an already-stored photo.
+    """
     if "photo" not in request.files:
         return jsonify({"error": 'No photo file provided. Use field name "photo".'}), 400
 
@@ -119,14 +132,12 @@ def upload_adjudication_photo(adjudication_id):
             return jsonify({"error": "Storage service unavailable."}), 502
         return jsonify({"error": "Database error."}), 500
 
-    return (
-        jsonify({
-            "id": result.photo_id,
-            "file_url": result.filepath,
-            "uploaded_at": None,
-        }),
-        201,
-    )
+    from app.shared.config import cfg
+
+    body = {"id": result.photo_id, "file_url": result.filepath, "uploaded_at": None}
+    if result.scoring is not None:
+        body["scoring"] = _result_to_dict(result.scoring, float(cfg.photo_scoring_threshold))
+    return (jsonify(body), 201)
 
 
 @inspection_bp.route("/photos/<photo_id>", methods=["DELETE"])
@@ -154,3 +165,186 @@ def list_adjudication_photos(adjudication_id):
         return jsonify({"error": f"Adjudication with id {adjudication_id} not found"}), 404
 
     return jsonify(paginated)
+
+
+# --------------------------------------------------------------------------- #
+# Probabilistic violation assessment (ADR-0011)
+#
+# --------------------------------------------------------------------------- #
+# Probabilistic violation assessment (ADR-0011)
+#
+# Two entry points, because scoring is wanted both at capture and later:
+#
+#   * at capture   — ``POST /<adjudication_id>/photos`` scores between the storage
+#     upload and the Evidence insert (see InspectionPhotoService), so a fresh
+#     photo is never stored without its assessment.
+#   * later        — ``POST /photos/<evidence_id>/assess`` re-scores a photo that
+#     is already stored: the evidence file is read back from Cloudinary/R2 by URL
+#     and scored in a new append-only row. Re-running after a prompt or model
+#     change adds evidence rather than erasing it.
+#
+# ADVISORY ONLY. Nothing on these paths writes a checklist value — the scores are
+# recorded and returned so the FSO can accept or override them on the
+# adjudication form. A violation is never created here.
+# --------------------------------------------------------------------------- #
+def _assessment_to_dict(row) -> dict:
+    return {
+        "id": row.id,
+        "evidence_id": row.evidence_id,
+        "adjudication_id": row.adjudication_id,
+        "overall_observable": row.overall_observable,
+        "payload": json.loads(row.payload) if row.payload else None,
+        "suggested_fields": json.loads(row.suggested_fields) if row.suggested_fields else [],
+        "provider_model": row.provider_model,
+        "resolved_model": row.resolved_model,
+        "prompt_version": row.prompt_version,
+        "token_usage": row.token_usage,
+        "latency_ms": row.latency_ms,
+        "error": row.error,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+def _result_to_dict(result, threshold: float) -> dict:
+    """Serialise a :class:`ScoringResult`, including the polarity-correct hint."""
+    return {
+        "ok": result.ok,
+        "gate_passed": result.gate_passed,
+        "overall_observable": result.overall_observable,
+        "suggested_fields": result.suggested_fields(threshold),
+        "items": [
+            {
+                "field": i.field,
+                "observable": i.observable,
+                "p_violation": i.p_violation,
+                # Advisory hint for the FSO's checklist; the inverted pair
+                # (artificial_colour / Expired_item) reads "yes" here.
+                "suggested_form_value": (
+                    form_value_for_violation(i.field, violation_present=True)
+                    if i.observable and i.p_violation is not None and i.p_violation >= threshold
+                    else None
+                ),
+            }
+            for i in result.items
+        ],
+        "provider_model": result.provider_model,
+        "resolved_model": result.resolved_model,
+        "token_usage": result.token_usage,
+        "latency_ms": result.latency_ms,
+        "error": result.error,
+    }
+
+
+@inspection_bp.route("/photos/<evidence_id>/assess", methods=["POST"])
+def assess_photo_evidence(evidence_id):
+    """Re-score a stored photo by reading it back from Cloudinary/R2.
+
+    Appends an ``EvidenceAssessment`` row and returns the per-field
+    probabilities. Advisory: it never sets a checklist value.
+
+    A gated-off image (not a premises photograph) is a *successful* run that
+    scores nothing. A provider failure is recorded and reported as ``502`` —
+    never as a clean premises.
+    """
+    from app.models import Evidence
+    from app.services.audit_context import audit_logger
+    from app.shared.config import cfg
+
+    if not bool(cfg.photo_scoring_enabled):
+        return jsonify({"error": "Photo scoring is disabled (PHOTO_SCORING_ENABLED=false)."}), 503
+
+    evidence = db.session.get(Evidence, evidence_id)
+    if evidence is None:
+        return jsonify({"error": f"Evidence with id {evidence_id} not found"}), 404
+    if evidence.evidence_type != "photo":
+        return jsonify({"error": "Only photo evidence can be assessed."}), 400
+
+    threshold = float(cfg.photo_scoring_threshold)
+    scorer = PhotoEvidenceScorer()
+    try:
+        assessment, result = scorer.assess(evidence)
+    except ValueError as exc:
+        # Caller error, or scoring switched off mid-request.
+        return jsonify({"error": str(exc)}), 400
+
+    audit_logger("photo").log(
+        evidence_id,
+        "ASSESSMENT_SCORED",
+        ok=result.ok,
+        gate_passed=result.gate_passed,
+        provider_model=result.provider_model,
+        resolved_model=result.resolved_model,
+        prompt_version=PROMPT_VERSION,
+    )
+
+    body = _result_to_dict(result, threshold)
+    body["assessment"] = _assessment_to_dict(assessment)
+    return jsonify(body), (200 if result.ok else 502)
+
+
+@inspection_bp.route("/<int:adjudication_id>/photos/assess", methods=["POST"])
+def assess_adjudication_photos(adjudication_id):
+    """Re-score every stored photo for an adjudication, newest run per photo.
+
+    The batch counterpart to the per-photo endpoint, for backfilling a case whose
+    photos were captured before scoring existed. Each photo gets its own
+    append-only row; a photo that fails does not stop the rest.
+
+    Returns a per-photo summary; ``200`` even when some photos failed, since the
+    failures are reported in ``items``.
+    """
+    from app.models import Adjudication, Evidence
+    from app.services.audit_context import audit_logger
+    from app.shared.config import cfg
+
+    if not bool(cfg.photo_scoring_enabled):
+        return jsonify({"error": "Photo scoring is disabled (PHOTO_SCORING_ENABLED=false)."}), 503
+    if db.session.get(Adjudication, adjudication_id) is None:
+        return jsonify({"error": f"Adjudication with id {adjudication_id} not found"}), 404
+
+    threshold = float(cfg.photo_scoring_threshold)
+    photos = (
+        Evidence.query.filter_by(adjudication_id=adjudication_id, evidence_type="photo")
+        .order_by(Evidence.uploaded_at.asc())
+        .all()
+    )
+    scorer = PhotoEvidenceScorer()
+    items = []
+    for photo in photos:
+        try:
+            assessment, result = scorer.assess(photo)
+            summary = _result_to_dict(result, threshold)
+            items.append({
+                "evidence_id": photo.id,
+                "assessment_id": assessment.id,
+                "ok": summary["ok"],
+                "gate_passed": summary["gate_passed"],
+                "suggested_fields": summary["suggested_fields"],
+                "error": summary["error"],
+            })
+        except Exception as exc:  # one bad photo must not abort the batch
+            items.append({"evidence_id": photo.id, "ok": False, "error": str(exc)})
+
+    audit_logger("adjudication").log(
+        str(adjudication_id),
+        "ASSESSMENTS_SCORED_BULK",
+        count=len(items),
+        failed=sum(1 for i in items if not i.get("ok")),
+    )
+    return jsonify({"adjudication_id": adjudication_id, "count": len(items), "items": items})
+
+
+@inspection_bp.route("/photos/<evidence_id>/assessments", methods=["GET"])
+def list_photo_assessments(evidence_id):
+    """Every assessment recorded for a photo, newest first (append-only history)."""
+    from app.models import Evidence, EvidenceAssessment
+
+    if db.session.get(Evidence, evidence_id) is None:
+        return jsonify({"error": f"Evidence with id {evidence_id} not found"}), 404
+
+    rows = (
+        EvidenceAssessment.query.filter_by(evidence_id=evidence_id)
+        .order_by(EvidenceAssessment.created_at.desc(), EvidenceAssessment.id.desc())
+        .all()
+    )
+    return jsonify([_assessment_to_dict(r) for r in rows])

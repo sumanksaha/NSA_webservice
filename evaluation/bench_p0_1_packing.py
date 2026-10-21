@@ -105,7 +105,7 @@ def _gold_hit(chunk_ids: list[str], payload_index: dict[str, dict], question, fa
             continue
         for unit in units:
             try:
-                if matches_gold(payload, unit, family_map):
+                if matches_gold(payload, unit, family_map, text_fallback=True):
                     return True
             except Exception:
                 continue

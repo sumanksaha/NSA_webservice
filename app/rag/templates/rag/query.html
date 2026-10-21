@@ -364,6 +364,80 @@
         gap: 0.5rem;
         margin-top: 0.5rem;
     }
+    /* Human answer rating (feeds the autoresearch queue) */
+    .rag-rating {
+        margin-top: 1rem;
+        padding-top: 0.75rem;
+        border-top: 1px dashed var(--border, #d1d5db);
+    }
+    .rag-rating-prompt {
+        font-size: 0.8rem;
+        color: var(--text-muted, #6b7280);
+        margin-bottom: 0.5rem;
+    }
+    .rag-rating-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .rag-rate-btn {
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 0.3rem 0.9rem;
+        border-radius: 999px;
+        border: 1px solid var(--border, #d1d5db);
+        background: var(--bg-card, #fff);
+        color: var(--text-body, #374151);
+        cursor: pointer;
+    }
+    .rag-rate-btn:hover {
+        border-color: var(--accent-primary, #3b82f6);
+        color: var(--accent-primary, #3b82f6);
+    }
+    .rag-rate-btn--bad:hover {
+        border-color: var(--color-error-border, #fecaca);
+        color: var(--color-error-fg, #b91c1c);
+    }
+    .rag-rate-btn--active {
+        border-color: var(--accent-primary, #3b82f6);
+        color: var(--accent-primary, #3b82f6);
+        background: var(--color-info-bg, #eff6ff);
+    }
+    .rag-rating-detail {
+        margin-top: 0.6rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .rag-rating-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem 0.75rem;
+    }
+    .rag-rating-reason {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.78rem;
+        color: var(--text-body, #374151);
+        cursor: pointer;
+    }
+    .rag-rating-detail textarea {
+        padding: 0.5rem;
+        font-size: 0.85rem;
+        border-radius: var(--radius, 8px);
+        border: 1px solid var(--border, #d1d5db);
+        resize: vertical;
+    }
+    .rag-rating-detail .rag-submit-btn {
+        align-self: flex-start;
+        padding: 0.4rem 1.1rem;
+        font-size: 0.82rem;
+    }
+    .rag-rating-status {
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
+        color: var(--text-muted, #6b7280);
+    }
 </style>
 {% endblock %} {% block content %}
 <div class="rag-page">

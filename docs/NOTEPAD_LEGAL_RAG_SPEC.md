@@ -72,7 +72,7 @@ Async/streaming execution; LLM-based query condensation (D5 below forbids it); e
 
 | ID | Requirement |
 | --- | --- |
-| **FR-17** | `detail()` **MUST** pass the note, its answers (newest-last for history rendering), and the stale flag (§5.4) to `notepad/detail.html`. |
+| **FR-17** | `detail()` **MUST** pass the note, its answers (newest-last for history rendering), the stale flag (§5.4), and the kill-switch availability (`notepad_ai_enabled and rag_enabled` — the ask card is hidden, not 503-bait, when off) to `notepad/detail.html`. Per-turn `citations`/`sub_queries` JSON is parsed in the route (precedent: the `evaluations` payload), so the template stays parse-free. |
 | **FR-18** | The latest answer **MUST** render as the primary answer card; older answers **MUST** render inside a collapsed `<details>` block, oldest first — the same "(oldest first)" convention the evaluations list already documents (`detail.html:61`). |
 | **FR-19** | The answer card **MUST** render, per turn: the question, the answer, the citations, the verification strip (groundedness, hallucination flag, degraded badge), and the meta line (model, tokens, timestamp). |
 | **FR-20** | The primary author-only action **MUST** be the ask form, labelled **Ask Legal RAG** / submit **Get legal answer**; the lens evaluation **MUST** be a secondary outline button labelled **Evaluate idea (7 lenses)** (D4). |
@@ -109,6 +109,7 @@ class NoteAnswer(db.Model):
     question = db.Column(db.Text, nullable=False)        # exact question asked (post-split fragment)
     answer = db.Column(db.Text, nullable=False)
     citations = db.Column(db.Text, nullable=True)        # JSON list of pipeline citation dicts
+    sub_queries = db.Column(db.Text, nullable=True)      # JSON list; internal decomposition (FR-12)
     note_snapshot = db.Column(db.Text, nullable=True)    # statement at ask time (INV-3)
     groundedness_score = db.Column(db.Float, nullable=True)
     hallucination_detected = db.Column(db.Boolean, nullable=True)
@@ -169,6 +170,7 @@ All reads are `result.get(...)`; the pipeline result dict shape is `app/rag/task
 | `question` | the fragment | exact string, post-strip |
 | `answer` | `answer` | empty string allowed only with `degraded=True` (INV-6) |
 | `citations` | `json.dumps(citations)` | `Citation` asdict fields: `chunk_id`, `section_number`, `document_title`, `document_type`, `authority`, `url`, `snippet`, `confidence` (`app/rag/retrieval/result.py:107-123`) |
+| `sub_queries` | `json.dumps(sub_queries or [])` | JSON list of the pipeline's internal decomposition; rendered read-only on the card as informational text (FR-12). Always a list (empty when the pipeline did not decompose). |
 | `note_snapshot` | `note.content_text` | taken before the first call of the ask |
 | `groundedness_score` | `groundedness_score` | render as a percentage |
 | `hallucination_detected` | `hallucination_detected` | bool; true ⇒ red warning on the card |
@@ -350,3 +352,4 @@ pytest -m "not slow" --tb=short -q legal_paragraph_detection_engine/tests/ tests
 | 2026-10-11 | Initial specification. Normative sections 3–6 fixed against the implementation plan's recommended defaults; D1–D4 specified with flip costs; 16 acceptance criteria and the traceability matrix added. |
 | 2026-10-11 | **Phase 1 implemented.** `NoteAnswer` model + `Note.answers` relationship (`app/models/notepad.py`); `app/notepad/thread.py` (`split_fragments`/`build_standalone_query`/`get_pipeline`/`ask` — F1–F5, INV-7, FR-4/FR-6–FR-8, V-1…V-4); migration `add_note_answer_table` chained off `add_rag_answer_feedback` (Q1 resolved: sole head). Tests added: `tests/test_notepad_thread.py` (11), `TestNoteAnswerModel` + `TestAsk` in `tests/test_notepad.py` (11), `tests/test_migration_note_answer.py` (7) — covering AC-1…AC-8, AC-15 at module level (routes land in Phase 2). Pre-existing stale head assertion in `tests/test_migration_rcm_nullable.py` fixed to the durable single-head invariant (it was red at HEAD before this work). |
 | 2026-10-11 | **Phase 2 implemented.** `POST /notepad/<id>/ask` and `POST /notepad/<id>/edit` (`app/notepad/routes.py`): §8 order pinned (visibility 404 → author-only 403 → §7 validation warning-redirect → shared 503 gate description → `thread.ask` → commit), graceful `rag_failed` danger-flash path (INV-8), edit author-only touching `content_text` only (FR-14…FR-16). §5.2 amended: `validate_question` added as the thread's public validation entry point so the route can honour §8 ordering without duplicating the fragment caps (FR-5 single ownership preserved — `ask` calls it). Tests: `TestAskRoute` (9) + `TestEditRoute` (5) in `tests/test_notepad.py`. |
+| 2026-10-12 | **Phase 3 implemented.** `detail()` passes parsed thread + stale flag + `rag_available` (FR-17 amended); `notepad/detail.html` reworked per plan §7 — statement card with author-only *Edit statement* form, primary **Ask Legal RAG** card (hidden behind the gates), latest answer as primary card with citations/verification strip/meta and the §5.4 stale marker, older turns in a collapsed `<details>` oldest-first, lens button demoted to **Evaluate idea (7 lenses)** (FR-18…FR-20, D4). **§5.1/§5.4 amended**: `sub_queries` column added to `NoteAnswer` + `add_note_answer_table` (the un-shipped Phase 1 migration was amended in place rather than chained — FR-12 could not surface the pipeline's decomposition without persisting it; `_to_answer` always stores a JSON list). Tests: `TestDetailThreadUI` (12, rendered-body assertions per the traceability matrix). |

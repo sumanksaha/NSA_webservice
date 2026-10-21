@@ -143,9 +143,15 @@ def _rag_stub_llm_env(monkeypatch):
     own body (``monkeypatch.setenv``) since the client reads env at call time.
     """
     monkeypatch.setenv("RAG_USE_STUB_LLM", "true")
+    # Arm the LLM kill switch for the suite: tests exercise stub/mocked
+    # transports (zero real network), so live-path tests need the switch ON
+    # plus a generous budget to behave as they did before the switch existed.
+    # Kill-switch tests override these per-test (delenv / set "false"/"0").
+    monkeypatch.setenv("LLM_ENABLED", "true")
+    monkeypatch.setenv("MAX_LLM_CALLS", "100000")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("RAG_STUB_RESPONSE", raising=False)
-    # GroundedLLMClient now hardcodes poolside/laguna-s-2.1:free, so no
+    # GroundedLLMClient now defaults to minimax/minimax-m3.1-flash:free, so no
     # model-related env cleanup is needed beyond the stub mode above.
     monkeypatch.delenv("RAG_LLM_MODEL", raising=False)
     # Pin full-enrichment off so ingestion tests use the cheap default

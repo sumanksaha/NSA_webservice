@@ -173,6 +173,20 @@ def ask(note: Note, question: str) -> list[NoteAnswer]:
     return answers
 
 
+def _token_total(value: Any) -> int | None:
+    """Coerce the pipeline's ``token_usage`` dict to an int total for the row."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        value = value.get("total", 0)
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _to_answer(
     note: Note,
     question: str,
@@ -188,11 +202,12 @@ def _to_answer(
         question=question,
         answer=result.get("answer") or "",
         citations=json.dumps(result.get("citations") or []),
+        sub_queries=json.dumps(result.get("sub_queries") or []),
         note_snapshot=snapshot,
         groundedness_score=result.get("groundedness_score"),
         hallucination_detected=bool(result.get("hallucination_detected")),
         degraded=bool(debug.get("degraded_mode")),
         provider_model=result.get("llm_model"),
-        token_usage=result.get("token_usage"),
+        token_usage=_token_total(result.get("token_usage")),
         rag_log_id=result.get("log_id"),
     )

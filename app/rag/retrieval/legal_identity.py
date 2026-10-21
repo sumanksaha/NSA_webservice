@@ -22,9 +22,10 @@ omitted rather than fabricated.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field as dataclass_field
 from typing import Any
 
+from app.rag.retrieval.chunk import field, text as chunk_text
 from app.rag.retrieval.legal_hierarchy import parse_section_chain
 from app.shared.config import cfg
 
@@ -107,8 +108,8 @@ class LegalIdentity:
     chapter: str | None = None
     part: str | None = None
     section: str | None = None
-    subsection: list[str] = field(default_factory=list)
-    clause: list[str] = field(default_factory=list)
+    subsection: list[str] = dataclass_field(default_factory=list)
+    clause: list[str] = dataclass_field(default_factory=list)
     rule: str | None = None
     schedule: str | None = None
     authority: str | None = None
@@ -131,10 +132,10 @@ class LegalIdentity:
     parent_unit: str | None = None
     # Child canonical ids — empty at single-chunk parse time; the
     # corpus-wide grouping layer populates these.
-    child_units: list[str] = field(default_factory=list)
+    child_units: list[str] = dataclass_field(default_factory=list)
     # Section numbers cross-referenced by the provision text (e.g. ["32"]),
     # plus Rule / Schedule mentions as "Rule 5" / "Schedule 2".
-    cross_references: list[str] = field(default_factory=list)
+    cross_references: list[str] = dataclass_field(default_factory=list)
     # Marker flags (word-boundary matched, never fabricated).
     has_definition: bool = False
     has_exception: bool = False
@@ -252,17 +253,6 @@ def _resolve_act_alias(act_name: str | None, document_title: str | None) -> str 
     return act_name or None
 
 
-def _chunk_field(chunk: Any, name: str, default: Any = None) -> Any:
-    """Read a payload field off a chunk object, dataclass, or plain dict.
-
-    Agent-pipeline chunks are ``RetrievedChunk.to_dict()`` dicts — without
-    this, every dict parsed as if it had no section/act metadata at all.
-    """
-    if isinstance(chunk, dict):
-        return chunk.get(name, default)
-    return getattr(chunk, name, default)
-
-
 def parse_legal_identity(chunk: Any) -> LegalIdentity:
     """Parse a legal identity from a ``RetrievedChunk`` (or chunk-like object).
 
@@ -273,9 +263,9 @@ def parse_legal_identity(chunk: Any) -> LegalIdentity:
     identity = LegalIdentity()
 
     # Act / Act alias
-    act_name = _chunk_field(chunk, "act_name", None) or ""
-    document_title = _chunk_field(chunk, "document_title", None) or ""
-    authority = _chunk_field(chunk, "authority", None) or ""
+    act_name = field(chunk, "act_name", None) or ""
+    document_title = field(chunk, "document_title", None) or ""
+    authority = field(chunk, "authority", None) or ""
 
     identity.act = _resolve_act_alias(act_name or None, document_title or None)
     identity.act_alias = act_name if act_name and act_name != identity.act else None
@@ -285,7 +275,7 @@ def parse_legal_identity(chunk: Any) -> LegalIdentity:
     # — so base/subsection/clause can never disagree with the hierarchy view.
     # A leading section keyword ("Section 31(2)") is stripped first; the
     # field is a section ref by construction, so no keyword check is needed.
-    section_number = _chunk_field(chunk, "section_number", None) or ""
+    section_number = field(chunk, "section_number", None) or ""
     identity.raw_section = section_number if section_number else None
 
     bare = _LEADING_SECTION_KW_RE.sub("", section_number)
@@ -297,8 +287,8 @@ def parse_legal_identity(chunk: Any) -> LegalIdentity:
             identity.clause = chain[2:]
 
     # Document-type inference (Rule, Schedule, Chapter)
-    doc_type = _chunk_field(chunk, "document_type", None) or ""
-    text_lower = (document_title + " " + (_chunk_field(chunk, "text", "") or "")).lower()
+    doc_type = field(chunk, "document_type", None) or ""
+    text_lower = (document_title + " " + chunk_text(chunk)).lower()
 
     if "schedule" in text_lower or "schedule" in doc_type.lower():
         sched_m = re.search(r"schedule\s+([a-z0-9\-]+)", text_lower)
@@ -323,19 +313,17 @@ def parse_legal_identity(chunk: Any) -> LegalIdentity:
 
     # --- Phase 2 enrichment: hierarchy links + operative signals ---
     identity.parent_unit = _parent_canonical_id(identity.act, chain)
-    chunk_text = _chunk_field(chunk, "text", "") or ""
-    if isinstance(chunk, dict):
-        chunk_text = chunk.get("text", "") or ""
-    identity.provision_type = detect_provision_type(chunk_text)
-    low_text = chunk_text.lower()
-    identity.has_exception = any(_marker_hit(m, low_text, chunk_text) for m in _EXCEPTION_PATTERNS)
+    text_value = chunk_text(chunk)
+    identity.provision_type = detect_provision_type(text_value)
+    low_text = text_value.lower()
+    identity.has_exception = any(_marker_hit(m, low_text, text_value) for m in _EXCEPTION_PATTERNS)
     identity.has_definition = any(m in low_text for m in _DEFINITION_MARKERS) or bool(
-        _QUOTED_MEANS_RE.search(chunk_text),
+        _QUOTED_MEANS_RE.search(text_value),
     )
     identity.cross_references = sorted(
-        set(_CROSS_REF_RE.findall(chunk_text))
-        | {f"Rule {r}" for r in _RULE_REF_RE.findall(chunk_text)}
-        | {f"Schedule {s}" for s in _SCHEDULE_REF_RE.findall(chunk_text)},
+        set(_CROSS_REF_RE.findall(text_value))
+        | {f"Rule {r}" for r in _RULE_REF_RE.findall(text_value)}
+        | {f"Schedule {s}" for s in _SCHEDULE_REF_RE.findall(text_value)},
     )
     identity.has_cross_reference = bool(identity.cross_references)
 

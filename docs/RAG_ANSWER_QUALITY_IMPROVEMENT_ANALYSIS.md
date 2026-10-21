@@ -193,9 +193,9 @@ Pipeline phases (from `docs/RAG_IMPLEMENTATION.md` and code):
 ### 5.5 Verification is fuzzy, not true entailment (P1)
 
 - **Files:** `verification/claim_extractor.py`, `evidence_verifier.py`, `hallucination_detector.py`, `verification/scorer.py`
-- **Audit Status:** Partially completed. `GroundednessScorer` empty-claims guard (scoring 0.50 claim ratio on non-empty responses) has landed. However, `EvidenceVerifier.verify_claim()` still relies on section matching with a fallback to `rapidfuzz >= 70`. While `_PROHIBITION_RE` and `_AMOUNT_RE` regexes exist in `evidence_verifier.py`, they are currently only evaluated in `find_contradictions` (inter-chunk conflicts), **not** in `verify_claim(claim, chunks)`.
-- **Gap:** Inverted polarity (prohibition vs permission) and hallucinated amounts/percentages can still pass claim verification if rapidfuzz string similarity $\ge 70$.
-- **Why it hurts:** Wrong polarity, wrong numbers, or missed exceptions can still “verify” and finalize.
+- **Audit Status:** Partially completed, then partially hardened. `GroundednessScorer` empty-claims guard (scoring 0.50 claim ratio on non-empty responses) has landed. `EvidenceVerifier.verify_claim()` still does section matching first and falls back to `rapidfuzz >= 70`, **but the fallback is no longer pure string similarity**: the fuzzy path now goes through `_first_supporting()`, which calls `_chunk_supports_claim()` and enforces two entailment gates — polarity (`_PROHIBITION_RE` vs `_PERMISSION_RE`) and numeric entailment (`_AMOUNT_RE` / `_PERCENT_RE`). A chunk that fails a gate is not evidence and the claim is rejected with `polarity_mismatch` or `numeric_mismatch`.
+- **Remaining gap:** entailment gating applies only to the fuzzy (``text``) path; a section-number match still returns high confidence without the same polarity/numeric cross-check, and `_chunk_supports_claim` is still a local helper rather than surfaced as a standalone verifiable contract. The doc’s earlier note that those regexes were only in `find_contradictions` is stale — they are now in the fuzzy verification path.
+- **Why it still matters:** wrong polarity, wrong numbers, or missed exceptions can still pass when the claim matches a chunk by section number, and a prohibited claim can still verify against a chunk that happens to share its section stamp.
 
 ### 5.6 Targeted retries are often placeholders (P1) — RESOLVED
 
@@ -452,9 +452,8 @@ Execution status & next prioritized sequence based on the codebase evaluation:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-> **Note on Test Suite Import Drift:** Two test modules have minor import drift to clean up:
-> - `tests/test_form_arm_precision.py`: expects `FORM_NAMES`, renamed to `_FORM_NAMES` in `form_references.py`.
-> - `tests/test_split_policy.py`: expects `split_census`, refactored out of `evaluation.benchmark`.
+> **Note on Test Suite Import Drift:** One test module carries a non-breaking redirect, not a broken import:
+> - `tests/test_form_arm_precision.py` imports `app.rag.retrieval.form_references._FORM_NAMES` and re-exports it locally as `FORM_NAMES`. That is intentional: `form_references.py` keeps `FORM_NAMES` as the public name and exposes `_FORM_NAMES` only as a private alias (`_FORM_NAMES = FORM_NAMES`). No current test imports a symbol that would raise at runtime. The `split_census` drift described earlier in this doc has already been resolved: `tests/test_split_policy.py` imports `split_census` from `evaluation.split_policy`, and the canonical definition now lives in `evaluation/split_policy.py` rather than in `evaluation.benchmark`.
 
 **Do not enable `RAG_KG_FUSION` yet.** The fusion path is now correct but the graph carries no quotable text (§1): re-run `evaluation/ab_kg_fusion.py` only after `LegalProvision.text` holds real provision bodies or the injected chunk resolves `SUPPORTED_BY` chunk text. Note the cost figure quoted in §1 is itself pre-fix and under-reported; the direction (fusion costs citations, gains no correctness) is what matters.
 

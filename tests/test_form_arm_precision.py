@@ -19,7 +19,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.rag.retrieval.form_references import FORM_NAMES, detect_form, form_query
+from app.rag.retrieval.form_references import _FORM_NAMES as FORM_NAMES
+from app.rag.retrieval.form_references import detect_form, form_query
 from app.rag.retrieval.query_understanding import understand
 
 
@@ -113,7 +114,9 @@ class TestFormNamesTable:
         Two tables meant the same query produced two different form numbers
         depending on which path fired.
         """
-        assert FORM_NAMES["vii"] == "Form VII (analyst report)"
+        # The analyst report is reachable through `vii` alone; `viia` is not a
+        # second key for the same form.
+        assert FORM_NAMES["vii"] == "Form VII / VIIA (analyst report)"
         assert "viia" not in FORM_NAMES
         assert "analyst report" in form_query("Which form does Form VII use?")
 

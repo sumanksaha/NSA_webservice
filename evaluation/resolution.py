@@ -219,12 +219,24 @@ def payload_to_keys(payload: dict, family_map: FamilyMap) -> list[tuple[str, str
     return keys
 
 
-def matches_gold(payload: dict, unit: GoldUnit, family_map: FamilyMap) -> bool:
+def matches_gold(
+    payload: dict,
+    unit: GoldUnit,
+    family_map: FamilyMap,
+    *,
+    text_fallback: bool = False,
+) -> bool:
     """Whether a chunk payload covers a gold unit.
 
     * Numeric gold sections require an equal normalised ``section_number``.
     * Instrument-level gold references (``section is None``) are covered by
       any chunk of the same family (e.g. ``fssai:regs/contaminants``).
+
+    When *text_fallback* is True and the stamp check fails, retries via
+    :func:`gold_text_match.resolve_by_text` — a family-guarded, token-based
+    search for the gold provision's distinctive title phrase.  This closes
+    the "gold in pool, still wrong" gap for chunks lacking or carrying a
+    wrong ``section_number`` stamp.
     """
     keys = payload_to_keys(payload, family_map)
     for family, section in keys:
@@ -234,6 +246,11 @@ def matches_gold(payload: dict, unit: GoldUnit, family_map: FamilyMap) -> bool:
             return True
         if section is not None and section == unit.section:
             return True
+    if text_fallback:
+        # Lazy import avoids circular dependency (gold_text_match imports
+        # FamilyMap from this module at load time).
+        from evaluation.gold_text_match import resolve_by_text
+        return resolve_by_text(payload, unit, family_map)
     return False
 
 
@@ -241,11 +258,13 @@ def gold_in_corpus(
     units: list[GoldUnit],
     payload_index: dict[str, dict],
     family_map: FamilyMap,
+    *,
+    text_fallback: bool = False,
 ) -> dict[str, Any]:
     """Resolve gold units to payload points (corpus-coverage check)."""
     result: dict[str, Any] = {"resolved_units": 0, "unresolved_units": 0, "unit_points": {}}
     for unit in units:
-        pts = [pid for pid, payload in payload_index.items() if matches_gold(payload, unit, family_map)]
+        pts = [pid for pid, payload in payload_index.items() if matches_gold(payload, unit, family_map, text_fallback=text_fallback)]
         if pts:
             result["resolved_units"] += 1
             result["unit_points"][unit.provision_id] = pts
@@ -260,6 +279,8 @@ def chunks_cover_gold(
     gold_units: list[GoldUnit],
     payload_index: dict[str, dict],
     family_map: FamilyMap,
+    *,
+    text_fallback: bool = False,
 ) -> dict[str, Any]:
     """Ranked per-unit hit info for a ranked chunk-id list.
 
@@ -272,7 +293,7 @@ def chunks_cover_gold(
         hit_rank = None
         for i, cid in enumerate(chunk_ids):
             payload = payload_index.get(cid)
-            if payload is not None and matches_gold(payload, unit, family_map):
+            if payload is not None and matches_gold(payload, unit, family_map, text_fallback=text_fallback):
                 hit_rank = i + 1
                 matched_any.add(cid)
                 break

@@ -202,7 +202,8 @@ class RemoteRerankClient:
 
         ``None`` when no local model is configured or sentence-transformers /
         torch are unavailable — the caller then degrades further (the
-        reranker's sec_act features-only path).
+        reranker's sec_act features-only path). Uses the shared, thread-capped
+        model cache (:mod:`app.rag.model_runtime`).
         """
         if self._local_attempted:
             return self._local_encoder
@@ -210,14 +211,9 @@ class RemoteRerankClient:
         if not self.local_model:
             return None
         try:
-            from sentence_transformers import CrossEncoder
+            from app.rag.model_runtime import get_cross_encoder
 
-            # Bound torch threads before the model is built (RAG_TORCH_THREADS)
-            # so the fallback does not peg every core on a laptop.
-            from app.rag.torch_runtime import cap_torch_threads
-
-            cap_torch_threads()
-            self._local_encoder = CrossEncoder(self.local_model)
+            self._local_encoder = get_cross_encoder(self.local_model)
         except Exception as exc:
             logger.warning("RemoteRerankClient: local CE fallback unavailable (%s)", exc)
             self._local_encoder = None

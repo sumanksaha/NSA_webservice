@@ -5,6 +5,12 @@ without API keys and stays deterministic for legal queries.  It classifies
 user queries into :class:`QueryType` and provides structured parsers that
 extract section numbers, authorities, case-law references, and jurisdictions.
 
+:class:`QueryType` is the legacy runtime routing view.  The canonical
+query-type vocabulary -- including ``duty``/``obligation`` and
+``amendment_query``/``amendment`` -- lives in
+:mod:`app.rag.query_type_registry`; the labels below are canonical ids and the
+enum values are resolved through the registry at import time.
+
 Patterns are adapted from:
 - ``app/cross_reference/engine.py`` — ``KNOWN_SECTIONS`` and ``_SECTION_RUN_RE``
   (regex patterns for section reference extraction, R1 adaptation)
@@ -25,11 +31,19 @@ import re
 from enum import StrEnum
 from typing import Any, ClassVar, Protocol
 
+from app.rag import query_type_registry as _registry
+
 logger = logging.getLogger(__name__)
 
 
 class QueryType(StrEnum):
-    """Classification categories — expanded for intelligence-layer reasoning (2.2)."""
+    """Legacy runtime routing values for query classification.
+
+    The canonical vocabulary is :mod:`app.rag.query_type_registry`.  These
+    values are compatibility spellings: each one resolves to a canonical id
+    (``duty`` -> ``obligation``, ``amendment_query`` -> ``amendment``), and the
+    reverse map is derived below rather than hand-maintained.
+    """
 
     IDENTIFICATION = "identification"
     LOOKUP = "lookup"
@@ -58,28 +72,32 @@ class QueryType(StrEnum):
     AMENDMENT_QUERY = "amendment_query"
 
 
-# Triage map: keyword → QueryType for the 18+ intelligence-layer types.
+#: canonical id -> legacy runtime member.  Derived by resolving every enum
+#: value through the registry, so a new ``QueryType`` member cannot bypass the
+#: canonical vocabulary and an alias collision fails at import time.
+_RUNTIME_TYPE_BY_CANONICAL: dict[str, QueryType] = {}
+for _member in QueryType:
+    _canonical = _registry.resolve(_member.value)
+    assert _canonical is not None, (
+        f"QueryType.{_member.name} ({_member.value!r}) is absent from "
+        "app.rag.query_type_registry"
+    )
+    assert _canonical not in _RUNTIME_TYPE_BY_CANONICAL, (
+        f"QueryType.{_member.name} and "
+        f"QueryType.{_RUNTIME_TYPE_BY_CANONICAL[_canonical].name} both resolve "
+        f"to {_canonical!r}"
+    )
+    _RUNTIME_TYPE_BY_CANONICAL[_canonical] = _member
+del _member, _canonical
+
+
+# Triage map: canonical id and every registered alias -> legacy QueryType.
 # Used by classify_intent() to route queries to the correct retrieval strategy.
 CLASSIFIER_TRIAGE: dict[str, QueryType] = {
-    "identification": QueryType.IDENTIFICATION,
-    "lookup": QueryType.LOOKUP,
-    "definition": QueryType.DEFINITION,
-    "prohibition": QueryType.PROHIBITION,
-    "duty": QueryType.DUTY,
-    "right": QueryType.RIGHT,
-    "power": QueryType.POWER,
-    "penalty": QueryType.PENALTY,
-    "exception": QueryType.EXCEPTION,
-    "procedure": QueryType.PROCEDURE,
-    "applicability": QueryType.APPLICABILITY,
-    "comparison": QueryType.COMPARISON,
-    "temporal": QueryType.TEMPORAL,
-    "jurisdiction": QueryType.JURISDICTION,
-    "cross_reference": QueryType.CROSS_REFERENCE,
-    "case_law": QueryType.CASE_LAW,
-    "multi_hop": QueryType.MULTI_HOP,
-    "fact_pattern": QueryType.FACT_PATTERN,
-    "compliance_assessment": QueryType.COMPLIANCE_ASSESSMENT,
+    form: _RUNTIME_TYPE_BY_CANONICAL[canonical]
+    for canonical, spec in _registry.REGISTRY.items()
+    if canonical in _RUNTIME_TYPE_BY_CANONICAL
+    for form in (spec.canonical, *spec.aliases)
 }
 
 
@@ -95,7 +113,7 @@ from app.rag.legal_sections import FSS_ACT_SECTIONS  # noqa: F401  (re-export)
 _QUERY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     # Amendment queries — must be checked before section lookup
     ("amendment", re.compile(r"\bamend|amendment|substitute|inserted|added|repeal|repealed", re.IGNORECASE)),
-    ("section", re.compile(r"\bsection\s*\d{1,3}\b|\bu/s\b|\bsec\.\s*\d{1,3}\b|s\s*\d{1,3}", re.IGNORECASE)),
+    ("section_lookup", re.compile(r"\bsection\s*\d{1,3}\b|\bu/s\b|\bsec\.\s*\d{1,3}\b|s\s*\d{1,3}", re.IGNORECASE)),
     (
         "case_law",
         re.compile(
@@ -125,7 +143,7 @@ _QUERY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ),
     # Provision / regulation queries
     (
-        "provision",
+        "provision_search",
         re.compile(
             r"\b(fss\s*act|food\s*safety\s*and\s*standards\s*act|fssa|regulation|sub[-\s]?regulation)", re.IGNORECASE,
         ),
@@ -198,16 +216,29 @@ _QUERY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         ),
     ),
     # General fallback
-    ("general", re.compile(r".+", re.IGNORECASE)),
+    ("general_qa", re.compile(r".+", re.IGNORECASE)),
 ]
+
+
+#: Canonical label -> legacy runtime member.  The assertion makes the
+#: canonical-id rule a hard import-time invariant instead of a convention.
+_LABEL_TO_TYPE: dict[str, QueryType] = {}
+for _label, _pattern in _QUERY_PATTERNS:
+    _canonical = _registry.resolve(_label)
+    assert _canonical == _label, (
+        f"QueryClassifier pattern label {_label!r} must be a canonical "
+        f"query-type id (resolved to {_canonical!r})"
+    )
+    _LABEL_TO_TYPE[_label] = _RUNTIME_TYPE_BY_CANONICAL[_canonical]
+del _label, _pattern, _canonical
 
 
 class QueryClassifier:
     """Rule-based query classifier for the FSS Act legal corpus.
 
-    Classification priority: amendment → section → case law → penalty →
-    prohibition → authority → cross_reference → definition → obligation →
-    procedure → provision → general.
+    Classification priority: amendment → section_lookup → case_law →
+    penalty → prohibition → authority → cross_reference → definition →
+    obligation → procedure → provision_search → general_qa.
 
     Stateless and safe to share across requests/threads.
 
@@ -216,27 +247,12 @@ class QueryClassifier:
     to their closest legacy equivalent where no exact mapping exists.
     """
 
-    _LABEL_TO_TYPE: ClassVar[dict[str, QueryType]] = {
-        "amendment": QueryType.AMENDMENT_QUERY,
-        "section": QueryType.SECTION_LOOKUP,
-        "case_law": QueryType.CASE_LAW,
-        "penalty": QueryType.PENALTY,
-        "prohibition": QueryType.PROHIBITION,
-        "authority": QueryType.AUTHORITY,
-        "cross_reference": QueryType.CROSS_REFERENCE,
-        "definition": QueryType.DEFINITION,
-        "obligation": QueryType.DUTY,
-        "procedure": QueryType.PROCEDURE,
-        "provision": QueryType.PROVISION_SEARCH,
-        "general": QueryType.GENERAL_QA,
-    }
-
     def classify(self, query: str) -> QueryType:
         if not query or not query.strip():
             return QueryType.GENERAL_QA
         for label, pattern in _QUERY_PATTERNS:
             if pattern.search(query):
-                return self._LABEL_TO_TYPE.get(label, QueryType.GENERAL_QA)
+                return _LABEL_TO_TYPE.get(label, QueryType.GENERAL_QA)
         return QueryType.GENERAL_QA
 
 

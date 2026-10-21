@@ -25,6 +25,7 @@ import logging
 import re
 from typing import Any
 
+from app.rag.retrieval.chunk import text as chunk_text
 from app.rag.retrieval.food_query_understanding import FoodQueryUnderstanding
 from app.rag.retrieval.parent_reconstruction import _completeness, clause_commodity_for  # reuse flags
 from app.rag.retrieval.provision_metadata import (
@@ -76,7 +77,7 @@ def _entity_evidence_state(ranked_chunks: list[Any], fq: FoodQueryUnderstanding)
         return "match"
     has_known_clause = False
     for c in ranked_chunks:
-        if commodity_phrase_match(_ctext(c), entity):
+        if commodity_phrase_match(chunk_text(c), entity):
             return "match"
         commodity = (clause_commodity_for(c) or "").lower()
         if commodity:
@@ -103,7 +104,7 @@ def _parameter_satisfied(ranked_chunks: list[Any], fq: FoodQueryUnderstanding) -
         return False
     entity = (fq.entity or "").lower()
     for c in ranked_chunks:
-        text = _ctext(c).lower()
+        text = chunk_text(c).lower()
         commodity = (clause_commodity_for(c) or "").lower()
         if entity:
             entity_here = (
@@ -119,12 +120,6 @@ def _parameter_satisfied(ranked_chunks: list[Any], fq: FoodQueryUnderstanding) -
         if _MEASUREMENT_RE.search(text) and any(p in text for p in params):
             return True
     return False
-
-
-def _ctext(chunk: Any) -> str:
-    if isinstance(chunk, dict):
-        return str(chunk.get("text", "") or "")
-    return str(getattr(chunk, "text", "") or "")
 
 
 def validate_retrieval(

@@ -20,6 +20,7 @@ from app.rag.provision_extractor.disambiguator import Disambiguator
 from app.rag.provision_extractor.features import extract_features
 from app.rag.provision_extractor.models import DeonticModality, ProvisionRecord
 from app.rag.provision_extractor.registry import family_token, provision_id
+from app.rag.retrieval.chunk import field, set_field
 
 _SUBSECTION_RE = re.compile(r"\s*((?:\([^()]*\))+)")
 _TITLE_PREFIX_RE = re.compile(r"^\s*(?:Section|Sec\.|§)?\s*\d{1,4}(?:\.\d{1,2})*\s*\.?\s*")
@@ -37,21 +38,6 @@ _MODALITY_PATTERNS: tuple[tuple[DeonticModality, re.Pattern[str]], ...] = (
 )
 
 
-def _chunk_field(chunk: Any, key: str, default: Any = None) -> Any:
-    """Read *key* from a Chunk-like object or a payload dict."""
-    if isinstance(chunk, dict):
-        return chunk.get(key, default)
-    return getattr(chunk, key, default)
-
-
-def _set_chunk_field(chunk: Any, key: str, value: Any) -> None:
-    """Set *key* on a Chunk-like object or payload dict."""
-    if isinstance(chunk, dict):
-        chunk[key] = value
-    else:
-        setattr(chunk, key, value)
-
-
 def attach_provision_spans(chunks: list[Any], records: list[ProvisionRecord]) -> None:
     """Annotate *chunks* in place with the provisions overlapping each span.
 
@@ -61,8 +47,8 @@ def attach_provision_spans(chunks: list[Any], records: list[ProvisionRecord]) ->
     """
     if not chunks or not records:
         return
-    ordered = sorted(chunks, key=lambda c: int(_chunk_field(c, "chunk_index", 0) or 0))
-    parts = [str(_chunk_field(c, "chunk_text", "") or "") for c in ordered]
+    ordered = sorted(chunks, key=lambda c: int(field(c, "chunk_index", 0) or 0))
+    parts = [str(field(c, "chunk_text", "") or "") for c in ordered]
     starts: list[int] = []
     position = 0
     for part in parts:
@@ -81,7 +67,7 @@ def attach_provision_spans(chunks: list[Any], records: list[ProvisionRecord]) ->
 
     for index, chunk_records in per_chunk.items():
         modalities = Counter(str(record.modality) for record in chunk_records)
-        _set_chunk_field(
+        set_field(
             ordered[index],
             "provision_spans",
             [
@@ -93,12 +79,12 @@ def attach_provision_spans(chunks: list[Any], records: list[ProvisionRecord]) ->
                 for record in chunk_records
             ],
         )
-        _set_chunk_field(
+        set_field(
             ordered[index],
             "provision_confidence",
             round(max(float(record.confidence) for record in chunk_records), 6),
         )
-        _set_chunk_field(ordered[index], "provision_modality", modalities.most_common(1)[0][0])
+        set_field(ordered[index], "provision_modality", modalities.most_common(1)[0][0])
 
 
 def classify_modality(text: str) -> DeonticModality:
@@ -165,8 +151,8 @@ def isolate_chunks(
         the confidence threshold.
 
     """
-    ordered = sorted(chunks, key=lambda c: int(_chunk_field(c, "chunk_index", 0) or 0))
-    parts = [str(_chunk_field(c, "chunk_text", "") or "") for c in ordered]
+    ordered = sorted(chunks, key=lambda c: int(field(c, "chunk_index", 0) or 0))
+    parts = [str(field(c, "chunk_text", "") or "") for c in ordered]
     if not any(part.strip() for part in parts):
         return []
 
@@ -187,7 +173,7 @@ def isolate_chunks(
 
     for candidate in candidates:
         chunk = _overlapping_chunk(ordered, starts, parts, candidate.char_offset)
-        covered = _chunk_field(chunk, "sections_covered", []) if chunk is not None else []
+        covered = field(chunk, "sections_covered", []) if chunk is not None else []
         # Identity key = normalized number + subsection chain.  Re-mentions of
         # the same key are cross-references in running text, never separate
         # provisions (E2); the first occurrence is weighted positively, later
@@ -200,7 +186,7 @@ def isolate_chunks(
             prev_accepted=prev_accepted,
             first_occurrence=key not in seen_keys,
             sections_covered=set(covered or []),
-            engine_confidence=float(_chunk_field(chunk, "confidence", 0.0) or 0.0),
+            engine_confidence=float(field(chunk, "confidence", 0.0) or 0.0),
         )
         seen_keys.add(key)
         decision = engine.predict(features)
@@ -282,7 +268,7 @@ def _source_chunk_ids(
     for index, start in enumerate(starts):
         end = start + len(parts[index])
         if start < span_end and end > span_start:
-            chunk_id = _chunk_field(ordered[index], "chunk_id")
+            chunk_id = field(ordered[index], "chunk_id")
             if chunk_id:
                 ids.append(str(chunk_id))
     return ids

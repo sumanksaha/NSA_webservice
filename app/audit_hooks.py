@@ -21,6 +21,7 @@ Design notes (performance):
 """
 
 import json
+import logging
 from datetime import UTC, datetime
 
 from flask import request
@@ -31,6 +32,8 @@ from sqlalchemy.orm import Session
 from app.extensions import db
 from app.models import RecordAudit
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # Sensitive / internal columns to exclude from change diffs
 # ---------------------------------------------------------------------------
@@ -39,6 +42,21 @@ _EXCLUDED_COLUMNS = frozenset({
     "pdf_task_id",  # Celery task tracking, not a meaningful record change
     "pdf_generated_at",  # same as above
 })
+
+# Defense-in-depth cap on the ``record_id`` identifier length, derived from
+# the ``record_audit.record_id`` column width so the guard can never cap below
+# a widened column. A composite-key identifier that exceeded the column would
+# otherwise raise ``StringDataRightTruncation`` on Postgres and roll back the
+# caller's whole transaction (the audit insert shares it); truncate as a last
+# resort so an audit bug can never again take down a business write. A length
+# of ``None`` (an unbounded ``String``) means no cap — ``s[:None]`` is a no-op.
+#
+# Caveat: this is the MODEL width, not the live column. After the widening
+# migration runs the two agree; in the (non-standard) window where new code
+# meets a not-yet-migrated VARCHAR(50) column the cap is 255 while the column
+# is 50, so the guard does not cover that gap — the fix is running the
+# migration, not shrinking the cap here.
+_MAX_RECORD_ID_LEN = RecordAudit.__table__.c.record_id.type.length
 
 
 def _get_user_id():
@@ -68,11 +86,27 @@ def _get_user_agent():
 
 def _record_audit(action, record_type, record_id, changes=None):
     """Insert a single ``RecordAudit`` row in the current session."""
+    # Defense-in-depth cap: truncate an over-long identifier rather than let
+    # the INSERT raise StringDataRightTruncation on Postgres and roll back the
+    # caller's whole transaction. Log loudly so a genuinely over-long
+    # identifier (a signal the composite-key format grew) is never silently
+    # mutated into something that looks like a real, distinct record.
+    record_id = str(record_id)
+    if len(record_id) > _MAX_RECORD_ID_LEN:
+        logger.warning(
+            "Audit record_id truncated to %d chars (was %d) for %s/%s; "
+            "the identifier format may have outgrown the column.",
+            _MAX_RECORD_ID_LEN,
+            len(record_id),
+            record_type,
+            action,
+        )
+        record_id = record_id[:_MAX_RECORD_ID_LEN]
     entry = RecordAudit(
         user_id=_get_user_id(),
         action=action,
         record_type=record_type,
-        record_id=str(record_id),
+        record_id=record_id,
         changes=json.dumps(changes) if changes else None,
         timestamp=datetime.now(UTC),
         ip_address=_get_ip(),

@@ -10,7 +10,7 @@ like ``from app.models import User`` continue to work transparently.
 
 from app.models.auth import AirtableBaseMap, Comment, RecordAudit, Role, User, user_roles
 from app.models.billing import Bill, BillSample, CodeSequence, Sample
-from app.models.config import AppSecret, Settings
+from app.models.config import Settings
 from app.models.diary import WorkDiaryEntry
 from app.models.document import (
     Adjudication,
@@ -18,6 +18,7 @@ from app.models.document import (
     CaseFile,
     Entity,
     Evidence,
+    EvidenceAssessment,
     Relationship,
     TimelineEvent,
     Version,
@@ -40,4 +41,12 @@ from app.models.ocr import (
     OCRCorrection,
     OCRDocument,
 )
-from app.models.rag import LegalChunk, LegalDocument, RAGEvalDataset, RAGEvalResult, RAGQueryLog
+from app.models.rag import (
+    LegalChunk,
+    LegalDocument,
+    RAGAnswerFeedback,
+    RAGEvalDataset,
+    RAGEvalResult,
+    RAGQueryLog,
+    RAGResearchTarget,
+)

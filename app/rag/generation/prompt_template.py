@@ -9,12 +9,16 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.rag import query_type_registry as _registry
+
 logger = logging.getLogger(__name__)
 
 GROUND_QA_SYSTEM_PROMPT = (
     "You are a legal assistant specialised in the Food Safety and Standards "
     "Act, 2006 (FSS Act). Answer using ONLY the <legal_context> sources below. "
-    "Work in two steps. Step 1 — quote: first extract the short passages "
+    "Begin your reply with the literal heading 'Step 1 — Quotes'. Do not "
+    "describe your approach or restate these instructions. Work in two steps. "
+    "Step 1 — quote: first extract the short passages "
     "that bear on the question, quoting them verbatim. Step 2 — answer: "
     "give a concise, legally precise answer derived strictly from those quotes. "
     "Citation contract: (1) every material legal claim carries at least one "
@@ -136,7 +140,9 @@ GROUND_QA_USER_TEMPLATE = (
     "If one part is not covered by the context, answer the other parts and "
     "say which part is uncovered rather than declining the whole question; "
     "before stating that the context does not address something, point to "
-    "the numbered sources you checked for it.\n"
+    "the numbered sources you checked for it. NEVER give a blanket refusal "
+    "if the question names a specific Act/Order/Rule or section number — "
+    "you MUST address that specific provision with citations from the context.\n"
     "For each material legal proposition, name the exact provision you rely "
     "on (Act and section) beside its [n] citation. If more than one section "
     "could apply, say which one governs and why. If the context holds more "
@@ -153,8 +159,109 @@ GROUND_QA_USER_TEMPLATE = (
     "Answer:"
 )
 
+#: Two-pass structured answering (W3).  When ``ENABLE_STRUCTURED_REASONER``
+#: is on, ``StructuredReasoner`` first builds the IRAC-shaped IR
+#: (``structured_reasoner.py``: issue -> provisions -> definitions -> rules ->
+#: exceptions/conditions -> conclusion) in its own LLM call, and the final
+#: answer is rendered *from* that IR.  The answer prompt below therefore
+#: carries the reasoning as content instead of prescribing an emitted
+#: scratchpad: the out-of-band pass removes the 1024-token budget conflict
+#: that an in-answer IRAC scratchpad would create (§1.3 of
+#: docs/PROMPT_CONDITIONING_IRAC_RESEARCH.md), at the cost of one extra LLM
+#: call per query.
+#:
+#: Abstention safety: the memo layout reorders content, it does not gate on
+#: quoting and it prescribes no closing format — the two shapes that drove
+#: the reverted SPEC-1 (0.073 -> 0.436 false abstention) and the rejected
+#: enumerate candidate (p=0.004). The qualification clause is carried over
+#: verbatim in substance from the FSSAI two-step contract. Flag-gated; the
+#: shipped ``grounded_qa`` template is untouched.
+GROUNDED_QA_STRUCTURED_SYSTEM_PROMPT = (
+    "You are a senior legal counsel answering from statute. Answer using ONLY "
+    "the <legal_context> sources and the structured reasoning provided. Work "
+    "in two steps. Step 1 — check the structured reasoning against the "
+    "sources, especially every exception or proviso it lists. Step 2 — write "
+    "the answer as a legal memo, in this order: Issue (the precise legal "
+    "question), Rule (the governing provision with its Act and section, every "
+    "qualifying proviso or exception, and the full penalty structure where a "
+    "penalty is at issue), Application (the rule applied to the facts the "
+    "question states), Conclusion (the determination). "
+    "Citation contract: (1) every material legal claim carries at least one "
+    "[n] citation; (2) each [n] maps to a source shown in the context "
+    "(e.g. [1], [2]) — never cite a source that is not shown; "
+    "(3) never fabricate facts or figures. Where the structured reasoning "
+    "marks a condition unknown, state so clearly and qualify what is unknown "
+    "instead of guessing."
+)
+
+GROUNDED_QA_STRUCTURED_USER_TEMPLATE = (
+    "Relevant legal context:\n"
+    "<legal_context>\n"
+    "{context}\n"
+    "</legal_context>\n\n"
+    "Structured legal reasoning (Issue, provisions, rules, exceptions and "
+    "conditions, already read from the sources):\n"
+    "{reasoning}\n\n"
+    "Write the final answer as a legal memo — Issue, Rule (with every proviso "
+    "and the full penalty structure where applicable), Application, "
+    "Conclusion — with an [n] citation on every material legal proposition "
+    "and exact figures as printed in the sources. Qualify anything the "
+    "reasoning marks unknown instead of guessing.\n\n"
+    "Question: {query}\n"
+    "Answer:"
+)
+
+#: W4 — query-type conditioned directives. The classification already reaches
+#: generation (``generate(query_type=...)``) but the rendered prompt was
+#: query-type-blind: identical wording for a penalty question and an exemption
+#: question. Each entry is one additive sentence aimed at the audit failure
+#: mode that dominates its type, appended before ``Question:``.
+#:
+#: Gated by ``RAG_QUERY_TYPE_DIRECTIVES`` (default off) and measured through
+#: ``evaluation/ab_baseline_citation.py --qtype <type>`` before the flag is
+#: flipped; `abstained` is the binding risk on every type.
+#: The table itself now lives in :mod:`app.rag.query_type_registry`, which
+#: owns the canonical vocabulary and every alias.  It is re-exported here
+#: unchanged so existing imports keep working and the rendered prompt bytes
+#: are identical.  Do not re-add entries here -- add them to the registry so
+#: the alias index and the coverage test can see them.
+QUERY_TYPE_DIRECTIVES: dict[str, str] = dict(_registry.DIRECTIVES)
+
+
+def query_type_directive(query_type: str) -> str:
+    """Return the W4 directive for *query_type*, or ``""`` when none applies.
+
+    Resolves aliases first: callers pass the runtime ``QueryType`` value
+    (``duty``) or a benchmark label (``Penalty``), not the canonical id.
+    """
+    return QUERY_TYPE_DIRECTIVES.get(_registry.resolve(query_type) or "", "")
+
+
+def with_query_type_directive(user_prompt: str, query_type: str) -> str:
+    """Insert the W4 directive before the ``Question:`` marker.
+
+    No-op when the type has no directive or the marker is absent, so callers
+    can use it unconditionally and keep the default render byte-identical.
+    The directive is inserted before the question so it still reads as an
+    instruction, not as trailing content after ``Answer:``.
+    """
+    directive = query_type_directive(query_type)
+    if not directive:
+        return user_prompt
+    marker = "\nQuestion: "
+    if marker not in user_prompt:
+        return user_prompt
+    return user_prompt.replace(marker, f"\n{directive}{marker}", 1)
+
+
 _TEMPLATES: dict[str, tuple[str, str]] = {
     "grounded_qa": (GROUND_QA_SYSTEM_PROMPT, GROUND_QA_USER_TEMPLATE),
+    # W3: two-pass structured answering. Selected by GroundedGenerationService
+    # when cfg.structured_reasoner is on and the reasoner IR is available.
+    "grounded_qa_structured": (
+        GROUNDED_QA_STRUCTURED_SYSTEM_PROMPT,
+        GROUNDED_QA_STRUCTURED_USER_TEMPLATE,
+    ),
 }
 
 
@@ -199,24 +306,35 @@ class PromptTemplate:
         query: str,
         context: str,
         domain: str | None = None,
+        query_type: str = "",
         **extra_vars: Any,
     ) -> tuple[str, str]:
         """Convenience: render the ``grounded_qa`` template.
 
         Args:
-            query: User question.
+            query: The user's question.
             context: Retrieved legal context.
             domain: Optional domain key (``fssai`` / ``env`` / ``commercial``
                 / ``animal`` / ``wb_state`` / ``general``); ``None`` uses the
                 FSSAI default (backward compatible).
+            query_type: Optional classified query type.  Any registered
+                spelling (canonical id, legacy enum value, benchmark label)
+                whose canonical type has an entry in
+                :data:`QUERY_TYPE_DIRECTIVES` gets that directive appended
+                before the ``Question:`` line.  Empty or unregistered values
+                leave the rendered prompt byte-identical to before.
 
         """
         vars_dict = dict(extra_vars)
         if domain:
             vars_dict["domain"] = domain
-        return self.render(
+        system_prompt, user_prompt = self.render(
             "grounded_qa",
             query=query,
             context=context,
             extra_vars=vars_dict or None,
         )
+        # W4: the directive is inserted before the question so it still reads
+        # as an instruction, not as trailing content after "Answer:".
+        user_prompt = with_query_type_directive(user_prompt, query_type)
+        return system_prompt, user_prompt

@@ -188,9 +188,9 @@ Async/streaming execution; LLM-based query condensation; deleting or editing Ans
 
 **Phase 2 — routes. ✅ Done (2026-10-11).** `ask` + `edit`; `detail()` passes the thread (`answers=note.answers`); guards and fail-closed paths. Tests: `TestAskRoute` (9) + `TestEditRoute` (5) in `tests/test_notepad.py`; the old tests still pass.
 
-**Phase 3 — UI.** Detail page per §7. *Done when:* manual pass — create note → ask → follow-up → edit statement → stale marker → re-ask; fragment ask produces N answer cards.
+**Phase 3 — UI. ✅ Done (2026-10-12).** Detail page per §7 reworked (statement card + author-only edit form, primary Ask Legal RAG card behind the gates, latest-answer card with citations/verification/meta + stale marker, collapsed oldest-first history, lens button demoted). The plan's manual pass is covered at HTTP level by `TestDetailThreadUI` (12 rendered-body tests: ask → follow-up → edit → stale → re-ask, fragment ask → N turns); a visual glance on the dev server before merge is still worthwhile.
 
-**Phase 4 — docs & hygiene.** `CONTEXT.md` entries, `docs/INDEX.md` entry, ruff/pytest/pre-commit clean. *Done when:* `tests/test_steering_docs.py` passes with the new INDEX link.
+**Phase 4 — docs & hygiene. ✅ Done (2026-10-12).** `CONTEXT.md`: the **Note** entry is amended (thread + demoted lens button) and a **Note Answer** glossary entry added; both docs were already registered in `docs/INDEX.md` (Phase 1). ruff check/format clean on every touched file; `tests/test_steering_docs.py` 4/4; AC-16 fast-shard result recorded in the spec change log. (pre-commit CLI is not installed in this environment; its ruff/format gates were run directly.)
 
 Decisions needing confirmation before Phase 2 (affects UI copy and scope only, not Phase 1):
 

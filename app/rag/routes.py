@@ -132,9 +132,9 @@ def health():
     """
     llm_info: dict = {"mode": "unknown", "model": None}
     try:
-        from app.rag.generation.llm_client import GroundedLLMClient
+        from app.shared.llm_client import get_llm_client
 
-        client = GroundedLLMClient()
+        client = get_llm_client()
         llm_info = {"mode": "stub" if client.use_stub else "live", "model": client.model}
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("health: LLM mode probe failed: %s", exc)
@@ -448,6 +448,117 @@ def eval_batch():
         return jsonify({"error": f"Evaluation failed: {exc}"}), 500
 
     return jsonify(result)
+
+
+@rag_bp.route("/feedback", methods=["POST"])
+def answer_feedback():
+    """Rate one Legal RAG answer; low ratings queue it for autoresearch.
+
+    Request JSON:
+        rating (int, required): 1 (worst) .. 5 (best).
+        query (str): the question — required unless ``query_log_id``
+            resolves to a logged row (then it is filled from the row).
+        query_log_id (str, optional): ``RAGQueryLog`` id of the rated
+            answer (the query responses carry it as ``log_id``).  Fills
+            query / query_type / pipeline from the row when given.
+        response_text (str, optional): the answer that was rated.
+        comment (str, optional): free-text note from the rater.
+        failure_reasons (list[str], optional): machine-readable reasons,
+            validated against
+            ``app.rag.research.failure_queue.FEEDBACK_REASONS``.
+
+    Response JSON (201): ``{"ok": true, "feedback_id", "enqueued": bool,
+    "target_id": str|null, "queue_outcome": str}``.  ``enqueued`` is true
+    when the rating was at or below ``RAG_FEEDBACK_ENQUEUE_MAX_RATING`` and
+    a :class:`RAGResearchTarget` was opened or refreshed.  Queueing is
+    best-effort: a rating is never failed by a queue failure.
+
+    The endpoint is covered by the global login gate (no anonymous spam).
+    """
+    if not _rag_enabled():
+        return jsonify({"error": "RAG is disabled."}), 503
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Request body must be a JSON object."}), 400
+
+    rating = payload.get("rating")
+    if not isinstance(rating, int) or isinstance(rating, bool) or not 1 <= rating <= 5:
+        return jsonify({"error": "rating must be an integer between 1 and 5."}), 400
+
+    from app.rag.research.failure_queue import FEEDBACK_REASONS, enqueue_from_feedback
+
+    reasons = payload.get("failure_reasons") or []
+    if not isinstance(reasons, list) or any(r not in FEEDBACK_REASONS for r in reasons):
+        return jsonify({"error": f"failure_reasons must be a list drawn from {sorted(FEEDBACK_REASONS)}."}), 400
+
+    query_log_id = payload.get("query_log_id")
+    if query_log_id is not None and (not isinstance(query_log_id, str) or not query_log_id.strip()):
+        return jsonify({"error": "query_log_id must be a non-empty string."}), 400
+
+    query = payload.get("query")
+    if query is not None and (not isinstance(query, str) or not query.strip()):
+        return jsonify({"error": "query must be a non-empty string."}), 400
+
+    from app.extensions import db
+    from app.models.rag import RAGAnswerFeedback, RAGQueryLog
+
+    query_type = payload.get("query_type")
+    pipeline = payload.get("pipeline")
+
+    # Fill query / query_type / pipeline from the logged row when a
+    # query_log_id was supplied — the rater then only sends a rating.
+    log_entry = None
+    if query_log_id:
+        log_entry = db.session.get(RAGQueryLog, query_log_id)
+        if log_entry is None:
+            return jsonify({"error": "query_log_id not found."}), 404
+        query = query or log_entry.query
+        query_type = query_type or log_entry.query_type
+        pipeline = pipeline or log_entry.pipeline
+        if payload.get("response_text") is None:
+            payload["response_text"] = log_entry.response_text
+
+    if not query or not str(query).strip():
+        return jsonify({"error": "query is required when query_log_id is absent or unresolvable."}), 400
+
+    try:
+        from flask_login import current_user
+
+        rated_by = (current_user.get_id() if getattr(current_user, "is_authenticated", False) else None) or getattr(
+            current_user, "username", None
+        )
+    except Exception:  # pragma: no cover - defensive
+        rated_by = None
+
+    feedback = RAGAnswerFeedback(
+        query_log_id=query_log_id or None,
+        query=str(query).strip()[:2000],
+        query_type=str(query_type)[:32] if query_type else None,
+        response_text=payload.get("response_text"),
+        rating=rating,
+        comment=payload.get("comment"),
+        failure_reasons=reasons,
+        pipeline=str(pipeline)[:16] if pipeline else None,
+        rated_by=str(rated_by)[:255] if rated_by else None,
+    )
+    db.session.add(feedback)
+    db.session.commit()
+
+    # Low rating -> research target for the next autoresearch session.
+    target, queue_outcome = enqueue_from_feedback(feedback)
+    db.session.commit()
+
+    return (
+        jsonify({
+            "ok": True,
+            "feedback_id": feedback.id,
+            "enqueued": target is not None,
+            "target_id": target.id if target else None,
+            "queue_outcome": queue_outcome,
+        }),
+        201,
+    )
 
 
 @rag_bp.route("/rl/policy", methods=["GET"])

@@ -25,6 +25,15 @@ Population: qids where the baseline top-10 window contains >= 1 gold chunk
 Usage:
     python -m evaluation.ab_baseline_citation --variant new --limit 60
     python -m evaluation.ab_baseline_citation --variant legacy --limit 60
+    python -m evaluation.ab_baseline_citation --variant cand_cond_penalty --qtype penalty --limit 20
+
+W4 (query-type directives) A/B — both arms render the shipped template, the
+treatment toggles ``RAG_QUERY_TYPE_DIRECTIVES`` so every qid gets the directive
+its own classified type maps to (and qids of un-directived types are a built-in
+parallel control within the same run):
+
+    python -m evaluation.ab_baseline_citation --variant shipped --limit 200 --tag w4_ctrl
+    RAG_QUERY_TYPE_DIRECTIVES=true python -m evaluation.ab_baseline_citation --variant shipped --limit 200 --tag w4_treat
 """
 
 from __future__ import annotations
@@ -252,11 +261,93 @@ _CANDIDATES: dict[str, str] = {
     ),
 }
 
+#: 2026-10-20 — MEASURED, NOT SHIPPED. ``cand_scan_cond`` plus a per-ask
+#: decomposition cue ("which authority acts, what procedure, what consequence,
+#: which provision governs") targeting the multi-part partial answers on the
+#: gold-in-prompt slice. Measured: +1 fixed case (within noise) but padding
+#: (``is_padded``) rose 0.16 -> 0.39 and precision fell ~0.05, so the cue was
+#: reverted from the shipped template and is kept here for reproducibility.
+_CANDIDATES["cand_scan_cond_v2"] = (
+    "Relevant legal context:\n"
+    "<legal_context>\n"
+    "{context}\n"
+    "</legal_context>\n\n"
+    "First quote the passages that bear on the question, then answer "
+    "the question using those quotes, citing specific sources with "
+    "[n] markers.\n"
+    "Before answering, go through every numbered source in the context and "
+    "note the ones that bear on the question, including any that add a "
+    "condition, exception, threshold or definition the answer depends on.\n"
+    "Answer every part the question names, each with its own [n] citations. "
+    "If one part is not covered by the context, answer the other parts and "
+    "say which part is uncovered rather than declining the whole question; "
+    "before stating that the context does not address something, point to "
+    "the numbered sources you checked for it.\n"
+    "Before answering, decompose the question into its separate asks — for "
+    "example, which authority acts, what procedure or route applies, what "
+    "consequence or penalty follows, and which provision governs — and "
+    "address each ask explicitly in its own sentence. Do not let uncertainty "
+    "about one ask suppress the answers to the others.\n"
+    "For each material legal proposition, name the exact provision you rely "
+    "on (Act and section) beside its [n] citation. If more than one section "
+    "could apply, say which one governs and why. If the context holds more "
+    "than one version of a provision, use the version the question asks "
+    "about and say which that is.\n"
+    "When a penalty is at issue, state its full structure — base fine and/or "
+    "imprisonment, any continuing daily fine, any escalation on repeat "
+    "conviction — with exact figures as printed in the source, never a "
+    "rounded summary.\n"
+    "If a source is cut off mid-clause, say which point is missing instead "
+    "of reconstructing it, and do not call a list complete unless the "
+    "context establishes it.\n\n"
+    "Question: {query}\n"
+    "Answer:"
+)
+
+
+#: W4 — query-type conditioned candidates.  Each is the shipped conditioning
+#: block plus ONE per-type directive, so a live run restricted to that
+#: question type (``--qtype penalty``) measures the directive on the slice it
+#: targets.  The wording is imported from the shipped directive table
+#: (``app/rag/generation/prompt_template.QUERY_TYPE_DIRECTIVES``) so the
+#: candidate and the flag-gated product behaviour cannot drift.
+def _type_candidate(directive: str) -> str:
+    return (
+        "Relevant legal context:\n"
+        "<legal_context>\n"
+        "{context}\n"
+        "</legal_context>\n\n"
+        "First quote the passages that bear on the question, then answer "
+        "the question using those quotes, citing specific sources with "
+        "[n] markers.\n"
+        "Before answering, go through every numbered source in the context and "
+        "note the ones that bear on the question, including any that add a "
+        "condition, exception, threshold or definition the answer depends on.\n"
+        "Answer every part the question names, each with its own [n] citations. "
+        "If one part is not covered by the context, answer the other parts and "
+        "say which part is uncovered rather than declining the whole question; "
+        "before stating that the context does not address something, point to "
+        "the numbered sources you checked for it.\n"
+        "For each material legal proposition, name the exact provision you rely "
+        "on (Act and section) beside its [n] citation.\n" + directive + "\n\n"
+        "Question: {query}\n"
+        "Answer:"
+    )
+
+
+def _query_type_candidates() -> dict[str, str]:
+    """One registered candidate per measurable query type."""
+    from app.rag.generation.prompt_template import QUERY_TYPE_DIRECTIVES
+
+    return {f"cand_cond_{qtype}": _type_candidate(text) for qtype, text in sorted(QUERY_TYPE_DIRECTIVES.items())}
+
+
 #: All variants this harness can render: name -> (system, user_template).
 VARIANTS: dict[str, tuple[str, str]] = {
     "legacy": (LEGACY_SYSTEM_PROMPT, LEGACY_USER_TEMPLATE),
     "spec1_reverted": (LEGACY_SYSTEM_PROMPT, SPEC1_REVERTED_USER_TEMPLATE),
     **{name: (LEGACY_SYSTEM_PROMPT, tpl) for name, tpl in _CANDIDATES.items()},
+    **{name: (LEGACY_SYSTEM_PROMPT, tpl) for name, tpl in _query_type_candidates().items()},
 }
 
 #: Abstention phrasing SPEC-1 forbids when quote-able text is in the window.
@@ -269,20 +360,27 @@ _MARKER_RE = re.compile(r"\[(\d+)\]")
 
 
 def _select_population(
-    payload_index: dict, questions: dict, recs: dict, limit: int
+    payload_index: dict, questions: dict, recs: dict, limit: int, qtype: str = ""
 ) -> list[tuple[str, str, list, set]]:
-    """Qids whose BASELINE window already contains gold (the measurable slice)."""
+    """Qids whose BASELINE window already contains gold (the measurable slice).
+
+    *qtype* optionally restricts the population to questions whose benchmark
+    ``question_type`` carries it — the W4 slice for a per-type directive, so
+    the directive is measured on the questions it was written for.
+    """
     from evaluation.resolution import matches_gold as _mg
 
     picked: list[tuple[str, str, list, set]] = []
     for qid in sorted(recs):
         if qid not in questions:
             continue
-        q = questions[qid]
+        question = questions[qid]
+        if qtype and qtype.lower() not in [str(t).lower() for t in (question.question_types or [])]:
+            continue
         chunks = _chunks_for([str(c) for c in (recs[qid].get("chunk_ids") or [])], payload_index)
         if len(chunks) < 2:
             continue
-        units = q.recall_units()
+        units = question.recall_units()
         if not units:
             continue
         family_map = FamilyMap()
@@ -290,10 +388,24 @@ def _select_population(
         gold = {c.chunk_id for c in pool if any(_mg(payload_index.get(c.chunk_id, {}), u, family_map) for u in units)}
         if not gold:
             continue  # citation_recall undefined for this qid
-        picked.append((qid, recs[qid].get("query") or q.question, pool, gold))
+        picked.append((qid, recs[qid].get("query") or question.question, pool, gold))
         if len(picked) >= limit:
             break
     return picked
+
+
+def render_prompt_for(svc: Any, template: str | None, query: str, built: Any, query_type: str) -> tuple[str, str]:
+    """Render (system, user) for one harness record.
+
+    ``template is None`` means ``--variant shipped``: defer to the service's
+    own renderer so the run is exactly what production ships — including the
+    W4 query-type directive when ``RAG_QUERY_TYPE_DIRECTIVES`` is on.  Any
+    other template is a frozen candidate rendered verbatim against the same
+    assembled context, so only the wording differs between arms.
+    """
+    if template is None:
+        return svc._render_prompt(query, built, query_type=query_type)
+    return LEGACY_SYSTEM_PROMPT, template.format(context=built.context, query=query)
 
 
 def _run_one(task, payload_index, questions, template: str | None) -> dict[str, Any]:
@@ -302,14 +414,6 @@ def _run_one(task, payload_index, questions, template: str | None) -> dict[str, 
     qid, qtext, pool, gold = task
     svc = GroundedGenerationService()
     svc.llm_client = SSLBypassLLMClient(model=os.environ.get("RAG_LLM_MODEL", ""))
-    if template is not None:
-        # Faithful variant render: identical assembled context (built.context),
-        # only the user-template wording differs.
-        def _render(query: str, built: Any) -> tuple[str, str]:
-            return LEGACY_SYSTEM_PROMPT, template.format(context=built.context, query=query)
-
-        svc._render_prompt = _render  # type: ignore[method-assign]
-
     qt = (
         (questions[qid].question_types or ["general"])[0]
         if getattr(questions[qid], "question_types", None)
@@ -317,7 +421,7 @@ def _run_one(task, payload_index, questions, template: str | None) -> dict[str, 
     )
     try:
         built = svc.context_builder.build(qtext, pool, query_type=qt)
-        sys_p, user_p = svc._render_prompt(qtext, built)
+        sys_p, user_p = render_prompt_for(svc, template, qtext, built, qt)
         llm = svc._call_llm(sys_p, user_p)
         answer = getattr(llm, "text", "") or ""
         tracked = svc._extract_citations(llm, pool, built)
@@ -377,16 +481,56 @@ KEYS = (
 )
 
 
+def _run_flags() -> dict[str, str]:
+    """The env knobs that change what each row renders (the arm identity).
+
+    Population filters (``--limit``/``--qids``/``--qtype``) are deliberately
+    not part of this: they only choose *which* rows run, and every row renders
+    its own prompt, so widening the population on resume is safe.
+    """
+    keys = (
+        "RAG_QUERY_TYPE_DIRECTIVES",
+        "ENABLE_STRUCTURED_REASONER",
+        "RAG_LLM_MODEL",
+    )
+    return {k: os.environ.get(k, "") for k in keys}
+
+
+def load_prior(out_file: Path, flags: dict[str, str]) -> dict[str, dict]:
+    """Rows already scored under the *same* flags, keyed by qid.
+
+    Lets ``--tag`` double as a resume token: a 429 mid-run writes what it has,
+    and re-invoking the identical command tops up only the missing qids instead
+    of paying for the whole arm again. A row written under a different flag set
+    is rejected rather than silently mixed into the arm.
+    """
+    if not out_file.exists():
+        return {}
+    try:
+        data = json.loads(out_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if data.get("flags", flags) != flags:
+        raise SystemExit(
+            f"{out_file.name}: written with flags {data.get('flags')}, now {flags}. "
+            "One --tag == one config; use a fresh --tag for a different arm."
+        )
+    return {r["qid"]: r for r in data.get("records", []) if r.get("m") and (r.get("answer") or "").strip()}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=60)
     ap.add_argument("--variant", default="legacy", choices=[*sorted(VARIANTS), "shipped"])
     ap.add_argument("--qids", default="")
+    ap.add_argument("--qtype", default="", help="restrict the population to this benchmark question_type (W4 slice)")
     ap.add_argument("--tag", default="", help="suffix the output file, for independent replicates")
     args = ap.parse_args()
 
-    # "shipped" renders whatever prompt_template.py currently holds (no override);
-    # every other name renders the frozen control or a named candidate.
+    # "shipped" renders whatever prompt_template.py currently holds (no override)
+    # — query_type passed through, so RAG_QUERY_TYPE_DIRECTIVES=true renders the
+    # W4 product prompt; every other name renders the frozen control or a named
+    # candidate (candidates ignore query_type: their wording is frozen).
     template = None if args.variant == "shipped" else VARIANTS[args.variant][1]
 
     print("LOAD questions", flush=True)
@@ -395,24 +539,36 @@ def main() -> int:
     recs = {r["question_id"]: r for r in _load_jsonl(RAW_DIR / f"{ARM}.jsonl")}
     print(f"load done questions={len(questions)} recs={len(recs)}", flush=True)
 
-    tasks = _select_population(payload_index, questions, recs, args.limit)
+    tasks = _select_population(payload_index, questions, recs, args.limit, args.qtype)
     if args.qids:
         want = {q.strip() for q in args.qids.split(",") if q.strip()}
         tasks = [t for t in tasks if t[0] in want]
     if not tasks:
         print("no baseline-gold qids found", file=sys.stderr)
         return 1
-    print(f"population n={len(tasks)} (baseline window contains gold) variant={args.variant}", flush=True)
+    print(
+        f"population n={len(tasks)} (baseline window contains gold) variant={args.variant} qtype={args.qtype or 'any'}",
+        flush=True,
+    )
+
+    out_file = OUT_DIR / f"baseline_citation_{args.variant}{('_' + args.tag) if args.tag else ''}.json"
+    # One tag == one config: a re-invocation must not silently mix arms.
+    flags = _run_flags()
+    prior = load_prior(out_file, flags)
+    todo = [t for t in tasks if t[0] not in prior]
+    reused = [prior[t[0]] for t in tasks if t[0] in prior]
+    if prior:
+        print(f"resume: {out_file.name} holds {len(prior)} ok rows, {len(todo)} still to run", flush=True)
 
     gate = Semaphore(MAX_WORKERS)
-    results: list[dict] = []
+    results: list[dict] = list(reused)
 
     def one(t):
         with gate:
             return _run_one(t, payload_index, questions, template)
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-        for fut in as_completed([ex.submit(one, t) for t in tasks]):
+        for fut in as_completed([ex.submit(one, t) for t in todo]):
             try:
                 results.append(fut.result())
             except Exception as exc:
@@ -436,6 +592,10 @@ def main() -> int:
         "aggregate": agg,
         "citation_recall_ge_0.5_share": round(recall_ge_half, 4),
         "per_question": {r["qid"]: r["m"] for r in good},
+        # Full rows so a re-invocation with the same --tag resumes instead of
+        # re-burning the arm (see load_prior).
+        "records": [{"qid": r["qid"], "answer": r["answer"], "m": r["m"]} for r in good],
+        "flags": flags,
         "limitations": [
             "Live single-model run on the free tier; partial rate-limit losses skew coverage.",
             "citation_recall is only defined where the baseline window holds gold, so this "
@@ -443,7 +603,6 @@ def main() -> int:
         ],
     }
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    out_file = OUT_DIR / f"baseline_citation_{args.variant}{('_' + args.tag) if args.tag else ''}.json"
     out_file.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print("=" * 72)

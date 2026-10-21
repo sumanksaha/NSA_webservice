@@ -291,7 +291,7 @@ def classify_ranking_failures(
         # For each gold unit, check if it's resolvable in the payload index
         gold_resolved = {}
         for unit in rel:
-            pts = [pid for pid, payload in payload_index.items() if matches_gold(payload, unit, family_map)]
+            pts = [pid for pid, payload in payload_index.items() if matches_gold(payload, unit, family_map, text_fallback=True)]
             gold_resolved[unit.provision_id] = {
                 "unit": unit,
                 "point_ids": pts,

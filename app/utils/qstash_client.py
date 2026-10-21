@@ -135,14 +135,29 @@ def _run_task_inline(task_name: str, payload: dict) -> Any:
     return task(**payload)
 
 
+#: Env vars that must ALL be non-empty for QStash publishing to be enabled.
+#: Kept as data so the missing-var diagnostic can name exactly which ones are
+#: absent (the previous boolean hid WHICH var caused the fallback).
+QSTASH_ENV_VARS = (
+    "QSTASH_TOKEN",
+    "QSTASH_CURRENT_SIGNING_KEY",
+    "QSTASH_NEXT_SIGNING_KEY",
+    "PUBLIC_BASE_URL",
+)
+
+
+def missing_qstash_vars() -> list[str]:
+    """Return the QStash env vars that are unset/empty, in declaration order.
+
+    An empty string (``VAR=``) counts as missing — that is the common Render
+    footgun where a var is declared but left blank.
+    """
+    return [name for name in QSTASH_ENV_VARS if not os.environ.get(name)]
+
+
 def qstash_configured() -> bool:
     """True when every env var required to publish to QStash is present."""
-    return bool(
-        os.environ.get("QSTASH_TOKEN")
-        and os.environ.get("QSTASH_CURRENT_SIGNING_KEY")
-        and os.environ.get("QSTASH_NEXT_SIGNING_KEY")
-        and os.environ.get("PUBLIC_BASE_URL"),
-    )
+    return not missing_qstash_vars()
 
 
 def _webhook_url(task_name: str) -> str:
@@ -211,12 +226,25 @@ def publish_task(task_name: str, payload: dict, *, dedup_key: str | None = None)
                 "deduplicated": response.deduplicated,
             }
         except Exception as exc:
-            logger.warning("QStash publish failed for %s (%s) — falling back to sync", task_name, exc)
+            # Config is present but the API call failed — a DIFFERENT problem
+            # from "not configured". Log the real exception and fall back to
+            # sync WITHOUT the misleading "not fully configured" message that
+            # used to be appended below (it hid which path was taken).
+            logger.warning(
+                "QStash publish failed for %s (%s: %s) — falling back to sync",
+                task_name,
+                type(exc).__name__,
+                exc,
+                exc_info=True,
+            )
+            result = _run_task_inline(task_name, payload)
+            return {"mode": "sync", "result": result}
 
-    # Synchronous fallback — matches pre-QStash behavior.
+    # Not configured: name exactly which env vars are absent/blank so the
+    # operator can fix the Render env in one pass.
     logger.warning(
-        "QStash not fully configured (QSTASH_TOKEN / QSTASH_CURRENT_SIGNING_KEY / "
-        "QSTASH_NEXT_SIGNING_KEY / PUBLIC_BASE_URL) — executing %s synchronously",
+        "QStash not configured (missing/empty: %s) — executing %s synchronously",
+        ", ".join(missing_qstash_vars()) or "unknown",
         task_name,
     )
     result = _run_task_inline(task_name, payload)

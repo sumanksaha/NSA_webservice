@@ -6,24 +6,48 @@ certificate is not in the trust store, so the default httpx client fails with
 This is an environment workaround, not a product change: production traffic in
 ``app/rag`` uses the ordinary verifying client.
 
-Extracted from ``eval_e2e_v2`` so the P0-1 A/B reuses the same verified
-implementation instead of carrying a second copy.
+Two rules are deliberately **not** overridden here, because the eval must
+measure production:
+
+* the answer channel — ``content=None`` is a failure, not a reasoning trace
+  served as the answer (see ``llm_client.answer_text``);
+* the timeout — ``RAG_LLM_TIMEOUT_S`` (default 30 s).  A 60 s eval deadline
+  hid the fact that the incumbent misses the production deadline on ~31 % of
+  calls.
+
+Only the transport differs: TLS verification is off and the OpenRouter
+attribution headers are added.
 """
 
 from __future__ import annotations
 
 import time
 
-from app.rag.generation.llm_client import GroundedLLMClient, GroundedLLMResponse
+from app.rag.generation.llm_client import (
+    GroundedLLMClient,
+    GroundedLLMResponse,
+    _usage_dict,
+    answer_text,
+)
 
+#: Attempts for one logical call.  Kept module-level because several eval
+#: scripts rebind ``llm_ssl_client.MAX_ATTEMPTS`` before running.
 MAX_ATTEMPTS = 3
-TIMEOUT_S = 60.0
 
 
 class SSLBypassLLMClient(GroundedLLMClient):
-    """GroundedLLMClient that disables TLS verification for httpx calls."""
+    """GroundedLLMClient that disables TLS verification for httpx calls.
+
+    Kill-switch note: this subclass rides the base ``call()`` seam, so it
+    inherits the allow-list, the budget, the no-op stub, the answer-channel
+    guardrail and the timeout setting — construction also validates the model
+    (an eval that sets ``RAG_LLM_MODEL`` to a non-allowlisted id raises before
+    spending).
+    """
 
     def _real_call(self, system_prompt, user_prompt, *, temperature, max_tokens, **extra):
+        from app.shared.config import cfg
+
         start = time.perf_counter()
         import httpx
 
@@ -48,29 +72,26 @@ class SSLBypassLLMClient(GroundedLLMClient):
         last_exc: Exception | None = None
         for attempt in range(MAX_ATTEMPTS):
             try:
-                with httpx.Client(timeout=TIMEOUT_S, verify=False) as client:
+                with httpx.Client(timeout=cfg.llm_timeout_s, verify=False) as client:
                     resp = client.post(url, headers=headers, json=body)
                     resp.raise_for_status()
                     data = resp.json()
-                    message = data["choices"][0].get("message", {})
-                    text = message.get("content")
-                    if text is None:
-                        text = message.get("reasoning") or ""
-                    usage = data.get("usage", {})
+                    choice = data["choices"][0]
+                    text, error = answer_text(choice)
                     return GroundedLLMResponse(
                         text=text,
                         model=self.model,
-                        usage={
-                            "prompt_tokens": usage.get("prompt_tokens", 0),
-                            "completion_tokens": usage.get("completion_tokens", 0),
-                            "total_tokens": usage.get("total_tokens", 0),
-                        },
+                        usage=_usage_dict(data.get("usage")),
                         latency=time.perf_counter() - start,
+                        error=error,
+                        finish_reason=choice.get("finish_reason"),
                     )
             except Exception as exc:
                 last_exc = exc
                 if attempt < MAX_ATTEMPTS - 1:
-                    time.sleep(2**attempt)
+                    # 429/rate-limit needs longer than generic transient backoff.
+                    rate_limited = "429" in str(exc) or "rate" in str(exc).lower()
+                    time.sleep((15 * (2**attempt)) if rate_limited else 2**attempt)
 
         return GroundedLLMResponse(
             error=f"LLM request failed after {MAX_ATTEMPTS} attempts: {last_exc}",

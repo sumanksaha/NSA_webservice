@@ -1,7 +1,10 @@
 # Wait 60 seconds before connecting using these details, or login to https://console.neo4j.io to validate the Aura Instance is available
 NEO4J_URI=neo4j+s://21090cf9.databases.neo4j.io
 NEO4J_USERNAME=21090cf9
-NEO4J_PASSWORD=QiHKJvuSNg3ExaSbelF2OVobYrJsQxwRIsCsfp-gms8
+NEO4J_PASSWORD=REDACTED-rotate-in-aura-console
 NEO4J_DATABASE=21090cf9
 AURA_INSTANCEID=21090cf9
 AURA_INSTANCENAME=Free instance
+# NOTE (security, 2026-10-15): the NEO4J_PASSWORD value was redacted here —
+# it was committed verbatim. Treat the old value as exposed and rotate it
+# in the Neo4j Aura console before re-using this file.

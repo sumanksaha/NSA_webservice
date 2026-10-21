@@ -31,6 +31,7 @@ from werkzeug.utils import secure_filename
 
 from app.extensions import db
 from app.inspection.image_processing import process_and_stamp_image
+from app.inspection.photo_scoring import PhotoEvidenceScorer
 from app.inspection.verification_service import verify_photo_location
 from app.services.audit_context import audit_logger
 from app.utils.storage import delete_photo, upload_photo
@@ -65,6 +66,10 @@ class PhotoUploadResult:
     stamped: bool
     ocr_task_id: str | None = None
     ocr_result: Any | None = None
+    #: Populated when ADR-0011 scoring ran as part of this upload. ``None`` when
+    #: scoring is off; a :class:`~app.inspection.photo_scoring.ScoringResult`
+    #: otherwise, including when it failed closed.
+    scoring: Any | None = None
 
 
 @dataclass
@@ -340,14 +345,24 @@ class InspectionPhotoService:
         adjudication_id: int,
         file_obj,
         caption: str | None = None,
+        *,
+        score: bool | None = None,
     ) -> PhotoUploadResult:
         """Upload a photo for an adjudication via R2/B2 storage.
 
         Simpler flow than ``upload_evidence``: no EXIF extraction or
         geo-verification — the file goes straight to cloud storage and a
         minimal Evidence record is created.
+
+        When scoring is enabled (ADR-0011) the photo is scored **after** it is in
+        storage but **before** the Evidence row is written, so the image and its
+        assessment land in one transaction: evidence is never stored without its
+        assessment, and a scoring failure cannot leave a photo unattached to a
+        recorded run. A failed or gated-off scoring pass is still persisted, so
+        the photo is never lost to a provider problem.
         """
         from app.models import Adjudication, Evidence
+        from app.shared.config import cfg
 
         adjudication = db.session.get(Adjudication, adjudication_id)
         if not adjudication:
@@ -374,6 +389,22 @@ class InspectionPhotoService:
 
         caption = caption or ""
 
+        # --- Score before persisting (advisory; never blocks the save) ---
+        scorer = None
+        result = None
+        if score is None:
+            score = bool(cfg.photo_scoring_enabled)
+        if score:
+            try:
+                scorer = PhotoEvidenceScorer()
+                result = scorer.score_url(file_url)
+            except Exception:
+                # A scoring problem must never cost us the photograph.
+                current_app.logger.exception(
+                    "Photo scoring raised for adjudication %s; saving without an assessment",
+                    adjudication_id,
+                )
+
         # --- Evidence record ---
         photo = Evidence(
             id=str(uuid.uuid4()),
@@ -385,6 +416,9 @@ class InspectionPhotoService:
         )
         try:
             db.session.add(photo)
+            db.session.flush()  # orders parent INSERT before child INSERT
+            if scorer is not None and result is not None:
+                db.session.add(scorer.build_assessment(photo.id, adjudication_id, result))
             db.session.commit()
         except Exception:
             db.session.rollback()
@@ -392,7 +426,8 @@ class InspectionPhotoService:
                 delete_photo(file_url)
             current_app.logger.exception(f"Failed to save photo evidence for adjudication {adjudication_id}")
             raise RuntimeError("Database error") from None
-        return PhotoUploadResult(
+
+        out = PhotoUploadResult(
             photo_id=photo.id,
             filepath=file_url,
             raw_lat=0.0,
@@ -401,6 +436,9 @@ class InspectionPhotoService:
             verification={"locality": None, "verification_status": "PASS"},
             stamped=False,
         )
+        if result is not None:
+            out.scoring = result
+        return out
 
     def delete(self, photo_id: str) -> bool:
         """Delete a photo from storage and remove its DB record."""

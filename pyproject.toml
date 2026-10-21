@@ -86,6 +86,11 @@ dependencies = [
   "asgiref>=3.8.0",
   "a2wsgi>=1.10.10",
   "supabase>=2.0.0",  # Phase 17: cloud-sync bridge (optional; app boots without it via lazy import)
+  # Observability (issues #71-#75): error tracking + Prometheus metrics.
+  # Pinned exactly: the Sentry docs site documents a 3.x line that is alpha-only
+  # on PyPI, so an unpinned install would not be reproducible.
+  "sentry-sdk[flask]==2.72.0",
+  "prometheus-client==0.26.0",
   # NOTE: heavy ML deps (sentence-transformers, fastembed, easyocr,
   # opencv-python-headless) are OPTIONAL — install via the [ocr] and
   # [embeddings] extras, or [all] for both.  The app boots and serves
@@ -100,7 +105,7 @@ ocr = [
 ]
 embeddings = [
   "sentence-transformers>=3.0.0",  # RAG embedding model (RAG_EMBEDDING_MODEL)
-  "fastembed>=0.4.0",              # BM25 sparse embeddings for hybrid retrieval (RAG_SPARSE_MODEL)
+  "fastembed>=1.0.0",              # BM25 sparse embeddings for hybrid retrieval (RAG_SPARSE_MODEL)
 ]
 # NOTE: expanded to the union of the ocr + embeddings extras. PEP 621 treats
 # bare names in an extra (e.g. "ocr") as *package* requirements, not as
@@ -109,8 +114,13 @@ all = [
   "easyocr>=1.7.0",                # from [ocr]
   "opencv-python-headless>=4.9.0", # from [ocr]
   "sentence-transformers>=3.0.0",  # from [embeddings]
-  "fastembed>=0.4.0",              # from [embeddings]
+  "fastembed>=1.0.0",              # from [embeddings]
 ]
+# CPU-only sparse (BM25) retrieval for Render (env: python 3.12-3.15).
+# fastembed>=1.0 ships onnxruntime-only wheels (no torch) for CPython 3.10-3.15;
+# the app only uses SparseTextEmbedding + the `Qdrant/bm25` model (stable 0.8-1.x).
+sparse = ["fastembed>=1.0.0"]
+
 dev = [
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
@@ -222,22 +232,6 @@ ignore = [
 # "T20" (print) covers the harnesses below that already exempt it file by
 # file — their stdout tables ARE the report output.
 "evaluation/*" = [
-  "E701", "E702", "E731", "E741",
-  "F401", "F541", "F841",
-  "B007", "B023", "B905",
-  "N802", "N803", "N806",
-  "S310", "S311", "S501", "S605", "S607",
-  "UP031",
-  "RUF005", "RUF015", "RUF059", "RUF100",
-  "SIM102", "SIM103", "SIM105", "SIM108", "SIM110", "SIM113", "SIM115",
-  "W291", "W292", "W293",
-  "I001",
-  "T20",
-]
-# Same treatment for the workflow-evaluator codegen scripts under the RAG
-# package (_insert_*.py / _part*.py / _test_improvement.py): they are generator
-# helpers run once per schema change, not shipped modules.
-"app/rag/evaluation/*" = [
   "E701", "E702", "E731", "E741",
   "F401", "F541", "F841",
   "B007", "B023", "B905",

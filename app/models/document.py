@@ -290,6 +290,78 @@ class Evidence(db.Model):
         return f"<Evidence {self.id[:8]} ({self.evidence_type})>"
 
 
+class EvidenceAssessment(db.Model):
+    """One append-only probabilistic assessment of a photo evidence row.
+
+    A decision model scores a captured premises photo against the **photo-visible
+    subset** of the Inspection Checklist and returns, per candidate answer, a
+    probability that the violation is present. ``payload`` is that JSON::
+
+        {"gate_passed": bool, "items": [{"field", "observable", "p_violation"}, ...]}
+
+    Three invariants make these rows auditable:
+
+    * **Append-only.** Re-running the scorer appends a new row; it never
+      overwrites. What was known at filing time stays knowable.
+    * **Uniform polarity.** ``p_violation`` always means "probability that
+      this violation is present", for *every* field — including
+      ``artificial_colour`` / ``Expired_item``, where the *form* value that
+      records the violation is ``"yes"`` rather than ``"no"``. The polarity is
+      inverted exactly once, in :mod:`app.inspection.photo_scoring`, never by
+      a caller.
+    * **Resolved model recorded.** ``provider_model`` is what was requested;
+      ``resolved_model`` is what the provider actually served. These differ for
+      router models (the default, ``inception/mercury-decide:free``, picks a
+      model per request), and without the second column a score could never be
+      reproduced. ``prompt_version`` pins the scoring prompt so a prompt edit
+      shows up as a new row rather than an unexplained drift in the numbers.
+
+    Assessments are **advisory**. Nothing here writes a checklist value; the
+    FSO confirms. See ``docs/adr/0011-photo-evidence-assessment.md``.
+    """
+
+    __tablename__ = "evidence_assessment"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    evidence_id = db.Column(
+        db.String(36),
+        db.ForeignKey("evidence.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # Denormalised from the Evidence row so "all assessments for this
+    # adjudication" is one indexed lookup instead of a join through evidence.
+    adjudication_id = db.Column(
+        db.Integer,
+        db.ForeignKey("adjudications.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+
+    payload = db.Column(db.Text, nullable=False)
+    #: True when the model judged the photo assessable at all. False means the
+    #: whole assessment is a recorded abstention, not a clean premises.
+    overall_observable = db.Column(db.Boolean, nullable=False, default=False)
+    #: Checklist fields whose suggestion clears the configured threshold.
+    #: Advisory only — nothing consumes this to write a violation.
+    suggested_fields = db.Column(db.Text, nullable=True)
+    provider_model = db.Column(db.String(200), nullable=True)
+    resolved_model = db.Column(db.String(200), nullable=True)
+    prompt_version = db.Column(db.String(50), nullable=True)
+    token_usage = db.Column(db.Integer, nullable=True)
+    latency_ms = db.Column(db.Integer, nullable=True)
+    #: Set when the scorer failed closed (unparseable output, provider error).
+    #: A failed assessment is still recorded, so a broken run is auditable.
+    error = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+
+    __table_args__ = (
+        db.Index("idx_evidence_assessment_evidence_id", "evidence_id"),
+        db.Index("idx_evidence_assessment_adjudication_id", "adjudication_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<EvidenceAssessment id={self.id} evidence={self.evidence_id[:8]}>"
+
+
 class Version(db.Model):
     """Version history table: snapshot-on-save of edited documents.
 

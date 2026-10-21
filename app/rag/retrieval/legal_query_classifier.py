@@ -6,12 +6,17 @@ different reranker configurations, and a single global configuration is
 suboptimal.
 
 The classifier is **rule-based** (no LLM) for determinism and zero latency
-overhead.  It maps user queries to one of the legal query types used in the
-evaluation framework:
+overhead.  It maps user queries to one of the legal query types declared in
+:mod:`app.rag.query_type_registry`:
 
-    penalty, direct provision, definition, exception, obligation, procedure,
-    authority, prohibition, cross-reference, offence, enforcement,
-    insufficient-evidence, temporal, ambiguous
+    penalty, direct_provision, definition, exception, obligation, procedure,
+    authority, prohibition, cross_reference, offence, enforcement,
+    insufficient_evidence, temporal, ambiguous
+
+Patterns are keyed by the registry's canonical ids; the returned strings are
+each type's declared ``surface`` (for example ``direct provision`` and
+``cross-reference``), so frozen evaluation artifacts keep their spelling while
+the vocabulary itself stays canonical.
 
 The ``QueryTypeConfig`` dataclass holds per-type reranker parameters:
 CE weight, CE head, hierarchy weight, and a ``feature_weight`` multiplier
@@ -34,27 +39,23 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.rag import query_type_registry as _registry
+
 # ---------------------------------------------------------------------------
 # Legal query types — aligned with the evaluation framework taxonomy
 # ---------------------------------------------------------------------------
 
 #: Canonical set of legal query types used throughout the system.
-LEGAL_QUERY_TYPES = frozenset({
-    "penalty",
-    "direct provision",
-    "definition",
-    "exception",
-    "obligation",
-    "procedure",
-    "authority",
-    "prohibition",
-    "cross-reference",
-    "offence",
-    "enforcement",
-    "insufficient-evidence",
-    "temporal",
-    "ambiguous",
-})
+#:
+#: Derived from :mod:`app.rag.query_type_registry`, which owns the vocabulary
+#: and every alias.  The emitted spellings below are the ones already stored in
+#: frozen artifacts (notably ``ceiling_v5/experiment_B_ce_ranking.json``), so
+#: they are declared as `surface` in the registry rather than normalised to
+#: snake_case here.  Changing them is an artifact-breaking migration, not a
+#: cleanup -- see the registry docstring.
+LEGAL_QUERY_TYPES: frozenset[str] = frozenset(
+    _registry.REGISTRY[c].emitted for c in _registry.CLASSIFIER_TARGETS
+)
 
 
 @dataclass(frozen=True)
@@ -222,28 +223,49 @@ AMBIGUOUS_CONFIG = QueryTypeConfig(
     feature_weight=0.8,
 )
 
-#: Master mapping: query type string -> QueryTypeConfig
-QUERY_TYPE_CONFIGS: dict[str, QueryTypeConfig] = {
+#: Canonical id -> reranker config.  Keys are canonical so the registry owns
+#: the spelling; the public ``QUERY_TYPE_CONFIGS`` table below projects them
+#: through each type's declared emitted surface.
+_CONFIGS_BY_CANONICAL: dict[str, QueryTypeConfig] = {
     "penalty": PENALTY_CONFIG,
-    "direct provision": DIRECT_PROVISION_CONFIG,
+    "direct_provision": DIRECT_PROVISION_CONFIG,
     "definition": DEFINITION_CONFIG,
     "exception": EXCEPTION_CONFIG,
     "obligation": OBLIGATION_CONFIG,
     "procedure": PROCEDURE_CONFIG,
     "authority": AUTHORITY_CONFIG,
     "prohibition": PROHIBITION_CONFIG,
-    "cross-reference": CROSS_REFERENCE_CONFIG,
+    "cross_reference": CROSS_REFERENCE_CONFIG,
     "offence": OFFENCE_CONFIG,
     "enforcement": ENFORCEMENT_CONFIG,
-    "insufficient-evidence": INSUFFICIENT_EVIDENCE_CONFIG,
+    "insufficient_evidence": INSUFFICIENT_EVIDENCE_CONFIG,
     "temporal": TEMPORAL_CONFIG,
     "ambiguous": AMBIGUOUS_CONFIG,
 }
 
+assert set(_CONFIGS_BY_CANONICAL) == _registry.CLASSIFIER_TARGETS, (
+    "reranker configs must cover exactly the registry's classifier targets"
+)
+
+#: Master mapping: emitted query-type surface -> QueryTypeConfig
+QUERY_TYPE_CONFIGS: dict[str, QueryTypeConfig] = {
+    _registry.REGISTRY[canonical].emitted: config
+    for canonical, config in _CONFIGS_BY_CANONICAL.items()
+}
+
 
 def get_config(query_type: str) -> QueryTypeConfig:
-    """Get the reranker configuration for a query type (falls back to DEFAULT)."""
-    return QUERY_TYPE_CONFIGS.get(query_type, DEFAULT_CONFIG)
+    """Get the reranker configuration for a query type (falls back to DEFAULT).
+
+    Both canonical ids (``cross_reference``) and the emitted /
+    benchmark spellings (``cross-reference``, ``Cross-reference``) resolve
+    through the registry, so callers do not need to normalise first.
+    """
+    canonical = _registry.resolve(query_type)
+    if canonical is None:
+        return DEFAULT_CONFIG
+    surface = _registry.REGISTRY[canonical].emitted
+    return QUERY_TYPE_CONFIGS.get(surface, DEFAULT_CONFIG)
 
 
 # ---------------------------------------------------------------------------
@@ -253,46 +275,46 @@ def get_config(query_type: str) -> QueryTypeConfig:
 #: Keyword patterns for each legal query type.
 #: Order matters: more specific types are checked first.
 _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
-    # penalty — monetary/term punishment, fine, imprisonment, penalty amounts
+    # penalty — monetary/term punishment, fine, imprisonment, penalty amounts.
+    # Stems are prefix-matched (no trailing \b) so inflections are caught:
+    # penalt|y|ies, punish|ment|ed|able, imprison|ment.
     (
         "penalty",
         [
-            r"\bpenalty\b",
-            r"\bimprison\b",
+            r"\bpenalt",
+            r"\bimprison",
+            r"\bpunish",
+            # "fine" is left STRICT: a prefix would match "finger",
+            # "refine", "finesse".  Use the phrase forms instead.
             r"\bfine\b",
-            r"\bpunish\b",
+            r"\bfined\b",
             r"\brs\.?\s*\d+[,\d]*\s*(?:per|for|each|or)\b",
-            r"\bshall\s+be\s+punish",
-            r"\bwith\s+imprisonment",
-            r"\bpunishable\b",
-            r"\bmonetary\s+penalty\b",
+            r"\bmonetary\s+penalt",
+            r"\bcost\s+of\s+violation\b",
         ],
     ),
     # offence — criminal liability, commission of offence, prosecution
     (
         "offence",
         [
-            r"\boffence\b",
-            r"\bcommit\s+an?\s+offence\b",
-            r"\bcommission\s+of\s+offence\b",
-            r"\bprosecut(e|ion)\b",
-            r"\bliable\s+to\s+prosecut\b",
+            r"\boffence",
+            r"\bprosecut",
             r"\bcriminal\s+liability\b",
             r"\bguilty\b",
             r"\bconvict",
+            r"\bliable\s+to\s+be\s+punish",
         ],
     ),
     # prohibition — prohibition orders, what is prohibited, restrictions
     (
         "prohibition",
         [
-            r"\bprohibit\b",
-            r"\bprohibition\b",
-            r"\bprohibited\b",
+            r"\bprohibit",
+            r"\brestrict",
             r"\bshall\s+not\b",
-            r"\bno\s+(?:person|food\s*business)",
-            r"\brestrict\b",
-            r"\brestriction\b",
+            r"\bmay\s+not\b",
+            r"\bmust\s+not\b",
+            r"\bno\s+(?:person|food\s*business|premises|establishment)",
             r"\bprohibition\s+order\b",
         ],
     ),
@@ -300,63 +322,63 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
     (
         "exception",
         [
-            r"\bexceptions?\b",
-            r"\bexempt\b",
-            r"\bexemption\b",
+            r"\bexcept",
+            r"\bexempt",
             r"\bnot\s+applicable\b",
-            r"\bdoesn't\s+apply\b",
-            r"\bdoesn\t+apply\b",
+            r"\bdoesn'?t\s+apply\b",
             r"\bsaving\b",
             r"\bsubject\s+to\b",
             r"\bnotwithstanding\b",
+            r"\bnon[- ]applicab",
         ],
     ),
-    # enforcement — enforcement actions, inspection, sampling, seizure
-    # NOTE: placed BEFORE authority so queries like "When will the FSO conduct
-    # sampling?" classify as enforcement (sample) rather than authority (fso),
-    # since enforcement keywords indicate the action type, not just the actor.
-    (
-        "enforcement",
-        [
-            r"\binspect\b",
-            r"\bsample\b",
-            r"\benforcement\b",
-            r"\benter\s+and\s+inspect\b",
-            r"\bseiz(e|ure|ing)\b",
-            r"\bdetention\b",
-            r"\bclosure\s+notice\b",
-            r"\bshow\s+cause\b",
-        ],
-    ),
-    # authority — officers, boards, agencies, who has power
-    # NOTE: ``tribunal`` intentionally NOT duplicated here — it is in the
-    # ``procedure`` list above.  If a query mentions both, procedure wins
-    # (earlier entry, count-wins).  This avoids the previous conflict where
-    # "appeal to the tribunal" could be classified as authority instead of
-    # procedure.
+    # authority — officers, boards, agencies, who has power.
+    # Placed BEFORE enforcement so that queries mentioning both an authority
+    # keyword (officer, tribunal, fso) and an enforcement action keyword
+    # (inspect, sample) keep the authority tie — the actor wins over the
+    # action when both are present.  ``tribunal`` is duplicated in the
+    # procedure list; on a tie the earlier (authority) entry wins.
     (
         "authority",
         [
-            r"\bofficer\b",
+            r"\bofficer",
             r"\bauth\b",
-            r"\bauthority\b",
+            r"\bauthorit",
             r"\bboard\b",
-            r"\bagency\b",
+            r"\bagenc",
             r"\bcommission\b",
-            r"\bdesignated\s+officer\b",
             r"\bfso\b",
             r"\bfsoi\b",
             r"\bwho\s+is\b.*\borgan",
             r"\bempowered\b",
-            r"\bprincipal\s+enforcement\b",
+            r"\bprincipal\s+enforc",
             r"\bfood\s+analyst\b",
             r"\bappellate\b",
             r"\bjurisdicti",
+            r"\btribunal\b",
+        ],
+    ),
+    # enforcement — enforcement actions, inspection, sampling, seizure.
+    # Placed AFTER authority so that queries like "The officer shall inspect"
+    # keep the authority tie (officer + inspect → authority wins, earlier
+    # entry).  Pure enforcement queries ("When will the FSO conduct sampling?"
+    # with no authority keyword) still classify as enforcement.
+    (
+        "enforcement",
+        [
+            r"\binspect",
+            r"\bsampl",
+            r"\benforc",
+            r"\bseiz",
+            r"\bdetention\b",
+            r"\bclosure\s+notice\b",
+            r"\bshow\s+cause\b",
+            # exercise-of-power vocabulary: the action an officer may take
         ],
     ),
     # cross-reference — "as provided under", "read with", "refer to", schedule
     (
-        "cross-reference",
+        "cross_reference",
         [
             r"\breferred\s+to\s+in\b",
             r"\bread\s+with\b",
@@ -367,21 +389,34 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
             r"\bshall\s+apply\s+in\s+accordance\b",
             r"\bmeans\s+and\s+includes\b",
             r"\bnotwithstanding\s+anything\s+contained\b",
-            r"\bsubject\s+to\s+the\s+provisions\b",
+            r"\bsubject\s+to\s+the\s+provision",
             r"\bexplained\s+in\b",
+            r"\bgiven\s+under\b",
         ],
     ),
-    # temporal — when, time limits, deadlines, validity periods
+    # temporal — when, time limits, deadlines, validity periods, and the
+    # version-in-force shape ("which version applies", "as in force in 2019").
+    # The in-force/version family is generic statutory drafting language; with
+    # only the first family present every temporal question fell through to
+    # "ambiguous".
     (
         "temporal",
         [
             r"\bhow\s+long\b",
-            r"\btime\s+limit\b",
-            r"\bdeadline\b",
+            r"\btime\s+limit",
+            r"\bdeadline",
             r"\bvalid\s+for\b",
             r"\bvalidity\b",
             r"\bperiod\s+of\b",
             r"\bwithin\s+\d+\s+(?:days|months|years)\b",
+            r"\bas\s+of\s+which\s+date\b",
+            r"\bin\s+force\b",
+            r"\bcome\s+into\s+force\b",
+            r"\bcome\s+into\s+operation\b",
+            r"\bversion\b",
+            r"\bprior\s+to\b",
+            r"\bsubsequent\s+to\b",
+            r"\bwith\s+effect\s+from\b",
         ],
     ),
     # definition — explicit definition asks + statutory definition shapes.
@@ -395,11 +430,10 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
         "definition",
         [
             r"""['"][^'"]{1,60}['"]\s+means\b""",
-            r"\bdefine\b",
-            r"\bdefinition\b",
-            r"\bfor the purposes of\b",
-            r"\bshall have the meaning\b",
-            r"\brefer(?:s)? to\b",
+            r"\bdefin",
+            r"\bfor\s+the\s+purposes\s+of\b",
+            r"\bshall\s+have\s+the\s+meaning\b",
+            r"\brefer(?:s)?\s+to\b",
             r"\bwhat\s+is\s+meant\s+by\b",
             r"\bmeaning\s+of\b",
         ],
@@ -414,29 +448,31 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
         "procedure",
         [
             r"\bprocedure\b",
-            r"\bappeal\b",
-            r"\bhearing\b",
+            r"\bappeal",
+            r"\bhearing",
             r"\bcompound(?:ing|able|ed)?\b",
             r"\bhow\s+to\b",
-            r"\bapply\s+for\b",
+            r"\bapply\s+(?:for|to)\b",
             r"\bregistration\s+process\b",
             r"\bsteps?\b",
             r"\bform\s+(?:ii|iii|iv|v|vi|vii|viii)\b",
-            r"\bseiz(?:e|ure|ing)\b",
+            r"\bseiz",
         ],
     ),
     # direct provision — verbatim-text asks.  Deliberately narrow: this is
     # the default lookup shape, and a broad pattern here would swallow
     # penalty/prohibition queries that cite a section.
     (
-        "direct provision",
+        "direct_provision",
         [
             r"\bwhat\s+does\s+section\b",
+            r"\bwhat\s+does\s+the\s+act\b",
             r"\btext\s+of\b",
             r"\bbare\s+act\b",
+            r"\bword(?:ing)?\s+of\s+section\b",
         ],
     ),
-    # obligation — duties, responsibilities, what must be done
+    # obligation — duties, responsibilities, what must be done.
     # NOTE: ``shall`` is deliberately removed from this list — it is too
     # common and would swallow procedural, penalty, and prohibition
     # queries.  The more specific obligation keywords (duty, obligation,
@@ -444,40 +480,54 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
     (
         "obligation",
         [
-            r"\bresponsibility\b",
-            r"\bduty\b",
-            r"\bobligation\b",
+            r"\bdut(?:y|ies)\b",
+            r"\bobligat",
+            r"\bresponsibilit",
             r"\bmust\b",
-            r"\brequired\s+to\b",
+            r"\brequir",
             r"\bexpected\s+to\b",
             r"\bestablish\b",
+            r"\belligib",
+            r"\bcriteri",
+            r"\bno\s+\w+\s+shall\b",
         ],
     ),
     # insufficient-evidence — evidentiary standards, burden of proof
     (
-        "insufficient-evidence",
+        "insufficient_evidence",
         [
-            r"\bevidence\b",
+            r"\bevidenc",
             r"\bburden\s+of\s+proof\b",
             r"\binsufficient\b",
             r"\bnot\s+sufficient\b",
             r"\breasonable\s+suspicion\b",
             r"\bprobable\s+cause\b",
+            r"\bno\s+(?:evidence|record|document)",
         ],
     ),
 ]
 
-#: Compiled patterns cache — list of (label, compiled_patterns)
+#: Pattern labels are canonical ids; emitted strings are the registry surfaces.
+for _label, _ in _TYPE_PATTERNS:
+    assert _registry.resolve(_label) == _label, (
+        f"legal classifier pattern label {_label!r} must be canonical"
+    )
+_AMBIGUOUS_SURFACE: str = _registry.REGISTRY["ambiguous"].emitted
+del _label
+
+
+#: Compiled patterns cache — list of (canonical id, compiled_patterns)
 _COMPILED: list[tuple[str, list[re.Pattern[str]]]] = [
     (label, [re.compile(p, re.IGNORECASE) for p in pats]) for label, pats in _TYPE_PATTERNS
 ]
 
 
 def classify_legal_query(query: str) -> str:
-    """Classify a legal query into a query type string.
+    """Classify a legal query into the registry's emitted surface string.
 
-    Uses keyword patterns ordered by specificity.  Returns the first matching
-    type, or ``"ambiguous"`` if none match confidently.
+    Uses keyword patterns keyed by canonical id and ordered by specificity.
+    Returns the first matching type's declared surface, or ``"ambiguous"`` if
+    none match confidently.
 
     The classifier is deliberately conservative: when multiple types match,
     it picks the one with the most keyword hits, not just the first match.
@@ -485,7 +535,7 @@ def classify_legal_query(query: str) -> str:
     which could be Authority or Offence).
     """
     if not query or not query.strip():
-        return "ambiguous"
+        return _AMBIGUOUS_SURFACE
 
     scores: dict[str, int] = {}
 
@@ -495,20 +545,21 @@ def classify_legal_query(query: str) -> str:
             scores[label] = count
 
     if not scores:
-        return "ambiguous"
+        return _AMBIGUOUS_SURFACE
 
     # Return the type with the most keyword hits (key=s is a callable returning
     # int, which mypy's max overload rejects — use itemgetter instead)
-    return max(scores.items(), key=lambda item: item[1])[0]
+    best_label = max(scores.items(), key=lambda item: item[1])[0]
+    return _registry.REGISTRY[best_label].emitted
 
 
 def classify_with_confidence(query: str) -> tuple[str, float]:
-    """Classify a legal query and return (type, confidence 0-1).
+    """Classify a legal query and return (emitted surface, confidence 0-1).
 
     Confidence = fraction of matched keywords among all keywords for that type.
     """
     if not query or not query.strip():
-        return "ambiguous", 0.0
+        return _AMBIGUOUS_SURFACE, 0.0
 
     scores: dict[str, tuple[int, int]] = {}
     for label, patterns in _COMPILED:
@@ -517,12 +568,12 @@ def classify_with_confidence(query: str) -> tuple[str, float]:
             scores[label] = (count, len(patterns))
 
     if not scores:
-        return "ambiguous", 0.0
+        return _AMBIGUOUS_SURFACE, 0.0
 
     best_label, pair = max(scores.items(), key=lambda item: item[1][0])
     hits, total = pair
     confidence = hits / total if total > 0 else 0.0
-    return best_label, confidence
+    return _registry.REGISTRY[best_label].emitted, confidence
 
 
 # ---------------------------------------------------------------------------

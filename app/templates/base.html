@@ -20,6 +20,18 @@
         <!-- Theme CSS (single source of truth for all styles) -->
         <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}" />
 
+        <!-- Progressive Web App (issue #70) — conditionally injected -->
+        {% if config.ENABLE_PWA %}
+        <!-- Favicon (self-hosted, library-free) -->
+        <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/pwa-16-favicon.png') }}" />
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/pwa-32-favicon.png') }}" />
+        <link rel="manifest" href="{{ url_for('health.manifest', _external=False) }}" />
+        <meta name="theme-color" content="#0b3d91" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/pwa-180-apple-touch.png') }}" />
+        {% endif %}
+
         <!-- Global Timeline case-picker styles -->
         <style>
             .tl-picker-overlay {
@@ -758,6 +770,23 @@
             })();
         </script>
 
-        {% block extra_js %}{% endblock %}
+        {% block extra_js %}
+        {% if config.ENABLE_PWA %}
+        <script>
+            /* Progressive Web App — register the root-scoped service worker
+               only when the ENABLE_PWA flag is on.  See issue #70. */
+            if ("serviceWorker" in navigator) {
+                window.addEventListener("load", function () {
+                    navigator.serviceWorker.register("/sw.js", { scope: "/" })
+                        .catch(function (err) {
+                            /* Registration failure is non-fatal — the app
+                               still works as a normal web app. */
+                            console.warn("PWA service worker registration failed:", err);
+                        });
+                });
+            }
+        </script>
+        {% endif %}
+        {% endblock %}
     </body>
 </html>

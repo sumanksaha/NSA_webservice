@@ -7,6 +7,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2026-10-20) — RAG architecture deepening pass (C1–C7)
+
+- **Shared RAG model runtime** (`app/rag/model_runtime.py`, ADR-0012): one
+  process-wide `(kind, model_name)` cache now owns sentence-transformer and
+  cross-encoder construction, the torch-thread cap, lazy imports, and remembered
+  package absence. Embeddings, dense retrieval, both rerankers, and the remote
+  clients inject the runtime, so every collection shares one copy of each model.
+  Constructor injection remains the test seam.
+- **Qdrant construction and filter seam** (`app/rag/qdrant_client.py`,
+  ADR-0013): `build_qdrant_client()` is the single client rule (config-based, so
+  ingestion works without a Flask app context), and `build_filter()` is the
+  single flat-dict → Qdrant filter rule (pre-shaped booleans pass through, list
+  values expand). The store path now accepts the same filter shapes as the dense
+  path.
+- **Point → chunk conversion** (`RetrievedChunk.from_qdrant_point`, ADR-0013):
+  the pure conversion moved out of `tasks.py`, removing the
+  `food_view → tasks` import cycle.
+- **Chunk access seam** (`app/rag/retrieval/chunk.py`, ADR-0014): `field`,
+  `text`, `chunk_id`, `score`, `set_field`, and `set_score` own the object/dict
+  read-write policy for retrieved chunks. Ten retrieval and evaluation stages
+  share it; `EvidenceSet.chunk_ids` works for serialized payloads as well as
+  `RetrievedChunk` objects, and malformed scores coerce consistently.
+- **Neutral benchmark entry** (`app/rag/evaluation/benchmark_entry.py`,
+  ADR-0016): `QueryBenchmark` moved out of the evaluator, so `benchmark` and
+  `decomposition_metrics` depend on a shared data shape instead of each other.
+  `benchmark.py` re-exports the class for existing callers.
+- **Query-type registry consumers** (ADR-0017): both classifiers key their
+  pattern tables by canonical ids; the legal classifier emits each type's
+  declared `surface` and projects `QUERY_TYPE_CONFIGS` through the registry;
+  `QueryType`'s canonical/triage/label maps are derived at import time and
+  checked against the registry. `get_config()` and
+  `normalize_query_type()` resolve aliases, so `duty → obligation` and
+  `amendment_query → amendment`.
+
+### Changed (2026-10-20)
+
+- `normalize_query_type()` now returns canonical ids for registry aliases
+  (`duty` → `obligation`, `amendment_query` → `amendment`), and `get_config()`
+  resolves the same aliases instead of falling back to the default reranker
+  config.
+- `EvidenceSet.chunk_ids` and `EvidenceItem.to_dict()` now return chunk ids for
+  payload dicts; previously only object chunks contributed ids.
+- The broad `"app/rag/evaluation/*"` Ruff exception block was removed after the
+  generator fragments were deleted; `app/rag/evaluation` and
+  `app/rag/feedback` are linted with the normal ruleset.
+
+### Removed (2026-10-20)
+
+- **34 orphan one-shot generator/fragment modules** from `app/rag/evaluation/`,
+  `app/rag/feedback/`, and `tests/` (ADR-0015). They assembled
+  `workflow_evaluator.py`, `workflow_comparator.py`, and
+  `workflow_improvement_engine.py` once, then had no production or test
+  importer; `_write_evaluator.py` also wrote its target source at import time.
+  `scripts/check_import_side_effects.py` remains as the detector.
+
+### In progress (2026-10-20)
+
+- **Answer-contract scaffolding (experimental, default off)** —
+  `app/rag/generation/answer_contract.py`, the `RAG_ANSWER_CONTRACT` /
+  `RAG_ANSWER_CONTRACT_REPAIR` settings, and
+  `evaluation/answer_contract_eval.py` are an in-progress deterministic
+  governing-provision/false-abstention layer and offline adjudication harness.
+  The feature is not enabled in the shipped path and its checks are not yet
+  validated; keep both flags off.
+
+### Added (2026-10-13) — Top-lawyer RAG answer-quality program
+
+- **Failure-mode rubric harness** (`evaluation/rubric_top_lawyer.py`): scores
+  cached generation runs (0 LLM calls) on four dimensions —
+  `provision_check` (gold authority named), `reasoning_depth` (gold-concept
+  coverage + penalty-structure completeness), `abstention_discipline`
+  (abstains exactly when the reference expects it), and `presentation`
+  (memo structure, no completeness claim while concepts are missing) —
+  reported per dimension, per cohort (failure vs control) and per the human
+  audit's `model_action`, so a lever aimed at one slice is distinguishable
+  from noise and from regression on another. Baseline scorecard:
+  provision_check 0.67, abstention_discipline 0.62 (23% false abstentions) on
+  the 60-qid failure cohort.
+- **Amendment-prose packing hygiene** (`RAG_CONTEXT_DROP_AMENDMENT_PROSE`,
+  default on): gazette amendment notifications ("In section 63, for the words
+  X, the words Y shall be substituted") are dropped before packing — they
+  carry the reference of an operative clause but none of its content. The
+  predicate is the engine's own `AMENDMENT_NOTIFICATION_RE` (lazily imported,
+  one home). Offline bench on three cached arms
+  (`evaluation/bench_context_hygiene.py`): gold-in-prompt unchanged (95/95,
+  91/91, 92/92), ~160 window slots reclaimed.
+- **Two-pass structured answering** (`grounded_qa_structured`): when
+  `ENABLE_STRUCTURED_REASONER` is on, the default generation path builds the
+  IRAC-shaped IR out of band in its own LLM call and renders the final answer
+  from it as a legal memo (Issue / Rule / Application / Conclusion) with the
+  citation contract intact. Fail-closed: any reasoner failure degrades to the
+  shipped single-pass template. Flag off pending a reserved-budget live A/B;
+  the IR is exposed in `debug["structured_argument"]` for the rubric.
+- **Query-type conditioned directives** (`RAG_QUERY_TYPE_DIRECTIVES`, default
+  off): one additive directive per classified question type (penalty → full
+  penalty structure; exception → quote the proviso; procedure → authority,
+  deadline, Form). The classified type already reached `generate()` but the
+  rendered prompt was query-type-blind. Per-type candidates `cand_cond_*` are
+  registered in `evaluation/ab_baseline_citation.py` with a new `--qtype`
+  population filter so each directive is measured on its own slice.
+
+### Changed (2026-10-13)
+
+- `EvidenceVerifier.verify_claim()` now applies the polarity and
+  numeric-entailment gates on the **section-stamp path** as well as the fuzzy
+  paths (closes P1-5): a section stamp is metadata, and a gazette amendment
+  note stamped with the cited section carries the stamp without entailing the
+  claim. A poisoned stamp falls through to the fuzzy path instead of verifying
+  at 0.85 confidence; the failing gate reason is recorded on rejection.
+
 ### Current Status
 
 Version 0.9.1 (published 2026-09-30) is the most recent documented release. The
@@ -22,6 +132,10 @@ Implemented and verified as of 2026-10-11:
 - Legal RAG Phases 1–5, P1–P6, the Multi-Domain Phase 1 routing extension, and
   the flag-gated LangGraph agent pipeline (including M5 human-in-the-loop and
   checkpointing)
+- RAG architecture deepening candidates C1–C7 (2026-10-20): shared model
+  runtime, Qdrant construction/filter seam, point → chunk conversion, chunk
+  access seam, orphan codegen cleanup, neutral benchmark entry, and query-type
+  registry consumers
 - Evaluation Framework and Benchmark v1.0 (150 questions, frozen)
 - Rust PyO3 normalizers, Remote Inference (Modal), the FastAPI gateway
   (Phases 1–5), and the configuration seam

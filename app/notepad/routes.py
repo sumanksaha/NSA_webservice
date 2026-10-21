@@ -7,6 +7,7 @@ See ``docs/NOTEPAD_LEGAL_RAG_SPEC.md`` §8 for the route contract.
 from __future__ import annotations
 
 import json
+from datetime import UTC
 from typing import Any
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
@@ -38,6 +39,23 @@ def _ai_service():
     from app.ai_assistant.service import AIAssistantService
 
     return AIAssistantService()
+
+
+def _json_list(raw: str | None) -> list:
+    """Parse a stored JSON-list column, tolerating absent/corrupt rows."""
+    try:
+        value = json.loads(raw or "[]")
+    except (json.JSONDecodeError, TypeError):
+        return []
+    return value if isinstance(value, list) else []
+
+
+def _as_naive_utc(dt):
+    """Naive-UTC form of a stored datetime, so the stale comparison (§5.4 of
+    docs/NOTEPAD_LEGAL_RAG_SPEC.md) never mixes aware and naive values."""
+    if dt is None or dt.tzinfo is None:
+        return dt
+    return dt.astimezone(UTC).replace(tzinfo=None)
 
 
 #: Effort buckets for daily-plan sequencing (SPT: least-time-first).
@@ -234,7 +252,23 @@ def detail(note_id: int):
         except (json.JSONDecodeError, TypeError):
             payload = {}
         evaluations.append((ev, payload))
-    return render_template("notepad/detail.html", note=note, evaluations=evaluations, answers=note.answers)
+
+    # FR-17: the thread (newest-last) with per-turn JSON parsed for the
+    # template, the §5.4 stale flag, and kill-switch availability for the
+    # ask card (hidden behind the gate rather than 503-ing on submit).
+    answers = [(a, _json_list(a.citations), _json_list(a.sub_queries)) for a in note.answers]
+    latest = answers[-1][0] if answers else None
+    created = _as_naive_utc(latest.created_at) if latest else None
+    updated = _as_naive_utc(note.updated_at)
+    stale = bool(created and updated and created < updated)
+    return render_template(
+        "notepad/detail.html",
+        note=note,
+        evaluations=evaluations,
+        answers=answers,
+        stale=stale,
+        rag_available=cfg.notepad_ai_enabled and cfg.rag_enabled,
+    )
 
 
 @notepad_bp.route("/<int:note_id>/evaluate", methods=["POST"])

@@ -1,0 +1,2918 @@
+{
+  "banned_abstain_markers": {
+    "applies_to_qids": [
+      "Q060",
+      "Q138"
+    ],
+    "carried_from": {
+      "v2_overlay_applies_to_qids": [
+        "Q060",
+        "Q138"
+      ],
+      "v2_overlay_markers": [
+        "does not specify",
+        "does not establish"
+      ]
+    },
+    "markers": [
+      "does not specify",
+      "does not establish"
+    ],
+    "reason": "Both are legitimately non-establishable questions where the reference itself is an abstention; the v1 abstain_check regex ('does not specify/establish') fires on the reference-matching text and double-penalises. Removed from the abstain determination for these qids only.",
+    "rules_by_qid": {
+      "Q002": {
+        "banned_phrases": [
+          "does not specify"
+        ],
+        "provenance": null
+      },
+      "Q035": {
+        "banned_phrases": [
+          "no specific"
+        ],
+        "provenance": null
+      },
+      "Q036": {
+        "banned_phrases": [
+          "does not specify",
+          "no specific"
+        ],
+        "provenance": null
+      },
+      "Q044": {
+        "banned_phrases": [
+          "does not establish",
+          "does not provide",
+          "does not specify",
+          "no information",
+          "not establish"
+        ],
+        "provenance": null
+      },
+      "Q047": {
+        "banned_phrases": [
+          "does not specify"
+        ],
+        "provenance": null
+      },
+      "Q050": {
+        "banned_phrases": [
+          "cannot be determined"
+        ],
+        "provenance": null
+      },
+      "Q054": {
+        "banned_phrases": [
+          "does not establish",
+          "not establish"
+        ],
+        "provenance": null
+      },
+      "Q055": {
+        "banned_phrases": [
+          "cannot be answered",
+          "does not specify"
+        ],
+        "provenance": null
+      },
+      "Q068": {
+        "banned_phrases": [
+          "does not specify"
+        ],
+        "provenance": null
+      },
+      "Q075": {
+        "banned_phrases": [
+          "cannot be determined"
+        ],
+        "provenance": null
+      },
+      "Q077": {
+        "banned_phrases": [
+          "does not specify"
+        ],
+        "provenance": null
+      },
+      "Q079": {
+        "banned_phrases": [
+          "cannot be determined",
+          "not mentioned"
+        ],
+        "provenance": null
+      },
+      "Q080": {
+        "banned_phrases": [
+          "does not specify",
+          "no specific"
+        ],
+        "provenance": null
+      },
+      "Q082": {
+        "banned_phrases": [
+          "does not specify"
+        ],
+        "provenance": null
+      },
+      "Q086": {
+        "banned_phrases": [
+          "cannot be determined"
+        ],
+        "provenance": null
+      },
+      "Q088": {
+        "banned_phrases": [
+          "cannot be determined"
+        ],
+        "provenance": null
+      },
+      "Q099": {
+        "banned_phrases": [
+          "does not specify"
+        ],
+        "provenance": null
+      },
+      "Q105": {
+        "banned_phrases": [
+          "does not establish",
+          "not establish"
+        ],
+        "provenance": null
+      },
+      "Q106": {
+        "banned_phrases": [
+          "not stated"
+        ],
+        "provenance": null
+      },
+      "Q107": {
+        "banned_phrases": [
+          "no evidence"
+        ],
+        "provenance": null
+      },
+      "Q109": {
+        "banned_phrases": [
+          "cannot be determined",
+          "no specific"
+        ],
+        "provenance": null
+      },
+      "Q111": {
+        "banned_phrases": [
+          "cannot be determined",
+          "does not provide",
+          "not mentioned"
+        ],
+        "provenance": null
+      },
+      "Q112": {
+        "banned_phrases": [
+          "cannot be determined"
+        ],
+        "provenance": null
+      },
+      "Q143": {
+        "banned_phrases": [
+          "does not provide",
+          "does not specify"
+        ],
+        "provenance": null
+      },
+      "Q145": {
+        "banned_phrases": [
+          "not stated"
+        ],
+        "provenance": null
+      },
+      "Q146": {
+        "banned_phrases": [
+          "does not specify"
+        ],
+        "provenance": null
+      }
+    },
+    "source": "WF-5 calibration vs full_review_tabulation.json (audit-backed, qid-scoped)"
+  },
+  "bundle": "evaluator_v4_references",
+  "checksum_sha256": "86738a8e83f72e1f99c723380e0191e68916461623a4b069d720be0d99fc6792",
+  "meta": {
+    "bundle_version": "1.2.1",
+    "migration_reported": [
+      {
+        "qid": "Q081",
+        "reasons": [
+          "add duplicates the v1 reference (overlap 0.97) — nothing widened"
+        ]
+      }
+    ],
+    "n_ie_questions": 15,
+    "n_qids": 150,
+    "n_widened_migrated": 52,
+    "sources": {
+      "benchmark_conclusions": "evaluation.benchmark.load_questions (v1 freeze)",
+      "rule": "additive merge; entries never narrowed or dropped (step0_dual_score_widen discipline)",
+      "widened_overlay": "evaluation\\evaluator_v2_overlay.json"
+    },
+    "wf6_widenings": {
+      "Q012": {
+        "anchor_quote": "In section 33, in sub-section (2), after clause (q), the following clauses shall be inserted, namely:—",
+        "note": "The audit recognized the substantive s33 answers but the current gold conclusion compresses the judicial nature, possible scope, and post-order relief into a short description. The added reading separates these legal features from administrative notices; the quoted amendment heading is an exact phrase in the supplied anchor.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      },
+      "Q028": {
+        "anchor_quote": "the manner of holding an inquiry and imposing",
+        "note": "The audit note accepts the Central-licence conclusion but expressly cautions against unsupported turnover detail. The addition distinguishes the supported multi-State criterion from the unproven threshold and avoids treating the stated validity range as proof of a particular term.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      },
+      "Q068": {
+        "anchor_quote": "the Municipal Commissioner shall not grant any permission under this Act to any person until such person produces before the Municipal Commissioner the licence or the permission from Government or statutory body",
+        "note": "The audit correctly identified cumulative regulation. The added reading captures the order in which municipal and external permissions interact, including the narrow provisional-permission exception present in the KMC excerpt.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      },
+      "Q071": {
+        "anchor_quote": "would constitute a fire hazard, or(e)would be a nuisance to the inhabitants of the neighbour-hood.",
+        "note": "The audited answers correctly identify nuisance abatement and the written-notice route. This addition distinguishes the abatement remedy from a fixed automatic fine and flags that the supplied anchor excerpts do not establish a specific amount or deadline.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      },
+      "Q083": {
+        "anchor_quote": "No State Board shall be constituted for a Union territory and in relation to a Union territory, the Central Board shall exercise the powers and perform the functions of a State Board under this Act for that Union territory:",
+        "note": "The audit missed an institutional qualification in the supplied s6 text. This addition broadens the accepted account of Board powers by recording which Board acts in Union territories, without merely repeating the listed substantive powers.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      },
+      "Q090": {
+        "anchor_quote": "Power to declare air pollution control areas",
+        "note": "The machine failed to credit the evidentiary distinction between the Act’s framework powers and a technical ambient standard. The addition specifies why a numerical limit requires the relevant standard text and averaging period, not just the Act’s general powers.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      },
+      "Q119": {
+        "anchor_quote": "the Central Government may, by notification in the Official Gazette, delegate, subject to such conditions and limitations as may be specified in the notifications",
+        "note": "The audit accepted the refusal to treat 500 m as established. The addition identifies the documentary bridge needed to turn broad statutory powers into an enforceable site-specific distance and distinguishes delegation from the substantive setback rule.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      },
+      "Q128": {
+        "anchor_quote": "No person carrying on any industry, operation or process shall discharge or emit or permit to be discharged or emitted any environmental pollutants in excess of such standards as may be prescribed",
+        "note": "The audit correctly treated the proposed higher penalty as unproven. The addition clarifies that the supplied s7 text concerns compliance with prescribed pollutant standards, so it cannot serve as evidence of a changed monetary cap.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      },
+      "Q132": {
+        "anchor_quote": "sub-sections (1), (3), (4) and (5) of section 31, may, before or after the institution of prosecution, be compounded by an officer designated by the Central Government by notification in this behalf",
+        "note": "The answer’s abstention is sound, and the audit missed a useful category distinction: penalty/compounding provisions are not the fee schedule. The excerpt does not provide the medium-restaurant Type-B fee entry needed for a precise amount.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      },
+      "Q133": {
+        "anchor_quote": "scrutinize every application for erection or re-erection of a building for which notice has been received under section",
+        "note": "The machine missed the distinction between the statutory body/process and the separate schedule fixing charges. The added reading records what s391 affirmatively establishes while avoiding an invented fee figure.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      },
+      "Q134": {
+        "anchor_quote": "the manner of holding an inquiry and imposing",
+        "note": "The audit missed the distinction between the Act’s licensing framework and the regulatory classification table needed to answer the numerical question. The added reading explains why penalty-related amendments in the supplied extracts cannot establish the turnover threshold.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      },
+      "Q135": {
+        "anchor_quote": "15. Delegation of powers.—A State Board may, by general or special order, delegate to the Chairman or the member-secretary or any other officer of the Board",
+        "note": "The audit missed a key section-identity issue: the supplied s15 excerpt concerns delegation, not the alleged offence penalty in s15(b). The addition prevents an unrelated provision from being treated as proof of a current fine.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      },
+      "Q137": {
+        "anchor_quote": "restriction of areas in which any industries, operations or processes or class of industries, operations or processes shall not be carried out or shall be carried out subject to certain safeguards",
+        "note": "The audit correctly rejected a numerical cap as unsupported. The addition distinguishes the Act’s area/class restriction power from a per-area numerical quota and states what a source would need to contain to establish such a quota.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      },
+      "Q146": {
+        "anchor_quote": "section 31A.—(1) Whoever contravenes or does not comply with the provisions of",
+        "note": "The audit note specifically recognized the petty-operator exception. The addition clarifies its limited function and keeps the FSSAI classification analysis separate from the municipal premises authorization; the available FSSAI anchor itself is an imperfect match for that issue.",
+        "source": "WF-6 human legal review packet (validated: add length, anchor verbatim, v1 dedupe, D2 independence)"
+      }
+    }
+  },
+  "questions": {
+    "Q001": {
+      "add_notes": {},
+      "concepts": [
+        "Food Authority duty",
+        "safe and wholesome food",
+        "monitor and regulate food business"
+      ],
+      "conclusions": [
+        "The Food Authority shall regulate and monitor the manufacture, processing, distribution, sale and import of food so as to ensure safe and wholesome food."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q002": {
+      "add_notes": {},
+      "concepts": [
+        "licence",
+        "commence or carry on food business"
+      ],
+      "conclusions": [
+        "No person shall commence or carry on any food business except under a licence issued under the Act."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q003": {
+      "add_notes": {},
+      "concepts": [
+        "petty food business operator",
+        "registration",
+        "exemption from licence"
+      ],
+      "conclusions": [
+        "Petty food business operators (petty manufacturers, retailers, hawkers, itinerant vendors, temporary stall holders and small-scale/cottage/tiny operators) are exempt from the licence requirement but must register themselves."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q004": {
+      "add_notes": {
+        "A food business operator must not manufacture, s…": "v1 focused on the s26(2) prohibition list; answer framed the same duty as a positive compliance obligation (s26)."
+      },
+      "concepts": [
+        "FBO responsibility",
+        "not to sell unsafe or sub-standard or misbranded food",
+        "comply with regulations"
+      ],
+      "conclusions": [
+        "An FBO shall not manufacture, store, distribute, sell or import any article of food that is unsafe, misbranded or sub-standard, and shall comply with food safety and standards regulations.",
+        "A food business operator must not manufacture, store, distribute, sell or import unsafe, misbranded or sub-standard food, and carries the fundamental responsibility of ensuring the food it handles satisfies the applicable food safety and standards requirements."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q005": {
+      "add_notes": {
+        "Section 22 covers novel, genetically modified, i…": "v1 only said FSSAI specifies standards by regulation; it missed s22's enumerated category list and the not-unsafe default for proprietary/novel foods."
+      },
+      "concepts": [
+        "food standards",
+        "specified by regulations",
+        "conformity"
+      ],
+      "conclusions": [
+        "Standards of quality, safety and other parameters for articles of food are specified by the FSSAI by regulations, and articles of food must conform to those standards.",
+        "Section 22 covers novel, genetically modified, irradiated, organic, special-dietary, functional, neutraceutical, health-supplement and proprietary foods, and where no standard has been specified a proprietary or novel food is treated as acceptable if it is not unsafe, so standards for articles of food are fixed by FSSAI regulations made under the Act rather than by the bare statutory text."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q006": {
+      "add_notes": {
+        "Under section 30 of the FSS Act, 2006 the State …": "v1 stated only head-of-administration and supervision; widened to the statutory appointment purpose in s30(1) and the powers shared with a Food Safety Officer."
+      },
+      "concepts": [
+        "Commissioner of Food Safety",
+        "State enforcement head"
+      ],
+      "conclusions": [
+        "The Commissioner of Food Safety is the State-level head of food safety administration, exercising powers of supervision, direction (including over Designated Officers and Food Safety Officers) and coordination of food safety enforcement in the State.",
+        "Under section 30 of the FSS Act, 2006 the State Government appoints a Commissioner of Food Safety for the State to secure efficient implementation of food safety and standards and the other requirements laid down under the Act and the rules and regulations made under it; that Commissioner is the State-level food safety authority for the State, directs the State's food-safety administration including Designated Officers and Food Safety Officers, and with the Designated Officer exercises the powers of a Food Safety Officer and follows the procedure specified in the Act."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q007": {
+      "add_notes": {},
+      "concepts": [
+        "Food Safety Officer",
+        "sampling",
+        "inspection",
+        "entry and search"
+      ],
+      "conclusions": [
+        "The Food Safety Officer (FSO) is empowered to take samples of any article of food, inspect any food business premises, and seize articles that appear to be unsafe, misbranded or sub-standard; the powers are defined under s37 (and sampling under s38/s41)."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q008": {
+      "add_notes": {
+        "When taking a food sample the Food Safety Office…": "v1 enumerated one particular procedural sequence; answer covered the same safeguards (witnesses, custody, cost, analysis, reporting) with different wording."
+      },
+      "concepts": [
+        "sampling",
+        "Food Analyst",
+        "divided sample",
+        "part to be analysed"
+      ],
+      "conclusions": [
+        "The FSO must take samples in accordance with the sampling procedure (dividing the sample, sealing/coding it), send one part for analysis to a Food Analyst, and follow the prescribed sampling rules, ensuring a fair and traceable procedure.",
+        "When taking a food sample the Food Safety Officer must follow the prescribed procedure - draw the sample in the presence of a witness, divide and seal/code the parts, deliver one part to the Food Analyst for analysis, and follow the notice-and-custody safeguards that make the process fair and transparent."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q009": {
+      "add_notes": {
+        "The Food Analyst's role is not limited to sample…": "v1 framed the Food Analyst only as certifying FSO samples; it omitted the purchaser-analysis route, notified laboratories and the contravention forwarding step."
+      },
+      "concepts": [
+        "Food Analyst",
+        "certificate of analysis",
+        "report"
+      ],
+      "conclusions": [
+        "The Food Analyst examines the sample sent by the FSO and issues a certificate/report of analysis, which forms the evidentiary basis for a prosecution under the Act.",
+        "The Food Analyst's role is not limited to samples sent by a Food Safety Officer: any purchaser of an article of food may have it analysed by the Food Analyst on payment of fees and receive the report of analysis within the regulatory period, accredited laboratories are notified by the Food Authority to carry out such analysis, and a report finding contravention is forwarded onward for prosecution."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q010": {
+      "add_notes": {},
+      "concepts": [
+        "Designated Officer",
+        "notify licensing",
+        "adjudicate minor penalties",
+        "FSO supervision"
+      ],
+      "conclusions": [
+        "The Designated Officer is appointed per licensing area and is responsible for notifying the FSO, granting/revoking licences, and adjudicating minor penalties (under s68); the FSO acts under the Designated Officer."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q011": {
+      "add_notes": {
+        "An improvement notice under s32 must state the g…": "v1 nearly identical but scored below threshold; wording variants (grounds/failure/measures/period) prevented overlap credit."
+      },
+      "concepts": [
+        "improvement notice",
+        "grounds for non-compliance",
+        "remedial measures and time limit"
+      ],
+      "conclusions": [
+        "An improvement notice must state the grounds for believing the FBO failed to comply, specify the matters constituting that failure, and specify the measures (with a time limit) necessary to achieve compliance.",
+        "An improvement notice under s32 must state the grounds for believing the food business operator failed to comply, specify the matters constituting the failure, and specify the measures and time limit necessary to achieve compliance."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q012": {
+      "add_notes": {
+        "Section 33 should be read as a judicial restrict…": "The audit recognized the substantive s33 answers but the current gold conclusion compresses the judicial nature, possible scope, and post-order relief into a short description. The added reading separates these legal features from administrative notices; the quoted amendment heading is an exact phrase in the supplied anchor."
+      },
+      "concepts": [
+        "prohibition order",
+        "stop using premises/process/equipment",
+        "business closure"
+      ],
+      "conclusions": [
+        "A prohibition order prohibits the FBO from using premises or a process/equipment for food handling where there is a risk to public safety; failure to comply attracts penalties. It operates alongside improvement and emergency prohibition notices.",
+        "Section 33 should be read as a judicial restriction with consequences tied to the scope of the order, rather than as another name for an improvement notice or an emergency administrative direction. Its application can extend beyond one item of equipment to the relevant food-business activity or class, and the statutory scheme contemplates a route for seeking discharge after corrective measures are evidenced. The reference should therefore recognize the order’s court-based character, its potential management restriction, and the remedial pathway as distinct legal effects."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q013": {
+      "add_notes": {
+        "Sections 33 and 34 of the FSS Act, 2006 provide …": "v1 compressed the distinction into urgency alone; widened to the statutory mechanics of the s34 route (notice, application, Commissioner's order, lapse on certificate)."
+      },
+      "concepts": [
+        "emergency prohibition",
+        "imminent risk of serious injury to health",
+        "authority conversion"
+      ],
+      "conclusions": [
+        "An emergency prohibition notice is issued immediately where there is an imminent risk of serious injury to health, and is converted into an emergency prohibition order by the authority; ordinary prohibition orders under s33 follow a less urgent route.",
+        "Sections 33 and 34 of the FSS Act, 2006 provide distinct prohibition routes: an ordinary prohibition order under section 33 follows the contravention-and-prosecution route, whereas section 34 lets the Designated Officer, on being satisfied that a health risk condition exists, serve an emergency prohibition notice on the food business and apply to the Commissioner of Food Safety, who by order imposes the prohibition without waiting for any conviction; the emergency order ceases to have effect only when the Designated Officer certifies that the operator has taken sufficient measures to justify lifting it."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q014": {
+      "add_notes": {},
+      "concepts": [
+        "unsafe food",
+        "death or grievous injury",
+        "other harm",
+        "less serious harm",
+        "graded minimum fine"
+      ],
+      "conclusions": [
+        "s59: (1) unsafe food causing death or grievous injury - imprisonment not less than 7 years (extendable to life) and fine not less than 10 lakh rupees; (2) causing other harm - imprisonment up to 7 years and fine not less than 5 lakh; (3) causing less serious harm - imprisonment up to 3 years and fine not less than 1 lakh."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q015": {
+      "add_notes": {},
+      "concepts": [
+        "without licence",
+        "imprisonment",
+        "fine"
+      ],
+      "conclusions": [
+        "Carrying on a food business without a licence is punishable with imprisonment for a term which may extend to six months and a fine which may extend to five lakh rupees."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q016": {
+      "add_notes": {},
+      "concepts": [
+        "sub-standard food",
+        "misbranded food",
+        "misleading advertisement",
+        "liability"
+      ],
+      "conclusions": [
+        "Sub-standard food (s60) and misbranded food (s61) attract a fine (s60 up to 5 lakh, s61 up to 3 lakh); misleading advertisement (s53) is a separate offence carrying a fine (the 2020 amendment raised it to 10 lakh) and applies to the person responsible for the advertisement."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q017": {
+      "add_notes": {
+        "Where an offence by a company is proved to have …": "v1 emphasised person-in-charge liability and government inquiry; answer additionally (correctly) covered the consent/connivance/neglect limb."
+      },
+      "concepts": [
+        "offences by companies",
+        "vicarious liability",
+        "every person in charge"
+      ],
+      "conclusions": [
+        "Where an offence is committed by a company, every person in charge of and responsible to the company for its conduct is liable, and the company itself is guilty of the offence; the central government may direct an inquiry/inspection.",
+        "Where an offence by a company is proved to have occurred with the consent or connivance of, or to be attributable to neglect on the part of, any director, manager, secretary or officer in charge, that person as well as the company is guilty of the offence."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q018": {
+      "add_notes": {},
+      "concepts": [
+        "prosecution approval",
+        "Commissioner written approval",
+        "bar to prosecution"
+      ],
+      "conclusions": [
+        "No, the FSO cannot institute prosecution without the written approval of the Commissioner of Food Safety; proceeding without such approval breaches the statutory precondition for prosecution."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q019": {
+      "add_notes": {
+        "Compounding of offences is governed by Section 6…": "Answer correctly noticed the compounding power sits in s69 (v1 question text anchored on s68); the s69 mechanism matches the reference's substance."
+      },
+      "concepts": [
+        "compounding of offences",
+        "payment of penalty",
+        "minor offences"
+      ],
+      "conclusions": [
+        "An offence may be compounded by the Designated Officer or Commissioner (as authorised) on payment of a penalty and complying with conditions; compounding is not available for offences triable exclusively by a court or where a minimum term of imprisonment is prescribed.",
+        "Compounding of offences is governed by Section 69: the Designated Officer or the Commissioner (as authorised) may compound offences on payment of the prescribed penalty subject to the statutory conditions, and compounding is unavailable for offences triable exclusively by a court."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q020": {
+      "add_notes": {},
+      "concepts": [
+        "compounding",
+        "penalty ceiling"
+      ],
+      "conclusions": [
+        "When compounding an offence, the compounding officer may impose a penalty not exceeding the maximum penalty provided for that offence (or, for imprisonment offences, an equivalent monetary penalty), and may require the offender to pay costs."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q021": {
+      "add_notes": {},
+      "concepts": [
+        "FSSAI Appellate Tribunal",
+        "appeal from orders of officers",
+        "adjudicating officer"
+      ],
+      "conclusions": [
+        "The FSSAI Appellate Tribunal is constituted to hear appeals against orders passed by an adjudicating officer or Designated Officer under the Act; the Central Government also has superintendence over the Tribunal."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q022": {
+      "add_notes": {},
+      "concepts": [
+        "licence issuance",
+        "Designated Officer",
+        "Central Licensing Authority"
+      ],
+      "conclusions": [
+        "The Designated Officer (State/local) grants State licences (Type A/B) and the Central Licensing Authority (FSSAI, head office) grants the Central (import/exports) licence; the issuing authority depends on the turnover/scope of the business."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q023": {
+      "add_notes": {},
+      "concepts": [
+        "licence conditions",
+        "renewal",
+        "suspension/cancellation",
+        "non-compliance"
+      ],
+      "conclusions": [
+        "A licence is granted subject to conditions and must be renewed on time; the issuing authority may suspend or cancel it if the FBO fails to comply with the Act, conditions or directions, after following the procedure in the licensing regulations."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q024": {
+      "add_notes": {},
+      "concepts": [
+        "pendency of prosecution",
+        "separate penalty proceedings",
+        "no bar"
+      ],
+      "conclusions": [
+        "No; under s48 the pendency of prosecution does not bar the authority from imposing a penalty (or compounding/proceeding under the Act), since criminal prosecution and administrative penalty are separate proceedings."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q025": {
+      "add_notes": {},
+      "concepts": [
+        "punitive damages",
+        "compensation to consumer/patient"
+      ],
+      "conclusions": [
+        "s52 allows the court to additionally order the food business operator to pay such compensation as is appropriate to the consumer or any other person affected by the unsafe food, over and above the fine on the offender."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q026": {
+      "add_notes": {},
+      "concepts": [
+        "imported food",
+        "FSSAI approval",
+        "prior intimation"
+      ],
+      "conclusions": [
+        "Food imported into India must conform to FSSAI standards, and FSSAI approval/standards apply to imported food; non-conforming imports may be detained or destroyed per the import provisions and the Customs Act."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q027": {
+      "add_notes": {},
+      "concepts": [
+        "exemption by central government",
+        "class of food business operators"
+      ],
+      "conclusions": [
+        "Yes, the Central Government may, by notification, exempt any class of food business operator from all or any of the provisions of the Act (including licensing/registration) if it is satisfied that the FSSAI can be maintained, subject to conditions."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q028": {
+      "add_notes": {
+        "The multi-State fact is the decisive licensing-j…": "The audit note accepts the Central-licence conclusion but expressly cautions against unsupported turnover detail. The addition distinguishes the supported multi-State criterion from the unproven threshold and avoids treating the stated validity range as proof of a particular term."
+      },
+      "concepts": [
+        "Type A central licence",
+        "FSSAI central licensing",
+        "annual turnover threshold",
+        "validity 1-5 years"
+      ],
+      "conclusions": [
+        "The chain must obtain a Type-A (Central) food licence from the FSSAI (Central Licensing Authority), valid for 1 to 5 years depending on turnover and commencement, due to its multi-State presence and high turnover.",
+        "The multi-State fact is the decisive licensing-jurisdiction feature supported by the audited reading; the stated turnover should not be treated as an independently verified threshold on these excerpts. Likewise, a one-to-five-year menu does not establish which particular term applies to this hypothetical, because the packet does not reproduce the operative wording that determines the selected duration. The reference should accept the supported licence class and validity range without converting an unsupported turnover premise or a range into a more precise rule."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q029": {
+      "add_notes": {
+        "A petty food business operator below the licence…": "v1 required the 'C' certificate detail; answer stated the licence-exempt-plus-register conclusion the scenario asks for."
+      },
+      "concepts": [
+        "petty food business operator",
+        "registration",
+        "exemption from licence"
+      ],
+      "conclusions": [
+        "As a petty food business operator, the farmer is exempt from the licence requirement but must register (obtain a 'C' food safety certificate) with the local authority under the licensing regulations.",
+        "A petty food business operator below the licence threshold is exempt from licensing but must register with the local authority (registration/certificate under the licensing regulations) before carrying on the food business."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q030": {
+      "add_notes": {
+        "Pesticide residue limits, including any figure f…": "v1 was framed as a corpus gap only; the positive statutory reading is that the Act delegates MRL-setting to FSSAI regulations, which is why no figure appears in it."
+      },
+      "concepts": [
+        "maximum residue limit",
+        "pesticide residue",
+        "contaminants regulation"
+      ],
+      "conclusions": [
+        "The available corpus (FSS Act + Contaminants Regulations) does not establish a specific, reliably readable MRL for chlorpyrifos in vegetables; MRLs are set in regulations notified over time and the exact figure for this pesticide is not established in the corpus.",
+        "Pesticide residue limits, including any figure for chlorpyrifos in vegetables, are not stated in the FSS Act itself: the Act only delegates standard-making to FSSAI through section 31 read with section 92(2)(o), so a specific MRL must be read from regulations notified under that delegation and cannot be quoted from the Act alone."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q031": {
+      "add_notes": {},
+      "concepts": [
+        "cow",
+        "calf",
+        "bull",
+        "bullock",
+        "buffalo",
+        "buffalo-calf",
+        "prohibition of slaughter"
+      ],
+      "conclusions": [
+        "Order 4 of the West Bengal Meat Order, 1966 prohibits the slaughter of cows, calves, bulls, bullocks, buffaloes, buffalo-calves and camels; slaughter of these is prohibited."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q032": {
+      "add_notes": {},
+      "concepts": [
+        "licensed slaughter house",
+        "licensed meat shop",
+        "licence requirement"
+      ],
+      "conclusions": [
+        "Order 5 requires that no animal shall be slaughtered except at a licenced slaughter house, and Order 6 requires a licence to carry on a meat shop or slaughter house business; meat must be sold only from premises covered by such licences."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q033": {
+      "add_notes": {},
+      "concepts": [
+        "slaughter house licence",
+        "cruelty prevention",
+        "licence conditions"
+      ],
+      "conclusions": [
+        "A slaughter house must hold a licence under Rule 4 of the Prevention of Cruelty to Animals Rules, 2017, issued subject to conditions; the licensing authority may refuse/cancel it on cruelty or procedural grounds."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q034": {
+      "add_notes": {},
+      "concepts": [
+        "stunning before slaughter",
+        "least possible suffering"
+      ],
+      "conclusions": [
+        "Rule 63 requires that animals be rendered insensible to pain or sensation of injury before slaughter and that slaughter be conducted causing the least possible suffering, in line with slaughterhouse regulations."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q035": {
+      "add_notes": {},
+      "concepts": [
+        "unauthorized slaughter",
+        "illegal meat",
+        "non-conforming meat"
+      ],
+      "conclusions": [
+        "No - meat not sourced from a licenced slaughter house is non-conforming; selling it breaches the shop licence conditions and is a punishable offence under the Meat Order."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q036": {
+      "add_notes": {},
+      "concepts": [
+        "imprisonment",
+        "fine",
+        "prohibited animal",
+        "unlicensed trade"
+      ],
+      "conclusions": [
+        "Violation of the prohibition/licensing Orders under the West Bengal Meat Order, 1966 is punishable with imprisonment and/or a fine, the precise term and amount being set out in the Meat Order's penalty provision."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q037": {
+      "add_notes": {
+        "Livestock imported from another State may be sla…": "v1 wording emphasised quarantine-then-examine; answer gave inspection/quarantine/disease-free certification, same legal requirement."
+      },
+      "concepts": [
+        "import quarantine",
+        "health certificate",
+        "quarantine period"
+      ],
+      "conclusions": [
+        "Livestock brought from another State must be kept in quarantine and examined; a health certificate/quarantine clearance is required before the animals can be released for slaughter, under the Bengal Livestock Import Quarantine Rules, 1944.",
+        "Livestock imported from another State may be slaughtered only after quarantine and veterinary examination, with the prescribed health certificate or quarantine clearance issued before release for slaughter, under the Bengal Livestock Import Quarantine Rules."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q038": {
+      "add_notes": {},
+      "concepts": [
+        "notifiable disease",
+        "duty to report",
+        "early detection"
+      ],
+      "conclusions": [
+        "Any person aware of, or suspecting, a notifiable disease in animals must report it promptly to the competent veterinary authority / District Animal Husbandry Officer under the WB infectious-diseases rules."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q039": {
+      "add_notes": {},
+      "concepts": [
+        "stamping out",
+        "destruction of infected stock",
+        "disinfection",
+        "restriction of movement"
+      ],
+      "conclusions": [
+        "On a notifiable disease outbreak the authority may order movement restrictions, stamping-out/destruction of infected animals, disinfection and cleansing of premises, and compensation is regulated separately under the rules."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q040": {
+      "add_notes": {},
+      "concepts": [
+        "disease control",
+        "penalty",
+        "imprisonment and fine"
+      ],
+      "conclusions": [
+        "Contravention of the Bengal Diseases of Animals Act (or its rules) is punishable with imprisonment for a term which may extend to [period] and with fine, as specified in s480 of the Act."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q041": {
+      "add_notes": {
+        "A meat shop licensed under the West Bengal Meat …": "v1 asserted the cumulative result without the statutory hook; widened to tie it to the s31(1) licence prohibition itself."
+      },
+      "concepts": [
+        "dual licensing",
+        "meat shop",
+        "FSSAI licence"
+      ],
+      "conclusions": [
+        "No — a meat shop is also a food business under the FSS Act; the Meat-Order licence does not dispense with the FSSAI food-safety licence/registration (Type-C for petty). Both regimes apply cumulatively.",
+        "A meat shop licensed under the West Bengal Meat Order, 1966 remains a food business in its own right under the FSS Act, 2006, so section 31(1) applies cumulatively: no person may commence or carry on any food business except under a licence granted under section 31, and the Meat-Order sanction neither substitutes for that licence nor for registration under section 31(2) for petty operators; the two regimes are enforced independently and breach of either attracts its own consequence."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q042": {
+      "add_notes": {},
+      "concepts": [
+        "ritual slaughter",
+        "humane slaughter",
+        "religious exemption"
+      ],
+      "conclusions": [
+        "The available corpus (Prevention of Cruelty to Animals Rules, 2017) does not establish that a religious-ritual exception to the pre-stunning requirement is recognised; the Rules require slaughter to cause the least suffering and any exemption is a matter of judicial interpretation, not established in the corpus text."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q043": {
+      "add_notes": {},
+      "concepts": [
+        "licence conditions",
+        "premises standards",
+        "municipal/meat inspection"
+      ],
+      "conclusions": [
+        "A meat shop licence is subject to conditions regarding the construction and sanitation of the premises, and the licensing/municipal authority may inspect for compliance; continued operation depends on meeting those conditions."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q044": {
+      "add_notes": {},
+      "concepts": [
+        "prohibited animal",
+        "licence grant",
+        "public policy"
+      ],
+      "conclusions": [
+        "The licence would violate Order 4 (prohibition of buffalo-calf slaughter); the licensing authority must refuse to grant a licence that authorises slaughter of a prohibited animal."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q045": {
+      "add_notes": {},
+      "concepts": [
+        "compensation",
+        "notifiable disease",
+        "destruction of stock"
+      ],
+      "conclusions": [
+        "The available corpus does not establish a specific statutory compensation rate for the destruction of stock due to a notifiable disease in the Meat Order's penalty provisions; the exact rate is not recorded/readily available from the Order text."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q046": {
+      "add_notes": {
+        "Under s3(1) of the Environment (Protection) Act …": "Answer stated the broad s3(1) power accurately; v1's narrower 'threatened' phrasing depressed overlap."
+      },
+      "concepts": [
+        "Central Government power",
+        "environmental protection",
+        "threat to environment"
+      ],
+      "conclusions": [
+        "Under s3, when the Central Government is satisfied that the whole or any part of India's environment is threatened, it may take such measures as it deems necessary or expedient for protecting the environment.",
+        "Under s3(1) of the Environment (Protection) Act 1986 the Central Government may take all such measures as it deems necessary or expedient for protecting and improving the quality of the environment and preventing environmental pollution, exercising the power when it is satisfied that substantial environmental threat exists."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q047": {
+      "add_notes": {},
+      "concepts": [
+        "consent to establish",
+        "consent to operate",
+        "effluent discharge"
+      ],
+      "conclusions": [
+        "Every occupier who proposes to discharge, or is discharging, effluent must obtain prior consent to establish and consent to operate from the State Pollution Control Board (or CPCB) under s9 of the Water Act."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q048": {
+      "add_notes": {},
+      "concepts": [
+        "consent to establish/operate",
+        "closure without consent"
+      ],
+      "conclusions": [
+        "No person shall establish or operate an industrial installation handling any toxic/foreign substance without prior consent from the State Pollution Board; operating without consent is ground for closure under s7."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q049": {
+      "add_notes": {},
+      "concepts": [
+        "closure",
+        "demolition",
+        "polluting industry",
+        "environmental emergency"
+      ],
+      "conclusions": [
+        "Under s6, the Central Government may, in a case of environmental emergency or where standards are being violated, direct the closure and/or demolition of the industry, and may also empower a State Government or Pollution Board to take the same action."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q050": {
+      "add_notes": {},
+      "concepts": [
+        "Board powers",
+        "close discharge",
+        "access & inspection"
+      ],
+      "conclusions": [
+        "Under s7, the Boards may, after recording reasons and giving the occupier a chance, close or regulate the pipe/continuous supply and may require the occupier to stop the polluting process, besides inspecting and accessing records."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q051": {
+      "add_notes": {},
+      "concepts": [
+        "show-cause",
+        "opportunity to be heard",
+        "environmental emergency exception"
+      ],
+      "conclusions": [
+        "Before passing a closure/demolition order under s6 the authority must give the industry a reasonable opportunity of being heard (show-cause), except where it is satisfied that in an environmental emergency there is insufficient time to do so."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q052": {
+      "add_notes": {},
+      "concepts": [
+        "penalty",
+        "imprisonment",
+        "fine",
+        "continuing offence",
+        "cognizable"
+      ],
+      "conclusions": [
+        "Contravention of an order under the Water Act is punishable with imprisonment up to 3 months (5 months for subsequent convictions) and a fine of at least 2000 rupees per day for continuing offences, and is cognizable."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q053": {
+      "add_notes": {},
+      "concepts": [
+        "environmental offence",
+        "contravention of rules/order",
+        "penalty imprisonment and fine"
+      ],
+      "conclusions": [
+        "Section 7 makes it an offence to contravene any rule or order made under the EPA; the offence is cognizable and punishable with imprisonment up to 5 years and a fine which may extend to 1 lakh rupees."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q054": {
+      "add_notes": {
+        "Within the EPA framework the standard-setting fu…": "v1 mentioned only Water Act s8 standards; it missed EPA s4's own standards-for-environment-quality and emission/discharge limbs that ground the Boards' duty."
+      },
+      "concepts": [
+        "Board duty",
+        "water quality standards",
+        "Standards Notification"
+      ],
+      "conclusions": [
+        "The Boards are duty-bound under the EPA framework to lay and enforce environmental (including water-quality) standards notified under s8 of the Water Act, monitoring compliance with the notified ambient/effluent standards.",
+        "Within the EPA framework the standard-setting function covers laying down standards for the quality of environment and for emission or discharge of environmental pollutants from any source, which is how the water-quality intersection works: Board duties to enforce notified ambient and effluent standards operate under standards laid down through this power and under the Water Act s8 notifications."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q055": {
+      "add_notes": {
+        "Consent is administered by the State Board, whic…": "v1 described only the application mechanics; it omitted the Board's inspection and plan-review function tied to consent and framed non-compliance narrowly."
+      },
+      "concepts": [
+        "consent application",
+        "form & fee",
+        "prior intimation",
+        "rejection / closure"
+      ],
+      "conclusions": [
+        "The occupier files a consent application in the prescribed form with the prescribed fee and prior intimation to local authority; the Board may grant/reject it, and operating without consent is an offence.",
+        "Consent is administered by the State Board, which inspects sewage and trade effluents, works and plants and reviews plans and specifications in connection with the grant of any consent required by the Act; running a prescribed process without that consent or without complying with its conditions is a breach by the occupier that the Board may act on."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q056": {
+      "add_notes": {
+        "Under the Plastic Waste Management Rules, 2016 a…": "v1 described EPR as take-back/recycling only; widened to the recycled-content and design obligations plus the 2022 amendment's effect as stated in the rules."
+      },
+      "concepts": [
+        "extended producer responsibility",
+        "producer responsibility organisation",
+        "single-use plastic ban"
+      ],
+      "conclusions": [
+        "Under EPR, the producer/placer of plastic carries responsibility for its entire life-cycle (including take-back/recycling via a PRO); the 2022 amendments extended the single-use plastic ban and narrowed exemptions.",
+        "Under the Plastic Waste Management Rules, 2016 as amended in 2022, every producer, importer and brand owner is an obligated entity whose extended producer responsibility covers the full life cycle of plastic packaging — package design for reuse and for recycling, minimum recycled plastic content, collection-back and disposal obligations, registration on the centralised CPCB portal and annual returns — and the 2022 amendment notified these EPR guidelines while extending the restriction regime to single-use plastic items."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q057": {
+      "add_notes": {},
+      "concepts": [
+        "segregation at source",
+        "door-to-door collection",
+        "no open dumping",
+        "municipal collection"
+      ],
+      "conclusions": [
+        "The FBO must segregate waste at source into biodegradable/recyclable/dry and hand it over only to the municipal door-to-door collector; open dumping is prohibited. The municipal/Urban Local Body is responsible for door-to-door collection and processing."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q058": {
+      "add_notes": {},
+      "concepts": [
+        "environmentally sensitive area",
+        "restriction on activities",
+        "forest/substrate"
+      ],
+      "conclusions": [
+        "An environmentally sensitive area is one notified by the Central Government where it proposes to restrict any process/activity that may or is likely to cause environmental quality deterioration; s5 empowers restrictions on use of such areas/substrates."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q059": {
+      "add_notes": {},
+      "concepts": [
+        "cognizance of court",
+        "prosecution of government servant",
+        "prior sanction"
+      ],
+      "conclusions": [
+        "Criminal proceedings under s7 may be instituted by the Central Government or an officer authorised by it, before a Magistrate of the first class; prosecution of a government servant requires the previous sanction of the Central Government under s8."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q060": {
+      "add_notes": {
+        "The exact numeric pH limit is not established in…": "Abstention-style question; answer's refusal reasoning matched the reference but abstain-marker noise and phrasing depressed the score."
+      },
+      "concepts": [
+        "independent jurisdiction",
+        "concurrent proceedings",
+        "water vs air"
+      ],
+      "conclusions": [
+        "The available corpus (Water Act + EPA) does not establish the specific numeric pH limit as readable from the Act text itself; effluent pH standards are fixed by notified pollution-board standards and the exact figure is not reliably established in the corpus.",
+        "The exact numeric pH limit is not established in the supplied corpus: the Water Act text itself does not state the figure, effluent pH standards are fixed by notified pollution-board standards, and no reliable numeric value can be read from the corpus."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q061": {
+      "add_notes": {
+        "Section 392 KMC Act prohibits constructing, rais…": "Answer identified the s392 prohibition and its consequence; v1 phrasing overlapped weakly on tokens like 'constructing/raising'."
+      },
+      "concepts": [
+        "building plan sanction",
+        "building without permission",
+        "prohibition"
+      ],
+      "conclusions": [
+        "Section 392 prohibits constructing/raising or demolishing/altering any building without the prior sanction of the Municipal Corporation; doing so is an offence.",
+        "Section 392 KMC Act prohibits constructing, raising, demolishing or altering any building without the prior sanction of the Municipal Corporation, and carrying out such unauthorised work is an offence inviting penalty and enforcement consequences."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q062": {
+      "add_notes": {
+        "A street-food stall in North Kolkata is a non-re…": "v1 framed the requirement as a trade licence with hygiene conditions; widened to the operative non-residential-use licensing power and the stop-use sanction."
+      },
+      "concepts": [
+        "trade licence",
+        "food stall",
+        "hygiene inspection",
+        "municipal licence"
+      ],
+      "conclusions": [
+        "The stall must obtain a municipal trade licence (with food-hygiene conditions) under the KMC Act; the Municipal Health Officer / FSO may inspect for hygiene compliance.",
+        "A street-food stall in North Kolkata is a non-residential use of premises under the KMC Act, 1980 and may be carried on only in conformity with the municipal licence granted for that use; where premises are used for a non-residential purpose without a municipal licence, or otherwise than in conformity with its terms, the Municipal Commissioner may stop that use for a specified period, and a person who continues in contravention commits a further breach — so the stall needs municipal authorisation in addition to any food-safety approval before it may trade."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q063": {
+      "add_notes": {},
+      "concepts": [
+        "quarterly instalments",
+        "property tax recovery",
+        "water-fee recovery"
+      ],
+      "conclusions": [
+        "Property tax may be paid in four quarterly instalments (s196); the Corporation may recover arrears by the recovery-of-dues procedure, including recovery of water/effluent fees under s330."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q064": {
+      "add_notes": {
+        "A building plan application must be accompanied …": "Nearly matching content failed the 0.5 threshold on token variants (conform/conforming, sanction/sanctioned)."
+      },
+      "concepts": [
+        "water-supply plan",
+        "plan conformity",
+        "building plan sanction"
+      ],
+      "conclusions": [
+        "A building plan application must include a water-supply plan conforming to KMC water requirements; the Municipal Commissioner shall not sanction the building plan unless the water-supply plan conforms (s313).",
+        "A building plan application must be accompanied by a water-supply plan conforming to the KMC water-supply requirements, and the Municipal Commissioner shall not sanction the plan unless the water-supply plan conforms (s313)."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q065": {
+      "add_notes": {
+        "Regulating and abating offensive or dangerous tr…": "v1 gave only a generic nuisance power; it missed that trade control is an enumerated obligatory function with direct protection of adjoining premises."
+      },
+      "concepts": [
+        "noxious trades",
+        "relocation",
+        "public nuisance",
+        "dangerous trades"
+      ],
+      "conclusions": [
+        "The Corporation may prohibit, restrict or relocate noxious/dangerous trades and remove public nuisances that endanger health/safety of adjoining premises, under its nuisance/trade control powers.",
+        "Regulating and abating offensive or dangerous trades or practices is an obligatory function of the Corporation, so it may prohibit, restrict, license or relocate such trades and act against premises whose operation endangers or nuisances adjacent premises and their users."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q066": {
+      "add_notes": {
+        "Under section 391 of the KMC Act, 1980 the Mayor…": "v1 named the committee loosely ('Chief Engineer, City Engineer, etc.'); widened to the statutory constitution and the scrutiny function."
+      },
+      "concepts": [
+        "Building Committee",
+        "building plan scrutiny",
+        "structural safety"
+      ],
+      "conclusions": [
+        "A Municipal Building Committee (comprising the Chief Engineer, City Engineer, etc., per s391) scrutinises and sanctions building plans, ensuring structural and safety compliance before permission is issued.",
+        "Under section 391 of the KMC Act, 1980 the Mayor-in-Council constitutes a Municipal Building Committee with the Municipal Commissioner as its Chairman and an officer of the Corporation as its convener, with the remaining members drawn from the engineering, planning and environmental agencies; the Committee scrutinises every application for erection or re-erection of a building received under the Act and acts in accordance with the Act, the rules and the regulations, so no building permission issues until that scrutiny is complete."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q067": {
+      "add_notes": {},
+      "concepts": [
+        "trade licence cancellation",
+        "grounds",
+        "municipal appeal"
+      ],
+      "conclusions": [
+        "A trade licence may be cancelled/withheld for non-compliance with conditions or for being a nuisance; such municipal decisions are appealable within the Corporation hierarchy, not to the High Court directly."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q068": {
+      "add_notes": {
+        "The KMC permission framework also contains a seq…": "The audit correctly identified cumulative regulation. The added reading captures the order in which municipal and external permissions interact, including the narrow provisional-permission exception present in the KMC excerpt."
+      },
+      "concepts": [
+        "wholesale market licence",
+        "municipal market",
+        "dual regulation"
+      ],
+      "conclusions": [
+        "A wholesale meat/fish market requires both a municipal market licence under the KMC Act and a licence under the West Bengal Meat Order; the two regimes apply cumulatively and neither substitutes the other.",
+        "The KMC permission framework also contains a sequencing rule: where another government or statutory body must authorize the proposed use, the Corporation ordinarily requires that permission before granting its own permission. The supplied text recognizes a limited provisional-permission route when municipal permission is itself a precondition for the external authorization; that provisional permission is confined to satisfying the precondition and becomes final only after the other permission is produced. This procedural qualification supplements, rather than replaces, the separate market and meat-trade authorizations."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q069": {
+      "add_notes": {
+        "Providing sewerage and drainage, constructing an…": "v1 bundled drainage and nuisance removal together; it did not identify the specific obligatory-function clauses that ground the duty and the resulting order power."
+      },
+      "concepts": [
+        "drainage",
+        "noxious discharge",
+        "sewerage",
+        "removal of nuisance"
+      ],
+      "conclusions": [
+        "The Corporation must maintain drainage/sewerage and may prohibit/order the removal of noxious liquid discharge or other nuisances harmful to public health, under its municipal nuisance powers.",
+        "Providing sewerage and drainage, constructing and cleansing sewers and drains, and the scavenging and removal of filth and obnoxious matters are obligatory functions of the Corporation, and those functions support orders against noxious liquid discharge and other nuisances harmful to public health."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q070": {
+      "add_notes": {
+        "Where the Municipal Commissioner is of the opini…": "v1 spoke generally of trade/licensing provisions; the operative ground is the s517 notice power and who may be served with it."
+      },
+      "concepts": [
+        "street vendor",
+        "removal of encroachment",
+        "public nuisance"
+      ],
+      "conclusions": [
+        "The Municipal Commissioner may require removal of encroachments/unauthorised stalls and regulate signage where they cause obstruction or public nuisance, under the KMC trade/licensing provisions.",
+        "Where the Municipal Commissioner is of the opinion that a nuisance exists on any land or building, section 517 lets him require the person whose act, default or sufferance caused or continued it, or the owner, lessee or occupier, to remove or abate the nuisance within the period specified in the written notice, which reaches obstructive stalls, signage and similar street nuisances."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q071": {
+      "add_notes": {
+        "The nuisance process is not best represented as …": "The audited answers correctly identify nuisance abatement and the written-notice route. This addition distinguishes the abatement remedy from a fixed automatic fine and flags that the supplied anchor excerpts do not establish a specific amount or deadline."
+      },
+      "concepts": [
+        "waste disposal",
+        "public nuisance",
+        "civic penalty / improvement notice"
+      ],
+      "conclusions": [
+        "The owner must keep premises free of nuisances and dispose waste per the KMC sanitation rules; failure invites a notice/civic penalty and removal of the nuisance by the Corporation, with costs recovered as a civic due.",
+        "The nuisance process is not best represented as an automatic fixed fine triggered solely by the presence of flies. The statutory route described in the packet is directed first at securing removal or abatement, with municipal intervention available where the nuisance is not dealt with; any recovery of the Corporation’s abatement expense is a separate consequence from the initial notice. The gold reference should preserve this notice-and-remedy sequence and avoid asserting a specific monetary amount or compliance period that the supplied excerpts do not establish."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q072": {
+      "add_notes": {},
+      "concepts": [
+        "recovery of civic dues",
+        "water disconnection",
+        "recovery certificate"
+      ],
+      "conclusions": [
+        "The Corporation may recover water/fees and property-tax dues through the civic dues recovery mechanism (including recovery from other sources); water supply may be disconnected for non-payment of water charges."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q073": {
+      "add_notes": {
+        "Erection, re-erection or extension of a building…": "v1 stated the prohibition and a possible pull-down order; widened to the penalty structure recorded for s392 contravention."
+      },
+      "concepts": [
+        "unauthorised building work",
+        "penalty",
+        "order to pull down"
+      ],
+      "conclusions": [
+        "Building work without sanction is prohibited under s392; the Corporation may impose penalty and/or pass an order requiring the unauthorised structure to be pulled down/regularised after due procedure.",
+        "Erection, re-erection or extension of a building in Kolkata requires the prior sanction of the Municipal Commissioner, and carrying out building work without that sanction contravenes section 392 of the KMC Act, 1980, which attracts the prescribed penalty of imprisonment and/or fine computed per building and per square metre, with a further penalty where the unauthorised construction or execution of work is continued."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q074": {
+      "add_notes": {},
+      "concepts": [
+        "fire safety clearance",
+        "NOC",
+        "trade licence condition",
+        "municipal coordination"
+      ],
+      "conclusions": [
+        "The hotel must obtain a municipal fire-safety NOC and the KMC may make the trade licence subject to fire-safety compliance; the two clearances are co-ordinated and the licence may be conditioned on the NOC."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q075": {
+      "add_notes": {
+        "Where a removal notice is not complied with, the…": "v1 stated cost recovery abstractly; it missed the self-execution power and the arrear-of-tax recovery route that makes the cost enforceable."
+      },
+      "concepts": [
+        "public place obstruction",
+        "removal at owner cost",
+        "civic due"
+      ],
+      "conclusions": [
+        "The Commissioner may remove an obstruction from a public place and recover the cost from the owner as a municipal (civic) due recoverable under the KMC recovery provisions.",
+        "Where a removal notice is not complied with, the Commissioner may himself carry out the removal after the notice period expires and recover the expenses from the owner as an arrear of tax under the Act, so obstruction removal from a public place carries a cost recovery enforceable exactly like a municipal due."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q076": {
+      "add_notes": {},
+      "concepts": [
+        "sub-letting",
+        "prior permission"
+      ],
+      "conclusions": [
+        "Section 30 prohibits sub-letting or assigning premises without the prior permission of the landlord (and the prescribed authority); permission is required before any sub-letting."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q077": {
+      "add_notes": {
+        "Under section 16 of the West Bengal Premises Ten…": "v1 referred to 'the procedure in s16, comparable premises and the Act's factors' — the 1956 Act's approach; widened to the actual s16 computation in the 1997 Act."
+      },
+      "concepts": [
+        "standard rent",
+        "rent controller",
+        "fixation"
+      ],
+      "conclusions": [
+        "The standard rent is determined by the prescribed authority (Rent Controller) in accordance with the procedure in s16, based on comparable premises and the Act's factors.",
+        "Under section 16 of the West Bengal Premises Tenancy Act, 1997 the fair rent is determined by applying the section's tenure-based formulae rather than a single figure: for premises constructed and let out after 1984 it is ten per cent of the cost of construction plus the market value of the land at the commencement of construction; for premises constructed on or before 1984 it is the recorded rent as on 1.7.1976 where the tenancy subsists for twenty years or more, or as on 1.7.1986 where it subsists for ten to twenty years, increased by not more than three times or two times respectively and then adjusted by the deductions in Schedule III."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q078": {
+      "add_notes": {},
+      "concepts": [
+        "enhancement of rent",
+        "improvement",
+        "standard rent ceiling"
+      ],
+      "conclusions": [
+        "Enhanced rent may exceed standard rent only for premises the tenant has improved (up to the improvement value); the enhancement procedure is governed by s32 and requires authority fixation."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q079": {
+      "add_notes": {},
+      "concepts": [
+        "notice for eviction",
+        "grounds of eviction"
+      ],
+      "conclusions": [
+        "The landlord must give the tenant a notice (specifying grounds and reasonable time to show cause) before instituting eviction proceedings; eviction is on grounds listed in s45 (e.g. non-payment of rent, sub-letting without permission)."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q080": {
+      "add_notes": {},
+      "concepts": [
+        "recovery of possession",
+        "possession decree",
+        "execution"
+      ],
+      "conclusions": [
+        "After an eviction decree, s46 provides for recovery of possession through the court's execution process (including removal of the tenant by the local authority if necessary), subject to procedural safeguards."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q081": {
+      "add_notes": {},
+      "concepts": [
+        "drinking-water source protection",
+        "environmental measure"
+      ],
+      "conclusions": [
+        "Under s3 of the EPA, the Central Government may take such measures as it deems necessary or expedient to protect and improve the quality of the environment, including drinking-water sources."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q082": {
+      "add_notes": {},
+      "concepts": [
+        "drinking water standard",
+        "surface water classification",
+        "notification"
+      ],
+      "conclusions": [
+        "Section 8 empowers the CPCB to notify the quality of water (including standards for surface water used or intended for drinking) and of effluents; compliance with those notified standards is mandatory."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q083": {
+      "add_notes": {
+        "The institutional allocation matters as well as …": "The audit missed an institutional qualification in the supplied s6 text. This addition broadens the accepted account of Board powers by recording which Board acts in Union territories, without merely repeating the listed substantive powers."
+      },
+      "concepts": [
+        "air quality standards",
+        "public health protection",
+        "emission standards"
+      ],
+      "conclusions": [
+        "Under s6, the Boards may take steps for the prevention, control and abatement of air pollution, including notifying ambient air-quality and emission standards to protect public health.",
+        "The institutional allocation matters as well as the substantive pollution-control powers: for a Union territory, the Act assigns the Central Board the functions that a State Board would otherwise perform, rather than requiring a separate State Board to be constituted there. This jurisdictional substitution is part of the statutory machinery through which the Act’s standards and control functions operate, and is a valid additional dimension of the public-protection answer."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q084": {
+      "add_notes": {},
+      "concepts": [
+        "effluent standards",
+        "consent conditions",
+        "downstream users"
+      ],
+      "conclusions": [
+        "Consent to operate under s9 is granted subject to the condition that the effluent shall not exceed the notified effluent standards, thereby protecting the quality of water used (downstream) for drinking."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q085": {
+      "add_notes": {},
+      "concepts": [
+        "environmentally sensitive area",
+        "location restriction",
+        "public health"
+      ],
+      "conclusions": [
+        "Locating a polluting industry in an environmentally sensitive area (s2(e), notified to protect public health/environment) triggers s5 restrictions on the use of land/substrate and may bar the activity or require extra safeguards."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q086": {
+      "add_notes": {},
+      "concepts": [
+        "segregation at source",
+        "door-to-door collection",
+        "biodegradable"
+      ],
+      "conclusions": [
+        "Generators must segregate waste at source (biodegradable/recyclable/dry) and hand it over only to the ULBs' door-to-door collectors; proper segregation prevents open dumping/burning that harms public health."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q087": {
+      "add_notes": {
+        "The amendment empowers notification prohibiting …": "v1 combined prohibition and EPR in one sentence; it missed that the restriction operates by notification over the enumerated commodity classes."
+      },
+      "concepts": [
+        "single-use plastic ban",
+        "extended producer responsibility",
+        "prohibition list"
+      ],
+      "conclusions": [
+        "The amended PWM Rules prohibit the manufacture/import/sale of notified single-use plastic items; EPR makes the producer responsible for the plastic's end-of-life, reducing public-health exposure to littered plastic.",
+        "The amendment empowers notification prohibiting manufacture, import, stocking, distribution, sale and use of carry bags, plastic sheets, multilayered packaging and single-use plastic including polystyrene and expanded polystyrene commodities, with extended producer responsibility duties on producers, importers and brand-owners for end-of-life management so that littered plastic exposure falls off."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q088": {
+      "add_notes": {},
+      "concepts": [
+        "polluted water discharge",
+        "penalty",
+        "public health risk"
+      ],
+      "conclusions": [
+        "Discharging polluted water in contravention of an order is an offence punishable with imprisonment up to 3 months (5 months on subsequent conviction) and a fine of at least 2000 rupees/day; untreated discharge also raises public-health exposure."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q089": {
+      "add_notes": {},
+      "concepts": [
+        "location clearance",
+        "environmental clearance",
+        "drinking water source"
+      ],
+      "conclusions": [
+        "The plant must obtain environmental/public-health clearance under the EPA (and the Water Act consent regime) given proximity to a drinking-water source; clearance is not automatic and may impose conditions or prohibit the location (s3/s6)."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q090": {
+      "add_notes": {
+        "The Act’s contents identify separate mechanisms …": "The machine failed to credit the evidentiary distinction between the Act’s framework powers and a technical ambient standard. The addition specifies why a numerical limit requires the relevant standard text and averaging period, not just the Act’s general powers."
+      },
+      "concepts": [
+        "ambient air quality standard",
+        "PM2.5",
+        "24-hour limit"
+      ],
+      "conclusions": [
+        "The available corpus does not establish the specific numeric PM2.5 24-hour ambient standard as readable from the Act text itself; ambient air-quality criteria are notified by the CPCB over time and the exact figure is not established in the corpus.",
+        "The Act’s contents identify separate mechanisms for declaring air-pollution-control areas and for regulating emissions, but those are enabling and regulatory mechanisms, not a numeric table of ambient PM2.5 concentrations. A claim about a 24-hour particulate limit therefore needs the applicable notified standard and its units/averaging period; a general reference to Board powers cannot itself supply the numerical value or establish that value as wording in the Act."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q091": {
+      "add_notes": {
+        "Under s73 a party injured by breach is compensat…": "Answer's s73/s74 distinction was substantively sound; v1's 'disallowed to the extent of penalty' phrasing diverged."
+      },
+      "concepts": [
+        "compensation for loss",
+        "penalty clause",
+        "genuine pre-estimate"
+      ],
+      "conclusions": [
+        "s73 gives compensation for loss actually suffered from a breach; a 'penalty' clause promising a lump-sum irrespective of actual loss is not enforceable as compensation (s74) and is disallowed to the extent of penalty.",
+        "Under s73 a party injured by breach is compensated only for loss actually suffered and arising naturally in the usual course of things or within the parties' contemplation; a stipulated sum by way of penalty is governed by s74, under which only reasonable compensation not exceeding the stipulated amount may be recovered rather than the full penalty sum."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q092": {
+      "add_notes": {
+        "Under the Sale of Goods Act, 1930 the passing of…": "v1 gave the ascertained/unascertained rule only; widened to the full s20–s23 sequence so the timing rules read together."
+      },
+      "concepts": [
+        "passing of property",
+        "risk of loss",
+        "unascertained goods"
+      ],
+      "conclusions": [
+        "Ownership and risk pass when the goods are ascertained and the contract is made (s16); for unascertained goods, risk passes only when the goods are ascertained and the property is intended to pass, per the Act's general rules.",
+        "Under the Sale of Goods Act, 1930 the passing of property — and with it the risk — is governed by the state of the goods: for specific goods under an unconditional contract in a deliverable state the property passes when the contract is made; where the seller must first put the goods into a deliverable state, or weigh, measure or test them to ascertain the price, the property passes only when that act is done and the buyer has notice; and for unascertained or future goods by description the property passes only when goods of that description in a deliverable state are unconditionally appropriated to the contract with the assent of the other party."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q093": {
+      "add_notes": {
+        "A partner's act done in the ordinary course of t…": "Answer covered implied authority and contractual limits; v1's s22/s30 section anchoring depressed overlap."
+      },
+      "concepts": [
+        "partner as agent",
+        "binding the firm",
+        "ordinary course of business",
+        "implied authority"
+      ],
+      "conclusions": [
+        "An act done by a partner in the ordinary course of the firm's business binds the firm and the partners (s22); the authority is implied (s30) for acts usual in the business, but not for acts outside the ordinary course.",
+        "A partner's act done in the ordinary course of the firm's business binds the firm and the partners; the authority is implied for acts usual in such business, mutual agency can be restricted by agreement between partners, but restrictions do not affect third parties without notice."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q094": {
+      "add_notes": {},
+      "concepts": [
+        "related party transaction",
+        "special resolution",
+        "audit committee",
+        "member approval"
+      ],
+      "conclusions": [
+        "A related party transaction requires prior approval by special resolution (and, for material transactions, approval of the Audit Committee and members); ordinary resolution applies only where the audit committee/company is authorised to deal with non-material matters."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q095": {
+      "add_notes": {},
+      "concepts": [
+        "limitation period",
+        "12 years immovable property",
+        "3 years contract"
+      ],
+      "conclusions": [
+        "A suit for recovery of possession of immovable property must be filed within 12 years, while a suit for breach of contract must be filed within 3 years (first schedule to the Limitation Act, 1963)."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q096": {
+      "add_notes": {},
+      "concepts": [
+        "product liability",
+        "defect",
+        "harm / injury / damage"
+      ],
+      "conclusions": [
+        "Under Part XII of the CPA 2019, the manufacturer, service provider or seller is liable to pay damages for any harm/loss/injury caused by a defective product, without the consumer needing to prove fault, subject to conditions in the Act."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q097": {
+      "add_notes": {},
+      "concepts": [
+        "specific performance",
+        "discretionary",
+        "discretionary barred"
+      ],
+      "conclusions": [
+        "Specific performance is granted at the court's discretion where compensation is an inadequate remedy; it is NOT discretionary (must be granted) for agreements to transfer an interest in immovable property, subject to the statutory bars."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q098": {
+      "add_notes": {},
+      "concepts": [
+        "Board powers",
+        "non-delegable",
+        "strategic decisions"
+      ],
+      "conclusions": [
+        "The available corpus does not establish the complete, authoritatively enumerated list of strategic powers reserved to the full Board under Companies Act s179(1) that may not be delegated; the exhaustive list is set by the relevant regulation and is not firmly established in the Act text alone."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q099": {
+      "add_notes": {
+        "A liquidated-damages clause naming a sum far exc…": "Answer's formulation is MORE legally precise than v1 (reasonable compensation up to ceiling); v1 is retained as an alternative."
+      },
+      "concepts": [
+        "liquidated damages",
+        "penalty",
+        "genuine pre-estimate"
+      ],
+      "conclusions": [
+        "Such a clause is treated as a penalty and is not enforceable as liquidated damages; the Act allows recovery only of the amount of loss actually proved (s73), and the court may reduce the stipulated sum to the extent it is a penalty.",
+        "A liquidated-damages clause naming a sum far exceeding probable loss is treated as a penalty; under s74 the court may award only reasonable compensation not exceeding the amount so named, the claimant proving actual loss under s73, so recovery beyond proved loss is not automatic."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q100": {
+      "add_notes": {},
+      "concepts": [
+        "consideration",
+        "agreement without consideration",
+        "exceptions"
+      ],
+      "conclusions": [
+        "An agreement without consideration is not enforceable, EXCEPT for promises made under special contracts e.g. a promise by a supplier to supply goods at a prevailing price under a written agreement, or a promise to compensate for a wrong already suffered."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q101": {
+      "add_notes": {
+        "Yes - an FSSAI food licence and a municipal (KMC…": "Answer stated the cumulative-regimes conclusion; v1's 'why' clause diluted coverage."
+      },
+      "concepts": [
+        "trade licence",
+        "FSSAI food licence",
+        "cumulative regulation"
+      ],
+      "conclusions": [
+        "Yes - the restaurant needs both a municipal trade licence (KMC Act) and an FSSAI food licence (FSS Act); the municipal trade licence and the FSSAI licence govern different statutory requirements and both apply cumulatively.",
+        "Yes - an FSSAI food licence and a municipal (KMC) trade licence are cumulative: they arise under separate statutory regimes governing different requirements, and holding one does not exempt the restaurant from the other."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q102": {
+      "add_notes": {},
+      "concepts": [
+        "building plan",
+        "food safety layout",
+        "sanctioning authority"
+      ],
+      "conclusions": [
+        "The KMC Municipal Commissioner sanctions the building plan (s392) for structural/fire/waste, while the Designated Officer/FSSAI approves the food-safety layout under the FSS Act; both clearances are mandatory before operation."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q103": {
+      "add_notes": {
+        "Operating without a KMC trade licence invites mu…": "Answer separated the regimes correctly; token overlap with v1 fell just under threshold."
+      },
+      "concepts": [
+        "trade licence default",
+        "FSSAI no defence to municipal licensing"
+      ],
+      "conclusions": [
+        "Operating without a KMC trade licence invites municipal penalty/closure regardless of an FSSAI food licence; FSSAI registration does not exempt the vendor from the municipal trade-licensing requirement.",
+        "Operating without a KMC trade licence invites municipal penalty or closure under the KMC Act, and a valid FSSAI food licence does not exempt the vendor from the separate municipal trade-licensing requirement."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q104": {
+      "add_notes": {},
+      "concepts": [
+        "prohibition order",
+        "nuisance",
+        "public health closure"
+      ],
+      "conclusions": [
+        "FSSAI may pass a prohibition order (s33) over unsafe food; KMC acts under its nuisance/closure powers (nuisance chapter). Both may act independently, but on a single incident each applies its own statutory closure ground."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q105": {
+      "add_notes": {},
+      "concepts": [
+        "water connection",
+        "hand-washing water",
+        "sanction linked"
+      ],
+      "conclusions": [
+        "KMC s313 links building sanction to a conformant water-supply plan, and the FSS food regulations require safe drinking water (incl. dedicated hand-washing water); the eatery must satisfy both."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q106": {
+      "add_notes": {
+        "Prosecution for an offence under the FSS Act, 20…": "v1 asserted 'separate statutes, neither bars the other'; widened to the statutory basis (s42 procedure) that makes municipal closure irrelevant to food-safety prosecution."
+      },
+      "concepts": [
+        "independent jurisdiction",
+        "separate statutory offences",
+        "FSSAI prosecution"
+      ],
+      "conclusions": [
+        "Yes - KMC's closure (building) and FSSAI's prosecution (food safety) are under separate statutes; neither bars the other. FSSAI may prosecute for unsafe food (s42) even while KMC enforces building laws.",
+        "Prosecution for an offence under the FSS Act, 2006 proceeds under section 42 on the Designated Officer's decision after the Food Analyst's report and the Commissioner of Food Safety's communication, with the procedures of the Code of Criminal Procedure applying to actions taken by the Food Safety Officer; because that procedure is governed by the FSS Act, a closure or demolition order passed by the KMC under the KMC Act, 1980 neither bars nor stays a food-safety prosecution in respect of unsafe food at the same premises."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q107": {
+      "add_notes": {},
+      "concepts": [
+        "waste dumping",
+        "mislabelling",
+        "distinct offences"
+      ],
+      "conclusions": [
+        "Two distinct statutory offences: a municipal offence (waste dumping under the KMC nuisance/trade provisions) and an FSS Act offence (mislabelling of pre-packed food under the labelling regulations)."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q108": {
+      "add_notes": {
+        "The butcher's shop must hold both an FSSAI food …": "Two-licence conclusion matched; Meat Order clause numbering in the answer differed from v1's anchoring."
+      },
+      "concepts": [
+        "FSSAI food licence",
+        "Meat Order shop licence",
+        "dual regulation"
+      ],
+      "conclusions": [
+        "The shop must hold an FSSAI food licence (FSS Act, s31) AND a licence under the West Bengal Meat Order (Order 6) to retail meat; both are mandatory and neither is a substitute for the other.",
+        "The butcher's shop must hold both an FSSAI food licence under the FSS Act s31 and a licence under the West Bengal Meat Order for retailing meat; both are mandatory and neither substitutes for the other."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q109": {
+      "add_notes": {},
+      "concepts": [
+        "meat hygiene",
+        "slaughter house hygiene",
+        "enforcement split"
+      ],
+      "conclusions": [
+        "The slaughter house must comply with FSS hygiene/sanitation regulations (enforced by FSSAI) and remain a licenced slaughter house under Meat Order 5 (enforced by the licensing authority); both standards apply."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q110": {
+      "add_notes": {},
+      "concepts": [
+        "EPA closure",
+        "FSSAI prohibition order",
+        "unlicensed slaughter discharge"
+      ],
+      "conclusions": [
+        "EPA s6 authorises closure/demolition for environmental emergency/pollution; FSSAI may separately pass a prohibition order (s33) over unsafe food, and the Meat Order licensing authority may act on unlicensed slaughter; each regime is independent."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q111": {
+      "add_notes": {},
+      "concepts": [
+        "pre-packed food labelling",
+        "source traceability",
+        "licensed slaughter house"
+      ],
+      "conclusions": [
+        "Pre-packed canned meat must bear FSS labelling (FSS labelling regulations) AND must originate from a licensed slaughter house (Meat Order 5) so the source is traceable; labelling without licensed sourcing is non-conforming."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q112": {
+      "add_notes": {},
+      "concepts": [
+        "transport vehicle hygiene",
+        "temperature control",
+        "vehicle operator authorisation"
+      ],
+      "conclusions": [
+        "The transport vehicle must be cleaned/chilled per FSS food-safety regulations, and the transport operator must hold a Meat-Order licence (Order 6) - both are required, and non-compliance is an offence under each regime."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q113": {
+      "add_notes": {
+        "A licence under the West Bengal Meat Order, 1966…": "v1 framed the consequence as s63; widened to the licence prohibition itself, which is the operative bar on selling after lapse."
+      },
+      "concepts": [
+        "lapsed FSSAI licence",
+        "continued liability",
+        "dual compliance"
+      ],
+      "conclusions": [
+        "No - selling food (including meat) requires a valid FSSAI licence; a lapsed FSSAI licence means the shop cannot legally sell, even with a valid Meat-Order licence, and FSSAI may take action for operating without a licence (s63).",
+        "A licence under the West Bengal Meat Order, 1966 does not authorise carrying on a food business: section 31(1) of the FSS Act, 2006 prohibits any person from commencing or carrying on any food business except under a licence granted under section 31, so an operator whose FSSAI licence has lapsed may not lawfully continue to sell meat, and continued trading is a contravention of section 31 attracting the penalty prescribed for it irrespective of the Meat-Order sanction."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q114": {
+      "add_notes": {
+        "Under the WB Meat Order no person may slaughter …": "v1 asserted the FSSAI point alone; it did not state the general prohibition, notified prohibited days and notification-only exemptions that make the licence distinction follow."
+      },
+      "concepts": [
+        "buffalo-calf prohibition",
+        "Food Act does not override Meat Order"
+      ],
+      "conclusions": [
+        "Order 4 prohibits buffalo-calf slaughter regardless of FSSAI authorisation; a valid FSSAI food licence does NOT authorise slaughter of a prohibited animal under the Meat Order, and the Meat-Order licence must be refused/refused renewal.",
+        "Under the WB Meat Order no person may slaughter any animal at a slaughter house or any other place except as the Order permits, with prohibited days such as every Thursday notified by the State Government and exemptions granted only by notification, so a separate Meat Order authority is needed and an FSSAI food licence does not authorise slaughter the Meat Order prohibits."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q115": {
+      "add_notes": {},
+      "concepts": [
+        "meat waste rendering",
+        "infectious disease carcass disposal",
+        "feed safety"
+      ],
+      "conclusions": [
+        "The rendering unit must ensure meat waste comes from FSS-compliant sources (FSSAI) and that diseased/animal-waste inputs are handled per the infectious-disease / Diseases of Animals rules (enforced by veterinary/licensing authority); EPA may also regulate emissions."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q116": {
+      "add_notes": {},
+      "concepts": [
+        "water pollution closure",
+        "FSS food-duty",
+        "plant operator dual duty"
+      ],
+      "conclusions": [
+        "EPA s6 authorises closure/demolition for water-pollution emergencies; separately, the plant owes an FSS duty (s26) to ensure its food output is safe; the two duties are independent and both enforceable."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q117": {
+      "add_notes": {},
+      "concepts": [
+        "dual/cumulative regulation",
+        "four statutory regimes"
+      ],
+      "conclusions": [
+        "Four regimes apply cumulatively: the FSS Act (s31 food licence), the KMC Act (trade licence + s313 water plan), public-health rules (safe water/potability), and the Premises Tenancy Act (s30 - no sub-let without permission)."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q118": {
+      "add_notes": {},
+      "concepts": [
+        "product recall",
+        "disease alert",
+        "multi-agency",
+        "stamping out"
+      ],
+      "conclusions": [
+        "On an animal-disease alert, the veterinary/licensing authority may order stamping-out/slaughter stoppage (disease rules) and FSSAI may order food-product recall (s33) over safety; EPA may add environmental conditions - all independently."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q119": {
+      "add_notes": {
+        "Section 3 is framed as an enabling power to take…": "The audit accepted the refusal to treat 500 m as established. The addition identifies the documentary bridge needed to turn broad statutory powers into an enforceable site-specific distance and distinguishes delegation from the substantive setback rule."
+      },
+      "concepts": [
+        "water-pollution consent gap",
+        "drinking-water source",
+        "dual duty"
+      ],
+      "conclusions": [
+        "The available corpus (EPA + Water Act) does not establish the 500 m setback as a determinate rule textually; the distance is fixed by notified EIA/coastal-regulation standards outside the Act corpus, and no firm figure is reliably established in the corpus.",
+        "Section 3 is framed as an enabling power to take environmental-protection measures, and the supplied text also contemplates delegation through an Official Gazette notification subject to stated limits. Neither feature, standing alone, identifies a river-specific buffer distance. A legally firm 500 m requirement would need a traceable rule, notification, consent condition, or other operative instrument that actually prescribes that distance for the relevant location and activity; a general environmental mandate is not a substitute for that instrument."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q120": {
+      "add_notes": {
+        "The three regimes operate concurrently and none …": "v1 listed three authorities with statutory hooks; widened to the operative powers of each regime as they appear in the evidence."
+      },
+      "concepts": [
+        "effluent discharge",
+        "environmental clearance",
+        "independent regimes"
+      ],
+      "conclusions": [
+        "Three authorities may act: the licensing authority (Meat Order s5/s6), FSSAI (s33 over non-conforming food), and EPA/CPCB (s6 water-pollution closure). No regime pre-empts another; concurrent, independent liability.",
+        "The three regimes operate concurrently and none pre-empts the others: under the FSS Act, 2006 a prohibition order may be issued under section 33, a copy affixed at the premises and knowing contravention punished with a fine extending to three lakh rupees; the West Bengal Meat Order, 1966 independently empowers its authority to require information from, and to seize articles from, a slaughter house; and the Environment (Protection) Act, 1986 with its Rules sets the emission and effluent standards enforceable through the pollution-control machinery for the untreated discharge."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q121": {
+      "add_notes": {
+        "Section 37 of the FSS Act, 2006 constitutes Food…": "v1 asserted both may attend; widened to the separate statutory source of each inspection power (s37 FSS; municipal health and licence powers)."
+      },
+      "concepts": [
+        "FSO entry & inspection",
+        "KMC health inspection",
+        "dual inspection"
+      ],
+      "conclusions": [
+        "Under s37 an FSO may enter and inspect for FSS compliance; the KMC Health Officer inspects under the trade licence for municipal hygiene. Both may attend, each under their own statutory power, and neither bars the other.",
+        "Section 37 of the FSS Act, 2006 constitutes Food Safety Officers with duties entrusted by the Commissioner of Food Safety, so a Government Food Safety Officer may enter and inspect the restaurant for compliance with the FSS Act and the regulations made under it; the municipal health machinery inspects separately under the KMC Act for sanitary conditions and conformity with the municipal licence, so both officers may attend the complaint visit, each acting under her own statute and neither displacing the other."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q122": {
+      "add_notes": {},
+      "concepts": [
+        "FSSAI central licensing authority",
+        "KMC trade registration",
+        "import clearance"
+      ],
+      "conclusions": [
+        "The FSSAI Central Licensing Authority issues the FSS import clearance (FSS Act s25/s31), while the KMC registers the trade for municipal purposes; the two clearances are issued by different authorities and both are required."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q123": {
+      "add_notes": {},
+      "concepts": [
+        "prosecution approval",
+        "Commissioner of Food Safety",
+        "municipal prosecution"
+      ],
+      "conclusions": [
+        "FSSAI prosecution requires the written approval of the Commissioner of Food Safety (s42); a KMC trade-licence prosecution is launched by/may be conducted by the KMC on behalf of the Corporation under municipal procedure."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q124": {
+      "add_notes": {},
+      "concepts": [
+        "closure powers",
+        "EPA s6",
+        "FSSAI s33",
+        "KMC s392"
+      ],
+      "conclusions": [
+        "Closure may be ordered by (a) EPA (s6) for the environmental emergency, (b) FSSAI Designated Officer (s33) for unsafe food, and (c) KMC Municipal Commissioner (s392/nuisance) for unlicensed operation — each under its own provision."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q125": {
+      "add_notes": {},
+      "concepts": [
+        "Designated Officer",
+        "Commissioner of Food Safety",
+        "municipal hierarchy"
+      ],
+      "conclusions": [
+        "The FSO functions under the Designated Officer (who is responsible for the area), ultimately to the Commissioner of Food Safety; a KMC health inspector reports to the Municipal Commissioner - parallel hierarchies, separate Acts."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q126": {
+      "add_notes": {},
+      "concepts": [
+        "inter-State water pollution",
+        "CPCB jurisdiction",
+        "FSSAI food-duty"
+      ],
+      "conclusions": [
+        "CPCB has primary jurisdiction for pollution of an inter-State river (Ganga) under the EPA/Water Act; State Board handles intra-State; FSSAI retains its independent duty (s26) over the food output - the two do not merge."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q127": {
+      "add_notes": {},
+      "concepts": [
+        "misleading advertisement",
+        "penalty amendment",
+        "effective date"
+      ],
+      "conclusions": [
+        "The 2020 amendment to the FSS Rules raised the minimum fine for misleading advertisements under s53 (previously lower); the current minimum fine for an advertiser is ten lakh rupees (post the 2020 amendment)."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q128": {
+      "add_notes": {
+        "The text of section 7 addresses the substantive …": "The audit correctly treated the proposed higher penalty as unproven. The addition clarifies that the supplied s7 text concerns compliance with prescribed pollutant standards, so it cannot serve as evidence of a changed monetary cap."
+      },
+      "concepts": [
+        "penalty",
+        "amendment",
+        "monetary limit"
+      ],
+      "conclusions": [
+        "The available corpus does not reliably establish that the EPA s7 monetary penalty has been amended to a figure higher than one lakh rupees; whether a later amendment raised it above one lakh is not established in the corpus.",
+        "The text of section 7 addresses the substantive ceiling on pollutant release by reference to standards prescribed elsewhere; it is not, in the excerpt supplied, a monetary-penalty provision. Accordingly, the existence of a duty to comply with prescribed emission or discharge standards cannot establish that the section 7 penalty was amended to a particular amount. An amendment claim about money requires the operative penalty section or amending instrument, not the standards clause alone."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q129": {
+      "add_notes": {},
+      "concepts": [
+        "rule-making power",
+        "Article 253",
+        "1986 enactment"
+      ],
+      "conclusions": [
+        "Section 3 confers power to take measures for environmental protection (and to make rules); the Act was framed under Article 253 (Parliament's power to implement international agreements), enacted in 1986 after Bhopal."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q130": {
+      "add_notes": {},
+      "concepts": [
+        "phase-in date",
+        "SME exemption",
+        "amendment timeline"
+      ],
+      "conclusions": [
+        "The PWM Rules (as originally notified) phased in the single-use plastic prohibition; the August 2022 amendment introduced a timeline/exemption for MSMEs (small enterprises) for certain single-use items, deferring their compliance."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q131": {
+      "add_notes": {
+        "Section 188 of the Companies Act, 2013 subjects …": "v1 stated only that the 2013 Act 'tightened' approval; widened to the operative particulars-and-resolution requirements in s188."
+      },
+      "concepts": [
+        "related party transaction",
+        "special resolution",
+        "2013 reform"
+      ],
+      "conclusions": [
+        "The 2013 Act (s188) tightened the approval regime for related-party transactions (requiring member/Board/Audit-Committee approval) versus the 1956 Act; a related-party supply contract needs special resolution if it exceeds the threshold.",
+        "Section 188 of the Companies Act, 2013 subjects a related-party supply contract to an approval and disclosure regime materially tighter than under the Companies Act, 1956: the particulars of the contract or arrangement with related parties referred to in sub-section (1) must be recorded in the prescribed form, prior approval of the company by resolution is required before entering into it, and a related party interested in the transaction may not vote on the resolution approving it, with penalties prescribed for contravention."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q132": {
+      "add_notes": {
+        "The legislative extracts shown for section 31 in…": "The answer’s abstention is sound, and the audit missed a useful category distinction: penalty/compounding provisions are not the fee schedule. The excerpt does not provide the medium-restaurant Type-B fee entry needed for a precise amount."
+      },
+      "concepts": [
+        "licence fee",
+        "fee rules",
+        "annual fee amount"
+      ],
+      "conclusions": [
+        "The available corpus does not establish the exact annual licence fee for a State (Type B) food licence for a medium restaurant; the FSSAI fee rules set varying fees by category, and the precise amount for this category is not reliably established in the corpus.",
+        "The legislative extracts shown for section 31 include penalty-adjudication and compounding machinery, but those provisions answer how certain contraventions may be processed, not the annual charge for issuing a licence to a particular restaurant category. A fee answer must be tied to the applicable licensing-fee schedule and the category-specific entry in force for the relevant period. General penalty figures or procedural provisions should not be repurposed as an annual licence fee."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q133": {
+      "add_notes": {
+        "Section 391’s supplied text establishes a Munici…": "The machine missed the distinction between the statutory body/process and the separate schedule fixing charges. The added reading records what s391 affirmatively establishes while avoiding an invented fee figure."
+      },
+      "concepts": [
+        "building scrutiny fee",
+        "fee schedule"
+      ],
+      "conclusions": [
+        "The available corpus does not establish the exact schedule of building-plan scrutiny/redevelopment fees under the KMC Act; the fee structure is notified over time and the precise amounts are not reliably established in the corpus.",
+        "Section 391’s supplied text establishes a Municipal Building Committee and assigns it a scrutiny role for applications concerning erection or re-erection of buildings. That procedural allocation does not itself state a monetary tariff, rate basis, or redevelopment-fee calculation. The presence of a statutory scrutiny duty therefore supports the existence of a review process, but the amount payable must be established from the applicable rules, regulations, or fee notification rather than inferred from the committee provision."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q134": {
+      "add_notes": {
+        "The excerpts under section 31 do not supply a ca…": "The audit missed the distinction between the Act’s licensing framework and the regulatory classification table needed to answer the numerical question. The added reading explains why penalty-related amendments in the supplied extracts cannot establish the turnover threshold."
+      },
+      "concepts": [
+        "licence type",
+        "turnover threshold",
+        "Type A vs Type B"
+      ],
+      "conclusions": [
+        "The available corpus does not establish a single, stable turnover threshold distinguishing Type A (Central) from Type B (State) FSSAI licences; the threshold and classification criteria are set in regulations subject to periodic revision, and no figure is reliably established in the corpus.",
+        "The excerpts under section 31 do not supply a category-by-category licensing table. Provisions concerning contraventions, penalties, compounding, or the making of procedural rules cannot by themselves establish the turnover breakpoint between the State and Central licence classes. That breakpoint must be read from the applicable licensing regulations and their relevant schedule, in the version effective for the question’s date; without that text, a precise threshold would go beyond the evidence."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q135": {
+      "add_notes": {
+        "The visible section 15 text in these anchors is …": "The audit missed a key section-identity issue: the supplied s15 excerpt concerns delegation, not the alleged offence penalty in s15(b). The addition prevents an unrelated provision from being treated as proof of a current fine."
+      },
+      "concepts": [
+        "penalty",
+        "maximum fine",
+        "Section 15(b)"
+      ],
+      "conclusions": [
+        "The available corpus does not establish the exact maximum fine for an offence under s15(b) of the Air Act as presently in force; the figure is subject to amendment and the precise current amount is not reliably established in the corpus.",
+        "The visible section 15 text in these anchors is headed “Delegation of powers” and describes a Board’s ability to delegate functions by general or special order. That is a different legal subject from a subsection-specific offence and its maximum fine. A present-day penalty figure must be supported by the applicable offence provision together with any relevant amending legislation and commencement status; the section heading or numbering alone cannot establish the current maximum."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q136": {
+      "add_notes": {
+        "The 2022 Amendment Rules only amend definitions,…": "v1 called it merely a corpus gap; the positive reading is what the Amendment Rules actually do, which is why the banned-item list is absent from them."
+      },
+      "concepts": [
+        "single-use plastic ban list",
+        "exhaustive list"
+      ],
+      "conclusions": [
+        "The available corpus does not establish the complete, exhaustive list of single-use plastic items banned from 1 July 2022; the prohibited-items list is notified in a Schedule that is not fully enumerated in the corpus text.",
+        "The 2022 Amendment Rules only amend definitions, registration procedures, extended producer responsibility obligations and testing protocols and insert Schedule II on EPR guidance; they do not themselves enumerate banned single-use plastic items, so the exhaustive banned list is not established by the corpus text and must come from a separate notification."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q137": {
+      "add_notes": {
+        "The cited clause authorizes restrictions by geog…": "The audit correctly rejected a numerical cap as unsupported. The addition distinguishes the Act’s area/class restriction power from a per-area numerical quota and states what a source would need to contain to establish such a quota."
+      },
+      "concepts": [
+        "critically polluted area",
+        "industry cap"
+      ],
+      "conclusions": [
+        "The available corpus does not establish a statutory cap on the number of industries in a Critically Polluted Area; such designation and any capacity limits are notified administratively over time and are not fixed in the EPA text in the corpus.",
+        "The cited clause authorizes restrictions by geographic area and by class of industry, operation, or process, potentially subject to safeguards. That is a power to regulate where and under what conditions activity may occur; it does not, in the text provided, establish a quota counting how many individual industries may be designated within an area labelled “Critically Polluted”. A numeric cap would need a separate operative instrument expressly setting that count and defining its scope."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q138": {
+      "add_notes": {
+        "The supplied corpus does not establish the exact…": "Correct abstention; abstain-marker and phrasing variance prevented the substantive match from scoring."
+      },
+      "concepts": [
+        "licence validity period",
+        "small-scale / green tick"
+      ],
+      "conclusions": [
+        "The available corpus does not establish the exact duration of validity of a small-scale (Green-Tick) food manufacturer licence; validity periods are set by regulation and the precise term for this sub-category is not reliably established in the corpus.",
+        "The supplied corpus does not establish the exact validity duration of a Green-Tick/small-scale food manufacturer licence; the precise term is set by regulation and cannot be reliably stated from the corpus."
+      ],
+      "expected_abstain": true,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q139": {
+      "add_notes": {
+        "Every food business operator must ensure that ar…": "v1 split liability between eatery and platform; widened to the statutory FBO duty in s26(1) as the anchor for primary liability."
+      },
+      "concepts": [
+        "intermediary liability",
+        "FSS food duty",
+        "municipal trade duty"
+      ],
+      "conclusions": [
+        "The eatery (FBO) is primarily liable under the FSS Act (s26) for unsafe food; the platform may face KMC/local trade-compliance duties and, where it handles food itself, its own FSS registration requirement.",
+        "Every food business operator must ensure that articles of food satisfy the requirements of the FSS Act, the rules and the regulations at all stages of production, processing, import, distribution and sale within the business under its control, so the eatery that prepares and serves the food bears primary liability for unsafe food; a platform that only lists the eatery and transmits orders owes the municipal licensing and sanitation duties attaching to the premises it deals with, and acquires its own food-business registration obligation only where it handles or supplies food itself."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q140": {
+      "add_notes": {
+        "A caterer at a Kolkata public event simultaneous…": "Composite multi-regime question; answer covered the duties but v1's compressed enumeration depressed coverage."
+      },
+      "concepts": [
+        "public event catering",
+        "indoor air quality",
+        "safe water",
+        "trade licence"
+      ],
+      "conclusions": [
+        "The caterer owes an FSS food-safety duty (s26), the KMC trade-licence duty (incl. kitchen facilities/s313 water) and a public-health duty (ventilation/safe water/no nuisance) - all apply at a public event.",
+        "A caterer at a Kolkata public event simultaneously owes duties under multiple regimes: FSS Act food-safety duties, KMC trade-licensing and municipal requirements for the premises, and public-health duties covering ventilation, safe water and safe use of LPG indoors."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q141": {
+      "add_notes": {
+        "Two licence regimes bind the night-time street-f…": "v1 described hours as a licence condition; widened to the operative non-residential-use licensing power and the s31 licence requirement."
+      },
+      "concepts": [
+        "night trade licensing",
+        "FSS timing",
+        "trade licence conditions"
+      ],
+      "conclusions": [
+        "The KMC may regulate night trade via the trade licence (hours/conditions) and the FSS Act requires the FSSAI licence to remain valid for the hours of operation; operating beyond licence conditions invites separate municipal and FSS action.",
+        "Two licence regimes bind the night-time street-food market and are policed independently: under the FSS Act, 2006 the market or its vendors need a licence under section 31(1) or registration under section 31(2), which must remain valid for the hours of operation, and under the KMC Act, 1980 the premises may be used only in conformity with the municipal licence granted for that non-residential use, failing which the Municipal Commissioner may stop the use for a specified period; operating 10pm-2am therefore needs both authorisations to be in force and within their conditions."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q142": {
+      "add_notes": {
+        "Closure of the bakery by FSSAI for unsafe food p…": "v1 identified s73 only; widened to the operative remedy (substitute-price loss) and the penalty-limitation rule under s74, both headings present in the anchor."
+      },
+      "concepts": [
+        "breach of supply contract",
+        "suspension",
+        "damages",
+        "force majeure"
+      ],
+      "conclusions": [
+        "The FSSAI closure constitutes the bakery's breach/non-conforming supply; the restaurant may suspend performance and claim damages under the Indian Contract Act s73 (and the supply contract's terms), as the bakery can no longer perform.",
+        "Closure of the bakery by FSSAI for unsafe food puts it in breach of the year-long supply contract, and section 73 of the Indian Contract Act, 1872 entitles the restaurant — the party suffering by the breach — to receive compensation for loss or damage caused by it, including the difference between the contract price and the price at which the substitute supply can be obtained; where the contract itself stipulates a penalty for non-supply, the restaurant's recovery is limited to compensation assessed on that footing rather than the stipulated sum."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q143": {
+      "add_notes": {
+        "Yes - suspension of the franchisee's FSSAI licen…": "Same contractual conclusion; v1's section-anchored phrasing (ICA) reduced token coverage."
+      },
+      "concepts": [
+        "franchise termination",
+        "indemnity",
+        "non-conforming supply",
+        "condition precedent"
+      ],
+      "conclusions": [
+        "Yes - the FSSAI suspension breaches the franchise condition (FSS standards) and the non-conforming food supply; the franchisor may terminate and claim damages under the Indemnity/contract provisions (ICA), as the franchisee can no longer supply conforming food.",
+        "Yes - suspension of the franchisee's FSSAI licence breaches the franchise's food-safety condition and the obligation to supply conforming food, entitling the franchisor to terminate and claim damages under the contract/indemnity provisions, subject to the agreement's terms."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q144": {
+      "add_notes": {
+        "Three clearance regimes must align for the meat-…": "v1 listed four clearance buckets; widened to the operative power each statute confers for this park."
+      },
+      "concepts": [
+        "common effluent treatment",
+        "multi-agency clearance",
+        "meat park"
+      ],
+      "conclusions": [
+        "The park must align EPA environmental clearance (water), FSS hygiene for processed meat, Meat-Order licensing for slaughter/supply, and municipal/KMC trade clearances; CPCB/State Board coordinate, FSSAI covers food safety, licensing authority covers meat-trade legality.",
+        "Three clearance regimes must align for the meat-processing park and each is administered by its own authority: under the Environment (Protection) Act, 1986 the authorities may inspect any premises, plant or process and give directions for the prevention, control and abatement of environmental pollution and may lay down standards for emission or discharge — administered for the common effluent treatment plant by the Central and State Pollution Control Boards; under the FSS Act, 2006 every food business operator must ensure that articles of food satisfy the Act at all stages within its control for the processed meat; and under the West Bengal Meat Order, 1966 the slaughter and meat-trade authorisation is granted separately by the State authority."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q145": {
+      "add_notes": {
+        "The micro-brewery is subject to three regimes cu…": "v1 named the three regimes and their compliance hooks; widened to the standards-setting powers that make each regime bite on this facility."
+      },
+      "concepts": [
+        "brewery effluent",
+        "alcohol beverages",
+        "air emissions",
+        "water standards"
+      ],
+      "conclusions": [
+        "Three regimes apply: FSS (alcoholic beverage food-duty/s26), the Air Act (consent/s8 + stack emissions) and the EPA/Water Act (effluent discharge standards and s6 closure power). Each requires separate compliance.",
+        "The micro-brewery is subject to three regimes cumulatively: the FSS Act, 2006, because alcoholic beverages are food and the brewery as a food business operator must ensure its articles satisfy the Act at all stages within its control; the Air (Prevention and Control of Pollution) Act, 1981 together with the Environment (Protection) Act, 1986, under which the authorities lay down standards of quality of air, water or soil and standards for emission or discharge of environmental pollutants; and the Water (Prevention and Control of Pollution) Act, 1974 for the effluent discharged by the plant."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    },
+    "Q146": {
+      "add_notes": {
+        "The petty-operator qualification should be treat…": "The audit note specifically recognized the petty-operator exception. The addition clarifies its limited function and keeps the FSSAI classification analysis separate from the municipal premises authorization; the available FSSAI anchor itself is an imperfect match for that issue."
+      },
+      "concepts": [
+        "cloud kitchen",
+        "trade licence requirement",
+        "non-dispatching"
+      ],
+      "conclusions": [
+        "Yes - a cloud kitchen is still a food business (FSS licence required) and a trade carried on from premises (KMC trade licence required); the absence of dine-in/signage does not dispense with either regime.",
+        "The petty-operator qualification should be treated as a question about the level of FSSAI authorization, not as a blanket exclusion from food-safety oversight. If the facts satisfy the applicable petty-food-business criteria, registration may be the relevant route instead of a full licence; if they do not, the ordinary licensing framework applies. That classification is independent of the separate municipal question about authorization for the commercial use of the premises, so one determination should not be used to dispose of the other."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false,
+        "wf6_human_widen": true
+      }
+    },
+    "Q147": {
+      "add_notes": {},
+      "concepts": [
+        "unauthorised construction",
+        "landlord liability",
+        "tenant improvement",
+        "nuisance"
+      ],
+      "conclusions": [
+        "KMC may act under s392 (building without sanction) and the lease may breach the tenant's no-sublet/alteration terms (s30) and expose the landlord to nuisance/civil liability under contract law (s73) - liability is joint and statutory."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q148": {
+      "add_notes": {},
+      "concepts": [
+        "force majeure",
+        "regulatory suspension",
+        "impossibility of performance"
+      ],
+      "conclusions": [
+        "If FSSAI suspends the licence, conforming supply becomes impossible/regulatory-barred; the force-majeure clause and s73 mean the supplier is excused from performance (not liable for non-supply) but the licence cannot be worked around by the buyer."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q149": {
+      "add_notes": {},
+      "concepts": [
+        "export registration",
+        "environmental consent gap",
+        "related-party export"
+      ],
+      "conclusions": [
+        "Export registration (FSSAI s25) does not authorise pollution; without EPA water-consent the Cold-Chain's discharge is unlawful, so shipments are at risk of seizure/detention until environmental clearance is obtained - the FSS export registration is not a defence to the pollution gap."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": false
+      }
+    },
+    "Q150": {
+      "add_notes": {
+        "No - an FSSAI prohibition order does not oust KM…": "Answer explained concurrent jurisdictions correctly; v1's four-regime enumeration lowered coverage."
+      },
+      "concepts": [
+        "four-regime overlap",
+        "independent jurisdiction",
+        "no pre-emption"
+      ],
+      "conclusions": [
+        "No - FSSAI's prohibition order (s33) over unsafe food does not oust KMC's trade-licence jurisdiction (including lease alterations) nor EPA's water-pollution jurisdiction; the four regimes are independent and concurrent.",
+        "No - an FSSAI prohibition order does not oust KMC trade-licence or environmental (EPA/water) jurisdiction; the regimes are independent and concurrent, each authority acting within its own subject matter."
+      ],
+      "expected_abstain": false,
+      "provenance": {
+        "v1_conclusion": true,
+        "v2_overlay": true
+      }
+    }
+  }
+}

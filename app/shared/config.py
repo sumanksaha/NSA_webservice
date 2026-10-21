@@ -72,14 +72,14 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Master switch for the RAG module (503/404 when off).",
+        help="",
     ),
     Setting(
         "RAG_USE_AGENT_PIPELINE",
         "use_agent_pipeline",
         bool,
         False,
-        help="LangGraph agent pipeline on POST /api/rag/query/agent (M3).",
+        help="",
     ),
     Setting("RAG_AGENT_HITL", "agent_hitl", bool, False, help="M5 human-in-the-loop review interrupt before finalize."),
     Setting(
@@ -87,7 +87,7 @@ _TABLE: tuple[Setting, ...] = (
         "agent_checkpointer",
         str,
         "memory",
-        help="M5 checkpointer: 'memory' (default) or 'postgres'.",
+        help="",
     ),
     Setting(
         "RAG_HALLUCINATION_DETECTOR",
@@ -95,7 +95,44 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Phase 3 claim-level HallucinationDetector in run_generation_pipeline.",
+        help="",
+    ),
+    # --- Grounded answer channel ------------------------------------------------
+    Setting(
+        "RAG_LLM_MAX_TOKENS",
+        "llm_max_tokens",
+        int,
+        4096,
+        help="",
+    ),
+    Setting(
+        "RAG_LLM_REASONING_MAX_TOKENS",
+        "llm_reasoning_max_tokens",
+        int,
+        1024,
+        help="",
+    ),
+    Setting(
+        "RAG_LLM_TIMEOUT_S",
+        "llm_timeout_s",
+        float,
+        30.0,
+        help="",
+    ),
+    Setting(
+        "RAG_LLM_REASONING_FALLBACK",
+        "llm_reasoning_fallback",
+        bool,
+        False,
+        help="",
+    ),
+    Setting(
+        "RAG_LLM_VERIFY_TLS",
+        "llm_verify_tls",
+        bool,
+        True,
+        opt_in=False,
+        help="Verify LLM endpoint TLS; set false only for self-signed/private CA.",
     ),
     # --- Reinforcement learning (Phase 4: RL-augmented retrieval) ---------------
     Setting(
@@ -103,63 +140,63 @@ _TABLE: tuple[Setting, ...] = (
         "rl_enabled",
         bool,
         False,
-        help="Contextual multi-armed bandit for retrieval parameter selection (top_k, rrf_k). Off by default.",
+        help="",
     ),
     Setting(
         "RAG_RL_EXPLORATION_EPSILON",
         "rl_exploration_epsilon",
         float,
         0.1,
-        help="Epsilon for epsilon-greedy exploration in the RL retrieval policy (0=always greedy).",
+        help="",
     ),
     Setting(
         "RAG_RL_LEARNING_RATE",
         "rl_learning_rate",
         float,
         0.05,
-        help="Step size for the linear contextual-bandit weight updates.",
+        help="",
     ),
     Setting(
         "RAG_RL_MIN_OBSERVATIONS",
         "rl_min_observations",
         int,
         10,
-        help="Minimum observations per context before the RL policy goes greedy (exploration buffer).",
+        help="",
     ),
     Setting(
         "RAG_RL_OFFLINE_TRAIN",
         "rl_offline_train",
         bool,
         False,
-        help="Run offline policy pre-training from RAGEvalResult rows at startup (Phase 4 bootstrap).",
+        help="",
     ),
     Setting(
         "RAG_RL_REWARD_FAITHFULNESS_WEIGHT",
         "rl_reward_faithfulness_weight",
         float,
         0.35,
-        help="Reward weight for the faithfulness metric component.",
+        help="",
     ),
     Setting(
         "RAG_RL_REWARD_GROUNDEDNESS_WEIGHT",
         "rl_reward_groundedness_weight",
         float,
         0.35,
-        help="Reward weight for the groundedness metric component.",
+        help="",
     ),
     Setting(
         "RAG_RL_REWARD_CITATION_RECALL_WEIGHT",
         "rl_reward_citation_recall_weight",
         float,
         0.20,
-        help="Reward weight for the citation-recall metric component.",
+        help="",
     ),
     Setting(
         "RAG_RL_REWARD_LATENCY_WEIGHT",
         "rl_reward_latency_weight",
         float,
         0.10,
-        help="Reward weight for the inverse-latency component (penalises slow retrieval).",
+        help="",
     ),
     # --- Retrieval pipeline flags -------------------------------------------
     Setting(
@@ -167,14 +204,14 @@ _TABLE: tuple[Setting, ...] = (
         "retrieval_cache",
         bool,
         True,
-        help="Memoize deterministic retrieval results (TTL+LRU, §12.1).",
+        help="",
     ),
     Setting(
         "RAG_QDRANT_BM25",
         "qdrant_bm25",
         bool,
         False,
-        help="Qdrant-side BM25 sparse inference (Qdrant/bm25) at query time.",
+        help="",
     ),
     Setting(
         "RAG_LEGAL_QUERY_TYPING",
@@ -182,7 +219,7 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Rule-based legal query-type classifier feeding reranker weights.",
+        help="",
     ),
     Setting(
         "RAG_IDENTIFIER_ROUTE",
@@ -190,67 +227,134 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Lexical '{Act} section {N}' parallel retrieval arm (V5-validated).",
+        help="",
     ),
     Setting(
         "RAG_SECTION_ARM",
         "section_arm",
         bool,
         False,
-        help=(
-            "Section/act-scoped structural retrieval arm (exact payload "
-            "identity, RRF-fused additively). Phase 0: recovers gold that "
-            "text similarity ranks below the packing window. Requires the "
-            "section_number/act_name payload indexes."
-        ),
+        help="",
     ),
     Setting(
         "RAG_FORM_ARM",
         "form_arm",
         bool,
         False,
-        help=(
-            "Form-reference parallel additive retrieval arm for workflow/"
-            "procedure queries (lexical 'Form N' query). Requires form "
-            "vocabulary in retrieval.form_references. Opt-out=False means the "
-            "string must be 'true' to enable; default off so the arm stays "
-            "disabled unless explicitly opted in."
-        ),
+        help="",
     ),
     Setting(
         "ENABLE_EVIDENCE_SELECTOR",
         "evidence_selector",
         bool,
         False,
-        help="Evidence-set selection over top-K (opt-in A/B lever).",
+        help="",
     ),
     Setting(
         "ENABLE_STRUCTURED_REASONER",
         "structured_reasoner",
         bool,
         False,
-        help="Structured legal-reasoning IR before answer generation (roadmap Phase 3, opt-in).",
+        help="",
+    ),
+    Setting(
+        "RAG_QUERY_TYPE_DIRECTIVES",
+        "query_type_directives",
+        bool,
+        False,
+        help="",
+    ),
+    Setting(
+        "RAG_STRUCTURED_QUERY_TYPE_DIRECTIVES",
+        "structured_query_type_directives",
+        bool,
+        False,
+        help="",
+    ),
+    Setting(
+        "RAG_ANSWER_CONTRACT",
+        "answer_contract",
+        bool,
+        False,
+        help="",
+    ),
+    Setting(
+        "RAG_ANSWER_CONTRACT_REPAIR",
+        "answer_contract_repair",
+        bool,
+        False,
+        help="",
     ),
     Setting(
         "ENABLE_LEGAL_AUDITOR",
         "legal_auditor",
         bool,
         False,
-        help="Deterministic legal-auditor gate with capped revision loop (roadmap Phase 3, opt-in).",
+        help="",
     ),
     Setting(
         "ENABLE_REFERENCE_EXPANSION",
         "reference_expansion",
         bool,
         False,
-        help="Reference-graph candidate expansion (default off per spec).",
+        help="",
     ),
     Setting(
         "ENABLE_EVIDENCE_PLAN",
         "evidence_plan",
         bool,
         False,
-        help="Evidence Task planning for task-aware retrieval (default off).",
+        help="",
+    ),
+    # --- Decision pathway (alternate, default off; plan: rag-decision-pathway) ---
+    Setting(
+        "RAG_DECISION_PATH",
+        "decision_path",
+        bool,
+        False,
+        help="",
+    ),
+    Setting(
+        "RAG_DECISION_SHADOW",
+        "decision_shadow",
+        bool,
+        False,
+        help="",
+    ),
+    Setting(
+        "RAG_DECISION_MODEL",
+        "decision_model",
+        str,
+        "typesafe/jev-1.13",
+        help="",
+    ),
+    Setting(
+        "RAG_DECISION_TIMEOUT",
+        "decision_timeout",
+        float,
+        10.0,
+        help="",
+    ),
+    Setting(
+        "RAG_DECISION_THRESHOLD",
+        "decision_threshold",
+        float,
+        0.13,
+        help="",
+    ),
+    Setting(
+        "RAG_DECISION_TOP_K",
+        "decision_top_k",
+        int,
+        6,
+        help="",
+    ),
+    Setting(
+        "RAG_DECISION_RESERVOIR",
+        "decision_reservoir",
+        int,
+        50,
+        help="",
     ),
     # --- Autonomous research (Phase 1+: corpus discovery + gap analysis) ---
     Setting(
@@ -266,21 +370,21 @@ _TABLE: tuple[Setting, ...] = (
         "verifier_shadow",
         bool,
         False,
-        help="Compute/log hardened verifier shadow scores without routing on them (RAG-TR-001).",
+        help="",
     ),
     Setting(
         "RAG_RESEARCH_ENABLED",
         "research_enabled",
         bool,
         False,
-        help="Master switch for the autonomous research loop (corpus discovery + gap analysis). Off by default.",
+        help="",
     ),
     Setting(
         "RAG_RESEARCH_CORPUS_DISCOVERY",
         "research_corpus_discovery",
         bool,
         True,
-        help="When RAG_RESEARCH_ENABLED, auto-discover missing corpus provisions from the gold registry. Off = skip discovery.",
+        help="",
     ),
     Setting(
         "RAG_RESEARCH_USE_PAYLOAD_INDEX",
@@ -288,14 +392,49 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="When True, corpus discovery uses the cached Qdrant payload index to verify section-body presence. Falls back to chunk_id-only checks when the index is unavailable.",
+        help="",
     ),
     Setting(
         "RAG_RESEARCH_MAX_INGESTION_REQUESTS",
         "research_max_ingestion_requests",
         int,
         50,
-        help="Circuit breaker: cap on ingestion requests emitted per discovery run (prevents runaway fetches).",
+        help="",
+    ),
+    Setting(
+        "RAG_FEEDBACK_ENQUEUE_MAX_RATING",
+        "feedback_enqueue_max_rating",
+        int,
+        2,
+        help="",
+    ),
+    Setting(
+        "RAG_RESEARCH_SWEEP_ENABLED",
+        "research_sweep_enabled",
+        bool,
+        True,
+        help="",
+    ),
+    Setting(
+        "RAG_RESEARCH_SWEEP_MAX_ROWS",
+        "research_sweep_max_rows",
+        int,
+        500,
+        help="",
+    ),
+    Setting(
+        "RAG_RESEARCH_SESSION_MAX_TARGETS",
+        "research_session_max_targets",
+        int,
+        5,
+        help="",
+    ),
+    Setting(
+        "RAG_RESEARCH_SESSION_MAX_LLM_CALLS",
+        "research_session_max_llm_calls",
+        int,
+        5,
+        help="",
     ),
     # --- Universal multihop (Part B) --------------------------------------
     Setting(
@@ -304,35 +443,35 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Second-pass follow-up retrieval in multi_hop_retrieve_node (opt-out; set false to pin single-pass).",
+        help="",
     ),
     Setting(
         "MULTIHOP_CONFIDENCE_MIN",
         "multihop_confidence_min",
         str,
         "MEDIUM",
-        help="Minimum reference confidence (HIGH/MEDIUM/LOW) that can trigger a multihop follow-up.",
+        help="",
     ),
     Setting(
         "MULTIHOP_MAX_FOLLOWUPS",
         "multihop_max_followups",
         int,
         1,
-        help="Max follow-up retrieval rounds per multi_hop_retrieve_node call.",
+        help="",
     ),
     Setting(
         "MULTIHOP_MAX_REFS",
         "multihop_max_refs",
         int,
         2,
-        help="Max cross-references fused into one multihop follow-up query.",
+        help="",
     ),
     Setting(
         "RAG_AGENT_TASK_PARALLELISM",
         "task_parallelism",
         bool,
         True,
-        help="Execute independent EvidenceTasks concurrently in the DAG executor (Phase 1).",
+        help="",
     ),
     Setting(
         "ENABLE_LEGAL_IDENTITY",
@@ -340,14 +479,14 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Canonical legal-identity parsing of retrieved chunks.",
+        help="",
     ),
     Setting(
         "RAG_CE_SECTION_PREFIX",
         "ce_section_prefix",
         bool,
         False,
-        help="Prefix CE passages with §-identity before scoring (CV2 P1).",
+        help="",
     ),
     Setting(
         "RAG_MULTI_DOMAIN_ROUTER",
@@ -355,16 +494,7 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help=(
-            "Production multi-domain query router with FSSAI-first priority "
-            "fusion for mixed FBO-violation queries (e.g. FBO + solid waste). "
-            "Default True: mixed-domain queries are routed to fssai + "
-            "env/wb_state/etc. and fused so FSSAI chunks occupy the top slots; "
-            "single-domain queries short-circuit to the existing default "
-            "collection fetch. When False the stack degrades to the single "
-            "default collection — no silent cross-domain contamination "
-            "(RAG_FSSAI_PRIMARY_MULTI_DOMAIN_ANALYSIS.md Gap #2)."
-        ),
+        help="",
     ),
     # --- Reranker ------------------------------------------------------------
     Setting(
@@ -373,14 +503,14 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="sec_act + CE ensemble reranker (default on; false = plain Reranker).",
+        help="",
     ),
     Setting(
         "RAG_RERANKER_MODEL",
         "reranker_model",
         str,
         "cross-encoder/ms-marco-MiniLM-L-6-v2",
-        help="Cross-encoder model (fine-tuned legal CE is a drop-in).",
+        help="",
     ),
     Setting("RAG_RERANKER_ENDPOINT", "reranker_endpoint", str, "", help="Remote TEI /rerank URL; empty = local CE."),
     Setting("RAG_RERANKER_TOKEN", "reranker_token", str, "", help="Bearer token for the remote /rerank endpoint."),
@@ -389,7 +519,7 @@ _TABLE: tuple[Setting, ...] = (
         "reranker_mode",
         str,
         "tei",
-        help="Remote CE backend: 'tei' (default). Never 'serverless' (decommissioned).",
+        help="",
     ),
     Setting("RAG_RERANKER_TIMEOUT", "reranker_timeout", float, 5.0, help="Per-request /rerank timeout in seconds."),
     Setting(
@@ -398,21 +528,21 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Lazy local-CE fallback when the remote endpoint fails.",
+        help="",
     ),
     Setting(
         "RAG_ENSEMBLE_CE_HEAD",
         "ensemble_ce_head",
         int,
         30,
-        help="Post-sec_act head size the CE scores (validated h=30).",
+        help="",
     ),
     Setting(
         "RAG_ENSEMBLE_CE_WEIGHT",
         "ensemble_ce_weight",
         float,
-        0.5,
-        help="Bonus weight for normalized CE head scores.",
+        0.13,
+        help="",
     ),
     # --- Remote dense embeddings ---------------------------------------------
     Setting(
@@ -420,7 +550,7 @@ _TABLE: tuple[Setting, ...] = (
         "embed_endpoint",
         str,
         "",
-        help="Remote /embed URL (Modal); empty = local SentenceTransformer.",
+        help="",
     ),
     Setting("RAG_EMBED_TOKEN", "embed_token", str, "", help="Bearer token for the remote /embed endpoint."),
     Setting("RAG_EMBED_TIMEOUT", "embed_timeout", float, 5.0, help="Per-request /embed timeout in seconds."),
@@ -430,14 +560,14 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Lazy local-embedder fallback when the remote endpoint fails.",
+        help="",
     ),
     Setting(
         "RAG_EMBEDDING_MODEL",
         "embedding_model",
         str,
         "sentence-transformers/all-mpnet-base-v2",
-        help="Dense embedding model (768-dim).",
+        help="",
     ),
     # --- Qdrant / ingestion ---------------------------------------------------
     Setting("RAG_QDRANT_URL", "qdrant_url", str, "", help="Qdrant server URL."),
@@ -450,35 +580,35 @@ _TABLE: tuple[Setting, ...] = (
         "qdrant_collection_env",
         str,
         "env_legal_768",
-        help="Per-domain Qdrant collection override (environmental).",
+        help="",
     ),
     Setting(
         "RAG_QDRANT_COLLECTION_COMMERCIAL",
         "qdrant_collection_commercial",
         str,
         "commercial_legal_768",
-        help="Per-domain Qdrant collection override (commercial).",
+        help="",
     ),
     Setting(
         "RAG_QDRANT_COLLECTION_ANIMAL",
         "qdrant_collection_animal",
         str,
         "animal_legal_768",
-        help="Per-domain Qdrant collection override (animal husbandry).",
+        help="",
     ),
     Setting(
         "RAG_QDRANT_COLLECTION_WB_STATE",
         "qdrant_collection_wb_state",
         str,
         "wb_state_legal_768",
-        help="Per-domain Qdrant collection override (WB state laws).",
+        help="",
     ),
     Setting(
         "RAG_QDRANT_COLLECTION_CRIMINAL",
         "qdrant_collection_criminal",
         str,
         "criminal_legal_768",
-        help="Per-domain Qdrant collection override (criminal / BNS).",
+        help="",
     ),
     Setting("RAG_VECTOR_SIZE", "vector_size", int, 768, help="Embedding vector dimension."),
     Setting("RAG_SPARSE_MODEL", "sparse_model", str, "Qdrant/bm25", help="Fastembed sparse model for BM25 vectors."),
@@ -488,14 +618,14 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Upsert BM25 sparse vectors at ingestion (when collection declares them).",
+        help="",
     ),
     Setting(
         "RAG_FULL_ENRICHMENT",
         "full_enrichment",
         bool,
         False,
-        help="Full Phase 2 enrichment adapter chain at ingestion.",
+        help="",
     ),
     # --- Sync redundancy (Priority 7) -----------------------------------------
     Setting(
@@ -503,14 +633,14 @@ _TABLE: tuple[Setting, ...] = (
         "enable_airtable_sync",
         bool,
         True,
-        help="Airtable redundancy sync (dormant unless true).",
+        help="",
     ),
     Setting(
         "ENABLE_EXCEL_SYNC",
         "enable_excel_sync",
         bool,
         False,
-        help="MS Excel Online sync (dormant until M365 credentials exist).",
+        help="",
     ),
     Setting(
         "BACKUP_FULL_ARCHIVE_ENABLED",
@@ -518,56 +648,56 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Upload a full ZIP snapshot (DB dump + instance files) to R2 on every backup run.",
+        help="",
     ),
     Setting(
         "BACKUP_ARCHIVE_RETENTION",
         "archive_retention",
         int,
         30,
-        help="Keep the newest N full-archive ZIPs in R2; older ones are pruned.",
+        help="",
     ),
     Setting(
         "AUTO_RESTORE_ON_EMPTY_DB",
         "auto_restore_on_empty_db",
         bool,
         False,
-        help="At boot, replenish an empty database from R2 backups (full archive first, then CSV chain).",
+        help="",
     ),
     Setting(
         "ENABLE_BACKUP_SCHEDULE",
         "backup_schedule_enabled",
         bool,
         False,
-        help="Register the daily QStash backup schedule at startup (ScheduledJobs).",
+        help="",
     ),
     Setting(
         "ENABLE_SNAPSHOT_SCHEDULE",
         "snapshot_schedule_enabled",
         bool,
         True,
-        help="Register the daily local-DB-snapshot QStash schedule at startup (ScheduledJobs).",
+        help="",
     ),
     Setting(
         "RAG_ENABLE_LOG_CLEANUP_SCHEDULE",
         "rag_log_cleanup_schedule_enabled",
         bool,
         False,
-        help="Register the weekly RAG query-log cleanup QStash schedule at startup (ScheduledJobs).",
+        help="",
     ),
     Setting(
         "RAG_ENABLE_INGESTION_SCHEDULE",
         "enable_ingestion_schedule",
         bool,
         False,
-        help="Register the daily QStash corpus-ingestion schedule at startup (ScheduledJobs).",
+        help="",
     ),
     Setting(
         "RAG_INGESTION_CRON",
         "ingestion_cron",
         str,
         "0 3 * * *",
-        help="Cron expression for the corpus-ingestion schedule.",
+        help="",
     ),
     # --- Generation -------------------------------------------------------------
     Setting(
@@ -575,7 +705,7 @@ _TABLE: tuple[Setting, ...] = (
         "use_stub_llm",
         bool,
         False,
-        help="Stub LLM mode for grounded generation (tests / offline runs).",
+        help="",
     ),
     # --- Knowledge Graph -------------------------------------------------------
     Setting(
@@ -583,89 +713,78 @@ _TABLE: tuple[Setting, ...] = (
         "kg_expansion",
         bool,
         False,
-        help=(
-            "Expand retrieved chunk IDs through the Neo4j KG (mutually exclusive with fusion). "
-            "Default false: shares the same pointer-only KG payload problem as fusion."
-        ),
+        help="",
     ),
     Setting(
         "RAG_KG_FUSION",
         "kg_fusion",
         bool,
         False,
-        help=(
-            "RRF-fuse KG provisions into retrieved context (mutually exclusive with expansion). "
-            "Default false: the 150-question A/B (evaluation/ab_kg_fusion.py) measured fusion "
-            "subtracting ~0.10 citation recall for no correctness gain, because the graph's "
-            "LegalProvision.text holds only a section reference, not the provision body."
-        ),
+        help="",
     ),
     Setting(
         "RAG_KG_MAX_PROVISIONS",
         "kg_max_provisions",
         int,
         5,
-        help="Max KG provisions injected into the LLM context.",
+        help="",
     ),
     Setting(
         "RAG_RETRIEVAL_CACHE_TTL_SECONDS",
         "retrieval_cache_ttl_seconds",
         int,
         90,
-        help="Retention time in seconds for retrieval cache entries.",
+        help="",
     ),
     Setting(
         "RAG_LOG_RETENTION_DAYS",
         "rag_log_retention_days",
         int,
         90,
-        help="Retention time in days for RAGQueryLog entries.",
+        help="",
     ),
     Setting(
         "RAG_KG_FAILURE_THRESHOLD",
         "kg_failure_threshold",
         int,
         5,
-        help="Circuit breaker failure threshold for KG calls (per domain).",
+        help="",
     ),
     Setting(
         "RAG_KG_TIMEOUT_SECONDS",
         "kg_timeout_seconds",
         int,
         120,
-        help="Circuit breaker timeout (seconds) for KG calls (per domain).",
+        help="",
     ),
     # --- Context limits (ContextBuilder) ----------------------------------------
     Setting(
         "RAG_CONTEXT_MAX_CHUNKS",
         "context_max_chunks",
         int,
-        20,
-        help="Max chunks assembled into the LLM context (ContextBuilder ceiling; also the live query routes' top_k default).",
+        50,
+        help="",
     ),
     Setting(
         "RAG_CONTEXT_MAX_CHARS",
         "context_max_chars",
         int,
-        24000,
-        help=(
-            "Max context characters (ContextBuilder ceiling). Held at 24k: raising it to 40k "
-            "diluted the gold-in-prompt slice's eliminations 11 -> 8 (out/ceiling_v5/"
-            "rerun_gip/cond_v4), so the wider window buys recall elsewhere but costs precision here."
-        ),
+        40000,
+        help="",
     ),
     Setting(
         "RAG_CONTEXT_DROP_INDEX_CHUNKS",
         "context_drop_index_chunks",
         bool,
         True,
-        help=(
-            "Drop index/navigation chunks (arrangement-of-sections listings, Act mastheads, "
-            "sub-60-char fragments) before packing so substantive provisions occupy the window. "
-            "Measured: they consumed 16.9% of admitted slots (158/933) on the gold-in-prompt "
-            "failure slice (evaluation/out/ceiling_v5/gip_window_content.txt) while carrying "
-            "no provision text."
-        ),
+        help="",
+    ),
+    Setting(
+        "RAG_CONTEXT_DROP_AMENDMENT_PROSE",
+        "context_drop_amendment_prose",
+        bool,
+        True,
+        help="",
     ),
     # --- Runtime / plugins ------------------------------------------------------
     Setting("RAG_TORCH_THREADS", "torch_threads", int, 4, help="Torch intra/inter-op thread cap for RAG inference."),
@@ -675,14 +794,14 @@ _TABLE: tuple[Setting, ...] = (
         "ocr_languages",
         str,
         "english,hindi",
-        help="Comma-separated languages for the active OCR provider (adapter splits on ',').",
+        help="",
     ),
     Setting(
         "OCR_USE_GPU",
         "ocr_use_gpu",
         bool,
         False,
-        help="GPU for OCR inference (keep false on CPU-only hosts, e.g. Render free tier).",
+        help="",
     ),
     Setting("AI_PROVIDER", "ai_provider", str, "openrouter", help="Active AI plugin."),
     Setting("RULES_PROVIDER", "rules_provider", str, "fssai_default", help="Active rules plugin."),
@@ -695,7 +814,7 @@ _TABLE: tuple[Setting, ...] = (
         "supabase_sync_enabled",
         bool,
         True,
-        help="[DEPRECATED] Supabase sync is always enabled and synchronous.",
+        help="",
         opt_in=False,
     ),
     Setting(
@@ -703,33 +822,28 @@ _TABLE: tuple[Setting, ...] = (
         "supabase_url",
         str,
         "",
-        help="Supabase project URL for the cloud-sync bridge.",
+        help="",
     ),
     Setting(
         "SUPABASE_API_KEY",
         "supabase_api_key",
         str,
         "",
-        help="Supabase anon/service-role key for the cloud-sync bridge.",
+        help="",
     ),
     Setting(
         "SUPABASE_SYNC_INTERVAL",
         "supabase_sync_interval",
         int,
         300,
-        help="Polling interval (seconds) for automatic sync operations.",
+        help="",
     ),
     Setting(
         "SUPABASE_DB_URL",
         "supabase_db_url",
         str,
         "",
-        help=(
-            "Supabase Postgres DSN used for FSSAI registry lookups "
-            "(fssai_licenses / fssai_registrations). Read by "
-            "app/services/premises_resolver.py. Distinct from SUPABASE_URL, "
-            "which is the REST project URL the sync bridge needs."
-        ),
+        help="",
     ),
     Setting(
         "PREMISES_SEARCH_LOCALITY_ENABLED",
@@ -737,10 +851,7 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help=(
-            "Match premises by full_address as well as company_name, and "
-            "expand road aliases. When false the resolver matches names only."
-        ),
+        help="",
     ),
     Setting(
         "DIARY_SCHEDULE_AI_ENABLED",
@@ -748,7 +859,7 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         False,
         opt_in=True,
-        help="Kill switch for AI schedule planning (LLM spend). 503 when off.",
+        help="",
     ),
     # --- Notepad --------------------------------------------------------------
     Setting(
@@ -757,7 +868,7 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Kill switch for Notepad AI evaluation (LLM spend). 503 when off.",
+        help="",
     ),
     # --- Case file adjudication UI -------------------------------------------
     Setting(
@@ -766,7 +877,7 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Opt-out switch for the 'Unsafe' verdict toggle on the sample-adjudication create/edit forms. True (default) shows it; set false to hide it.",
+        help="",
     ),
     # --- FSO strategic advisory (game-theory + Talebian, ADR-0003) ------------
     Setting(
@@ -774,7 +885,7 @@ _TABLE: tuple[Setting, ...] = (
         "fso_advisor_enabled",
         bool,
         False,
-        help="Attach deterministic FSO Act advisory (game-theory+Talebian) on the agent path.",
+        help="",
     ),
     # --- FBO compliance auditor (FBO_AUDITOR_AGENT_BLUEPRINT) ------------------
     Setting(
@@ -783,7 +894,52 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Kill switch for the FBO auditor CAPA agent (LLM spend). 503 when off.",
+        help="",
+    ),
+    # --- Probabilistic photo-evidence assessment (ADR-0011) -------------------
+    Setting(
+        "PHOTO_SCORING_ENABLED",
+        "photo_scoring_enabled",
+        bool,
+        False,
+        help="",
+    ),
+    Setting(
+        "PHOTO_SCORING_MODEL",
+        "photo_scoring_model",
+        str,
+        "inception/mercury-decide:free",
+        help="",
+    ),
+    Setting(
+        "PHOTO_SCORING_ENDPOINT",
+        "photo_scoring_endpoint",
+        str,
+        "https://openrouter.ai/api/v1/systemone",
+        help="",
+    ),
+    Setting(
+        "PHOTO_SCORING_THRESHOLD",
+        "photo_scoring_threshold",
+        float,
+        0.70,
+        help="",
+    ),
+    Setting(
+        "PHOTO_SCORING_TIMEOUT",
+        "photo_scoring_timeout",
+        float,
+        60.0,
+        help="",
+    ),
+    Setting(
+        "PHOTO_SCORING_MAX_BYTES",
+        "photo_scoring_max_bytes",
+        int,
+        # Matches app/utils/storage.MAX_FILE_SIZE, so a photo that stored
+        # successfully is never permanently unscoreable. Keep the two in step.
+        5 * 1024 * 1024,
+        help="",
     ),
     # --- Entity–provision-aware food retrieval (2026-09-28) --------------------
     Setting(
@@ -792,7 +948,7 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Food-commodity query understanding (entity/intent/parameters) feeding retrieval + reranking.",
+        help="",
     ),
     Setting(
         "RAG_FOOD_LEGAL_RERANK",
@@ -800,7 +956,7 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Two-stage legal-aware reranker (entity gate + intent/provision features) for food queries.",
+        help="",
     ),
     Setting(
         "RAG_FOOD_PARENT_RECONSTRUCT",
@@ -808,7 +964,7 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Parent-standard reconstruction (clause grouping + evidence bundle) before generation.",
+        help="",
     ),
     Setting(
         "RAG_FOOD_VALIDATE",
@@ -816,7 +972,7 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Post-retrieval validation layer: check the evidence can answer the intent before generation; run fallback retrieval otherwise.",
+        help="",
     ),
     Setting(
         "RAG_FOOD_ANSWER_MODE",
@@ -824,14 +980,14 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Intent-conditioned food-standard answer prompts (anti-definition-anchoring) + structured answer.",
+        help="",
     ),
     Setting(
         "RAG_FOOD_FALLBACK_ROUNDS",
         "food_fallback_rounds",
         int,
         2,
-        help="Max fallback retrieval rounds when validation fails (0 disables fallback retrieval).",
+        help="",
     ),
     # --- Statutory provision extractor (ADR-0009 Tier 1 rules mode) ----------
     Setting(
@@ -840,42 +996,96 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         opt_in=False,
-        help="Tiered statutory provision extractor at ingestion/backfill (ADR-0009).",
+        help="",
     ),
     Setting(
         "PROVISION_EXTRACTOR_MODE",
         "provision_extractor_mode",
         str,
         "rules",
-        help="Boundary disambiguation mode: 'rules' (Tier 1) or 'hybrid' (Tier 2 ML with rules fallback).",
+        help="",
     ),
     Setting(
         "PROVISION_EXTRACTOR_MODEL_PATH",
         "provision_extractor_model_path",
         str,
         "models/provision_boundaries.joblib",
-        help="Joblib artifact for Tier 2 boundary disambiguation (hybrid mode only).",
+        help="",
     ),
     Setting(
         "PROVISION_EXTRACTOR_MIN_CONFIDENCE",
         "provision_extractor_min_confidence",
         float,
         0.70,
-        help="Minimum rules-mode boundary probability to auto-accept a provision boundary.",
+        help="",
     ),
     Setting(
         "PROVISION_EXTRACTOR_ML_THRESHOLD",
         "provision_extractor_ml_threshold",
         float,
         0.25,
-        help="Tier-2 (hybrid) decision threshold; lower than rules by design.",
+        help="",
     ),
     Setting(
         "PROVISION_EXTRACTOR_REVIEW_THRESHOLD",
         "provision_extractor_review_threshold",
         float,
         0.30,
-        help="Lower bound of the borderline review band for P2 human review.",
+        help="",
+    ),
+    # --- Progressive Web App (issue #70) --------------------------------------
+    Setting(
+        "ENABLE_PWA",
+        "enable_pwa",
+        bool,
+        False,
+        opt_in=True,
+        help="",
+    ),
+    # --- Observability (issues #71-#75) --------------------------------------
+    # Error tracking. A blank DSN means Sentry is never initialised: with no DSN
+    # there is no transport, so there is no network egress (the property the
+    # test suite's no-network contract needs). Never pass dsn=None - the SDK
+    # falls back to $SENTRY_DSN. See docs/OBSERVABILITY_SENTRY_PROMETHEUS_SPEC.md.
+    Setting(
+        "SENTRY_DSN",
+        "sentry_dsn",
+        str,
+        "",
+        help="",
+    ),
+    Setting(
+        "SENTRY_ENVIRONMENT",
+        "sentry_environment",
+        str,
+        "",
+        help="",
+    ),
+    Setting(
+        "SENTRY_TRACES_SAMPLE_RATE",
+        "sentry_traces_sample_rate",
+        float,
+        0.0,
+        help="",
+    ),
+    # Prometheus scraping. GET /metrics is bearer-token guarded and fail-closed:
+    # enabled with a blank METRICS_TOKEN returns 503, never 200.
+    # PROMETHEUS_MULTIPROC_DIR is deliberately NOT declared here - the client
+    # reads it at import time, before this table exists.
+    Setting(
+        "METRICS_ENABLED",
+        "metrics_enabled",
+        bool,
+        False,
+        opt_in=True,
+        help="",
+    ),
+    Setting(
+        "METRICS_TOKEN",
+        "metrics_token",
+        str,
+        "",
+        help="",
     ),
 )
 _BY_ATTR: dict[str, Setting] = {s.attr: s for s in _TABLE}
