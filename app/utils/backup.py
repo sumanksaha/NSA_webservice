@@ -38,10 +38,8 @@ FILES_PREFIX = "files/"
 # Instance subfolders bundled into the archive (relative to instance_path).
 _FOLDER_NAMES = ("annexures", "saved", "editor_images")
 # Tables excluded from the dump/restore. ``search_index`` is a SQLite FTS5
-# virtual table (rebuilt via index_all() after restore) and ``app_secrets``
-# holds live deployment credentials (SECRET_KEY, API keys) that are
-# auto-provisioned at boot — never overwrite them from a backup.
-_SKIP_TABLES = {"search_index", "app_secrets"}
+# virtual table (rebuilt via index_all() after restore).
+_SKIP_TABLES = {"search_index"}
 # Keep the restore guard from accepting pathological zip bombs.
 MAX_ARCHIVE_SIZE = 200 * 1024 * 1024  # 200 MB
 
