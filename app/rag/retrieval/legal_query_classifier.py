@@ -332,29 +332,12 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
             r"\bnon[- ]applicab",
         ],
     ),
-    # enforcement — enforcement actions, inspection, sampling, seizure.
-    # NOTE: placed BEFORE authority so queries like "When will the FSO conduct
-    # sampling?" classify as enforcement (sample) rather than authority (fso),
-    # since enforcement keywords indicate the action type, not just the actor.
-    (
-        "enforcement",
-        [
-            r"\binspect",
-            r"\bsampl",
-            r"\benforc",
-            r"\bseiz",
-            r"\bdetention\b",
-            r"\bclosure\s+notice\b",
-            r"\bshow\s+cause\b",
-            # exercise-of-power vocabulary: the action an officer may take
-        ],
-    ),
     # authority — officers, boards, agencies, who has power.
-    # NOTE: ``tribunal`` intentionally NOT duplicated here — it is in the
-    # ``procedure`` list above.  If a query mentions both, procedure wins
-    # (earlier entry, count-wins).  This avoids the previous conflict where
-    # "appeal to the tribunal" could be classified as authority instead of
-    # procedure.
+    # Placed BEFORE enforcement so that queries mentioning both an authority
+    # keyword (officer, tribunal, fso) and an enforcement action keyword
+    # (inspect, sample) keep the authority tie — the actor wins over the
+    # action when both are present.  ``tribunal`` is duplicated in the
+    # procedure list; on a tie the earlier (authority) entry wins.
     (
         "authority",
         [
@@ -372,6 +355,25 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
             r"\bfood\s+analyst\b",
             r"\bappellate\b",
             r"\bjurisdicti",
+            r"\btribunal\b",
+        ],
+    ),
+    # enforcement — enforcement actions, inspection, sampling, seizure.
+    # Placed AFTER authority so that queries like "The officer shall inspect"
+    # keep the authority tie (officer + inspect → authority wins, earlier
+    # entry).  Pure enforcement queries ("When will the FSO conduct sampling?"
+    # with no authority keyword) still classify as enforcement.
+    (
+        "enforcement",
+        [
+            r"\binspect",
+            r"\bsampl",
+            r"\benforc",
+            r"\bseiz",
+            r"\bdetention\b",
+            r"\bclosure\s+notice\b",
+            r"\bshow\s+cause\b",
+            # exercise-of-power vocabulary: the action an officer may take
         ],
     ),
     # cross-reference — "as provided under", "read with", "refer to", schedule
