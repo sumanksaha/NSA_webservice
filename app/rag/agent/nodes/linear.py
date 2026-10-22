@@ -104,19 +104,21 @@ def retrieve_node(state: dict[str, Any]) -> dict[str, Any]:
     from app.rag.tasks import run_retrieval_pipeline
 
     retrieval_query = _query_for_retrieval(state)
-    plan = state.get("target_plan") if isinstance(state.get("target_plan"), dict) else None
+    raw_plan = state.get("target_plan")
+    plan = raw_plan if isinstance(raw_plan, dict) else None
     plan_top_k = None
     plan_active = False
     try:
         from app.shared.config import cfg as _cfg2
 
-        plan_active = bool(_cfg2.targeted_retry_v2) and bool(plan) and bool(plan.get("query"))
+        plan_active = bool(_cfg2.targeted_retry_v2) and bool(plan) and bool((plan or {}).get("query"))
     except Exception:
         plan_active = False
-    if plan_active:
+    if plan_active and plan is not None:
         retrieval_query = str(plan.get("query") or retrieval_query)
         try:
-            plan_top_k = int(plan.get("top_k_override")) if plan.get("top_k_override") is not None else None
+            _ov = plan.get("top_k_override")
+            plan_top_k = int(_ov) if _ov is not None else None
         except (TypeError, ValueError):
             plan_top_k = None
     eff_top_k = plan_top_k or state.get("top_k", 10)

@@ -164,6 +164,8 @@ def _fetch_anchor(
     from app.rag.retrieval.provision_metadata import commodity_phrase_match
 
     food = view.food
+    if not cfg.identifier_route:
+        return
     if not (food.entity and food.entity != "unknown"):
         return
     has_anchor = any(

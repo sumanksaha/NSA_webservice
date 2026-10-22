@@ -315,6 +315,7 @@ class SectionQueryParser:
         if run_match:
             numbers = re.findall(r"\d{1,3}", run_match.group(1))
             if numbers:
+                result["section_numbers"] = numbers
                 result["section_number"] = numbers
 
         # Single section with optional subsection: "Section 55(2)"

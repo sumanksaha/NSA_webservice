@@ -693,14 +693,14 @@ class TestLegalDeadlines:
             # Handover within the last 30 days → embargo still active today.
             case = _make_case_file(
                 db,
-                retailer_report_receive_date=_dt(1, 9),
-                manufacturer_report_receive_date=_dt(5, 9),
+                retailer_report_receive_date=_dt(1, 10),
+                manufacturer_report_receive_date=_dt(5, 10),
             )
             data = client.get(f"/timeline/api/case/{case.id}?kind=case_file").get_json()
             deadlines = data["deadlines"]
             assert deadlines["petition_deadline_date"] == "2027-02-01"
-            assert deadlines["generation_allowed_from_date"] == "2026-10-05"
-            assert deadlines["handover_max_date"] == "2026-09-05"
+            assert deadlines["generation_allowed_from_date"] == "2026-11-04"
+            assert deadlines["handover_max_date"] == "2026-10-05"
             assert deadlines["generation_blocked"] is True
             # Handover was recent relative to today → embargo warning present.
             assert any("cannot be generated" in w["message"] for w in data["warnings"])

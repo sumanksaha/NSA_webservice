@@ -196,9 +196,10 @@ def get_llm_client(
                 "Laguna S 2.1 is served by OpenRouter — set OPENROUTER_API_KEY."
             )
 
-    # Import the concrete client lazily so a missing optional dependency
-    # never blocks process boot.
-    from app.rag.generation.llm_client import GroundedLLMClient
+    # Import lazily so a missing optional dependency never blocks process
+    # boot.  Resolve through the grounded_service module so callers/tests can
+    # monkeypatch ``app.rag.generation.grounded_service.GroundedLLMClient``.
+    from app.rag.generation.grounded_service import GroundedLLMClient
 
     client = GroundedLLMClient(model=resolved_model, api_key=api_key, base_url=base_url)
     if not llm_enabled():

@@ -1,6 +1,6 @@
 {
     "venvPath": ".",
-    "venv": "venv",
+    "venv": ".venv",
     "pythonVersion": "3.12",
 
     "//": "reportCallIssue off repo-wide: the codebase uses legacy SQLAlchemy declarative style (db.Column without Mapped[] annotations), so pyright can't see model constructor kwargs — ~240 false positives across every ORM call site. Upgrade path: migrate models to SQLAlchemy 2.0 `Mapped[x] = mapped_column(...)` annotations, then remove this.",

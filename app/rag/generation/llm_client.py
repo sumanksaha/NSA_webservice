@@ -173,7 +173,14 @@ class GroundedLLMClient:
         self._api_key = api_key or os.environ.get("OPENROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY")
         self._base_url = base_url or os.environ.get("OPENAI_BASE_URL") or self.DEFAULT_BASE_URL
         self._stub = stub_response or os.environ.get("RAG_STUB_RESPONSE")
-        self._use_stub = not self._api_key or os.environ.get("RAG_USE_STUB_LLM", "").lower() == "true"
+        # An explicit stub_response (typically from tests) forces stub mode even
+        # when an API key is configured, so callers can deterministically
+        # exercise the pipeline without network access.
+        self._use_stub = (
+            bool(stub_response)
+            or not self._api_key
+            or os.environ.get("RAG_USE_STUB_LLM", "").lower() == "true"
+        )
 
         if self._use_stub and not self._stub:
             logger.warning("LLM client running in STUB mode — responses are not realistic")

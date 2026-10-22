@@ -15,13 +15,6 @@ import type { AiAssistantOpts } from "./types/api.js";
         }
     }
 
-    function esc(s: unknown): string {
-        if (s == null) return "";
-        var d = document.createElement("div");
-        d.textContent = String(s);
-        return d.innerHTML;
-    }
-
     function getEditorContent(): string {
         var qe = window.QuillEditor;
         if (!qe || !qe.getQuill) return "";
