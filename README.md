@@ -57,6 +57,11 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 | **Food Cell (DO Intimation)**     | Designated-Officer intimation forwarding for samples — PDF/HTML view, regenerate, sync to Sheets/Airtable/Excel (Phase 21)                                                                                                                                                    |
 | **Legal RAG (Vector Search)**     | ✅ Phases 1–5 + P1–6 ✅                                                                                                                                                                                                                                                       | Full RAG pipeline: corpus/embedding, dense+sparse+hybrid retrieval, reranking, grounded generation, hallucination detection, evaluation (694 tests + 28 Agent A) + multi-hop agent (reason/retrieve nodes) + RAG Query UI + weighted composite scoring + 6 priority improvements (2026-09-06) |
 | **RAG Architecture Seams**        | ✅ Complete (2026-10-20) — seven deepening candidates: shared model runtime, Qdrant client/filter construction, point → chunk conversion, chunk access seam, orphan codegen cleanup, neutral benchmark entry, and query-type registry migration. One model cache, one chunk field policy, and one canonical query-type vocabulary (`duty → obligation`, `amendment_query → amendment`); see `docs/RAG_ARCHITECTURE_IMPROVEMENT_PLAN.md` |
+| **Progressive Web App (PWA)**      | ✅ Complete (opt-in) | Installable PWA: manifest, root-scoped service worker, offline fallback page, gated by `ENABLE_PWA` (default false); see `docs/PWA_IMPLEMENTATION.md` |
+| **Observability (Sentry + Prometheus)** | ✅ Complete | Guarded Sentry init with `before_send` scrubber and request correlation; allowlisted Prometheus metrics with bearer-guarded, fail-closed `/metrics` on the FastAPI edge (OBS1/OBS2) |
+| **Photo-Evidence Assessment**     | ✅ Complete (ADR-0011) | Probabilistic violation scoring pipeline: a vision model scores a premises photo per checklist item; score is advisory, FSO confirms; fail-closed audit row on model failure |
+| **Unsafe Verdict / Prohibition Order** | ✅ Complete | Sample adjudication unsafe toggle with unsafe-only document gating and an FBO-directed prohibition order (prayer) |
+| **FBO Improvement Notices**       | ✅ Complete | Unified actions module: union of violations and FBO issues, dedup by field, recommendations |
 | **Knowledge Graph + Neo4j**       | ✅ Phase 14 complete                                                                                                                                                                                                                                                          | Full legal KG: corpus ingestion (58 instruments, 1,861 provisions, 27,343 chunks), semantic enrichment (751 edges), hybrid expansion (RRF k=60), Neo4j Aura sync with APOC/NEO4J_ALLOW_WRITE guard, interactive Cytoscape.js visualization (17+15 tests)                                      |
 | **Evaluation Framework**          | ✅ Complete                                                                                                                                                                                                                                                                   | RAG evaluation: retrieval arms A–G, metrics, ceiling analysis, batch orchestration (28 modules)                                                                                                                                                                                               |
 | **Benchmark v1.0**                | ✅ Frozen                                                                                                                                                                                                                                                                     | 150-question multi-domain golden benchmark with gold provisions, sources, rubric, review-conflict report                                                                                                                                                                                      |
@@ -247,7 +252,7 @@ classify ──► retrieve ──► generate ──► verify ──► finali
 
 **Version:** 0.9.1 (Pre‑Production)
 
-The platform provides an end‑to‑end solution for food safety inspections, sample management, adjudication, and reporting. The current release is documented in [CHANGELOG.md](CHANGELOG.md); integration activity recorded since the 0.9.1 publication of 2026‑09‑30 — the Schedule and Notepad blueprints, the RAG answer‑feedback and autoresearch loop, and the section/act‑scoped structural retrieval arm — is summarised under Unreleased pending versioned release. The most recent pass (2026‑10‑20) deepened seven RAG seams: shared model runtime, Qdrant construction/filter, point → chunk conversion, chunk field access, orphan codegen cleanup, the benchmark/metrics type boundary, and the query-type registry migration. Key capabilities include:
+The platform provides an end‑to‑end solution for food safety inspections, sample management, adjudication, and reporting. The current release is documented in [CHANGELOG.md](CHANGELOG.md); integration activity recorded since the 0.9.1 publication of 2026‑09‑30 — the Schedule and Notepad blueprints, the RAG answer‑feedback and autoresearch loop, and the section/act‑scoped structural retrieval arm — is summarised under Unreleased pending versioned release. The most recent pass (2026‑10‑20) deepened seven RAG seams: shared model runtime, Qdrant construction/filter, point → chunk conversion, chunk field access, orphan codegen cleanup, the benchmark/metrics type boundary, and the query-type registry migration. Subsequent work (2026‑10‑22) added an opt-in Progressive Web App, Sentry/Prometheus observability, probabilistic photo-evidence assessment, the unsafe-verdict/prohibition-order workflow, unified FBO improvement notices, tiered provision extraction, query-understanding and form retrieval, the LLM kill switch and call budget, and TLS enforcement on LLM lookups. Key capabilities include:
 
 - **Inspection Management** with photo verification and geo‑tagging.
 - **Sample Tracking** with unique code generation, lab submission, and analyst reporting.
@@ -270,6 +275,12 @@ The platform provides an end‑to‑end solution for food safety inspections, sa
 - **RAG answer feedback and autoresearch loop** — human ratings enqueue deduplicated research targets classified by failure lane; the orchestrator sweeps the query log, re-asks open targets under a session budget, and closes the loop against the frozen gates (`RAG_RESEARCH_ENABLED`, default off).
 - **Section/act-scoped structural retrieval** — a deterministic, flag-gated arm (`RAG_SECTION_ARM`) that retrieves structurally authoritative chunks by payload filter and fuses them by reciprocal rank; measured recall@10 = 0.474 against 0.311 for the untuned cross-encoder (`evaluation/out/ceiling_v5/ce_rerank_eval.json`).
 - **Deepened RAG module seams (C1–C7, 2026‑10‑20)** — one shared sentence-transformer/cross-encoder cache, one Qdrant client and filter rule, one point → chunk converter, one object/dict chunk-access policy, an acyclic benchmark/metrics type graph, and a canonical query-type vocabulary whose classifier labels, triage map, reranker configs, and alias normalization are all derived from `app/rag/query_type_registry.py`; 34 orphan generator fragments removed (ADRs 0012–0017).
+- **Progressive Web App** — opt-in installable PWA (manifest, root-scoped service worker, offline fallback) gated by `ENABLE_PWA` (issue #70).
+- **Observability** — guarded Sentry init with scrubber and request correlation, plus allowlisted Prometheus metrics and a bearer-guarded, fail-closed `/metrics` endpoint (issues #71–#72).
+- **Photo-evidence assessment** — probabilistic per-checklist-item violation scoring over a premises photo (advisory; FSO confirms) (ADR-0011).
+- **Unsafe verdict / prohibition order** — sample adjudication unsafe toggle with unsafe-only document gating and an FBO-directed prohibition order (prayer).
+- **FBO improvement notices** — unified actions module uniting violations and FBO issues with dedup and recommendations.
+- **LLM kill switch** — `LLM_ENABLED` (default false) plus `MAX_LLM_CALLS` budget; jev-router banned; TLS enforced on all LLM lookups.
 
 | Area                      | Status         | Notes                                                                                                                                                                                                                                                                              |
 | ------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -301,7 +312,15 @@ The platform provides an end‑to‑end solution for food safety inspections, sa
 | RAG Feedback & Research   | ✅ Complete    | Answer ratings, deduplicated failure queue, and budget-bounded autoresearch orchestrator (gated by `RAG_RESEARCH_ENABLED`)                                                                                                                                                                                                                       |
 | Structural Retrieval Arm  | ✅ Complete    | Section/act-scoped payload-filter arm fused by reciprocal rank; recall@10 = 0.474 measured against 0.311 (untuned CE) and 0.362 (fine-tuned CE); flag-gated (`RAG_SECTION_ARM`, default off)                                                                                                                                                  |
 | RAG Architecture Seams    | ✅ Complete    | C1–C7 (2026‑10‑20): shared model runtime, Qdrant client/filter seam, point → chunk conversion, chunk access seam, orphan codegen removal, neutral benchmark entry, and query-type registry consumers (ADRs 0012–0017; `tests/test_chunk_access.py` 10, `tests/test_rag_evaluation_imports.py` 2, `tests/test_query_type_registry.py` 32) |
-| Tests                     | ✅ 90+ modules | ~5,188 collected tests (3,832 fast shard; 1,356 `slow`-marked), all passing (2026-10-11)                                                                                                                                                                                                       |
+| Progressive Web App       | ✅ Complete    | Opt-in installable PWA (manifest, service worker, offline fallback) gated by `ENABLE_PWA` (issue #70) |
+| Observability             | ✅ Complete    | Sentry error tracking with scrubber + request correlation; Prometheus metrics + bearer-guarded `/metrics` (issues #71–#72) |
+| Photo-Evidence Assessment | ✅ Complete    | Probabilistic per-checklist-item violation scoring over a premises photo (ADR-0011) |
+| Unsafe Verdict / Prohibition Order | ✅ Complete | Sample adjudication unsafe toggle + FBO-directed prohibition order (prayer) |
+| FBO Improvement Notices   | ✅ Complete    | Unified actions module: violations + FBO issues union, dedup, recommendations |
+| LLM Kill Switch           | ✅ Complete    | `LLM_ENABLED` (default false) + `MAX_LLM_CALLS` budget; jev-router banned; TLS enforced |
+| Targeted Retry Planner    | ✅ Complete    | Real identifier/definition/hierarchy/KG builders (P1-6); `expand_query` handling |
+| Query Understanding       | ✅ Complete    | Expanded patterns, fuzzy matching, parser dispatch, form detection; `form_query` parallel arm |
+| Tests                     | ✅ 90+ modules | ~5,200+ collected tests across 90+ modules, all passing (2026-10-22)                                                                                                                                                                                                       |
 | Plugin Architecture       | ✅ Complete    | Registry-based provider plugins (OCR/AI/Rules/PDF) with lazy imports, config-driven selection, all 6 callers refactored (23 tests)                                                                                                                                                 |
 | Petition PDF download     | ✅ Complete    | Validated single-file petition PDF for case files + adjudications (missing-field 400s, section-63 license rule); row buttons are Timeline / Validate / Word Petition / Word Permission / Petition PDF (10 tests)                                                                   |
 | Violation wordings        | ✅ Complete    | Formal observation prose + per-field remediation directives for Improvement Notices; Expired_item polarity fix                                                                                                                                                                     |
@@ -321,7 +340,7 @@ The platform provides an end‑to‑end solution for food safety inspections, sa
 - ✅ FastAPI migration for async APIs — coexistence gateway (`asgi.py`, `/api/v2/*`); full async rewrite deferred
 - ✅ OpenAPI/Swagger documentation (flasgger `/apidocs/`)
 - ✅ Structured logging with `structlog`
-- ⬜ Monitoring (Prometheus + Grafana) and Sentry error tracking
+- ✅ Monitoring (Prometheus + Grafana) and Sentry error tracking (OBS1/OBS2)
 
 ### Phase 3 – Intelligence (Q1 2027)
 
@@ -356,7 +375,7 @@ The platform provides an end‑to‑end solution for food safety inspections, sa
 - [x] FastAPI migration (ASGI coexistence gateway — `asgi.py`, `/api/v2/*`; Phase 6 full rewrite deferred)
 - [x] OpenAPI / Swagger documentation (flasgger `/apidocs/`)
 - [x] Structured logging (structlog)
-- [ ] Monitoring (Sentry + Prometheus)
+- [x] Monitoring (Sentry + Prometheus) (OBS1/OBS2)
 - [ ] Redis caching layer
 - [x] Health check endpoints (`GET /health`)
 
@@ -449,6 +468,7 @@ NSA_webservice/
 │   ├── case_file_generator/    # Case file blueprint
 │   ├── fbo_issue/              # FBO issue tracking blueprint
 │   ├── plugins/                # Phase 20: plugin architecture (base, registry, ocr/ai/rules/pdf plugins)
+│   ├── observability/          # Sentry + Prometheus (metrics, scrubber, correlation) (OBS1/OBS2)
 │   ├── rag/                    # Legal RAG pipeline (retrieval, generation, verification, agent, research queue)
 │   ├── notepad/                # Notepad blueprint (notes intake, AI evaluation, Legal-RAG Q&A thread)
 │   ├── schedule.py             # Schedule blueprint (premises search → duty + inspection)
@@ -607,6 +627,14 @@ gunicorn --bind 0.0.0.0:10000 app:app
 | `R2_BUCKET`               | For Storage         | Storage bucket name                                            |
 | `R2_ENDPOINT`             | For Storage         | Storage endpoint URL                                           |
 | `SKIP_FSO_STARTUP_SYNC`   | No                  | Skip FSO sync on startup                                       |
+| `ENABLE_PWA`              | No                  | Enable installable PWA (manifest, service worker, offline) (default false) |
+| `SENTRY_DSN`              | No                  | Sentry error tracking DSN (blank = disabled)                   |
+| `SENTRY_ENVIRONMENT`      | No                  | Sentry environment name (blank = auto)                         |
+| `SENTRY_TRACES_SAMPLE_RATE` | No                | Sentry trace sampling (default 0.0 = errors only)              |
+| `METRICS_ENABLED`         | No                  | Enable Prometheus metrics (default false)                       |
+| `METRICS_TOKEN`           | No                  | Bearer token for `/metrics` (required when enabled)            |
+| `LLM_ENABLED`             | No                  | LLM kill switch (default false)                                |
+| `MAX_LLM_CALLS`           | No                  | Per-process LLM call budget (0 = none)                         |
 | `AIRTABLE_API_KEY`        | For Airtable backup | Airtable API key                                               |
 | `AIRTABLE_BASE_ID`        | For Airtable backup | Airtable base ID (auto-rotates when full)                      |
 | `MS_TENANT_ID`            | For Excel backup    | Azure AD tenant ID                                             |
@@ -834,8 +862,8 @@ Please read [SECURITY.md](SECURITY.md) for security vulnerability reporting and 
 
 - ✅ Structured logging (structlog)
 - ✅ Health check endpoints (`GET /health`)
-- ⬜ Monitoring (Prometheus + Grafana)
-- ⬜ Error tracking (Sentry)
+- ✅ Monitoring (Prometheus + Grafana) — allowlisted metrics, bearer-guarded `/metrics`
+- ✅ Error tracking (Sentry) — guarded init, scrubber, request correlation (OBS1/OBS2)
 - ⬜ Distributed tracing
 
 ### Level 8: Graph & Knowledge ⬜ Planned

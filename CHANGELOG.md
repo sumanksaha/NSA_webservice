@@ -72,6 +72,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The feature is not enabled in the shipped path and its checks are not yet
   validated; keep both flags off.
 
+### Added (2026-10-11 → 2026-10-22) — Platform, evaluation, and hardening updates
+
+- **Progressive Web App (opt-in, issue #70)**: installable PWA — manifest,
+  root-scoped service worker, offline fallback page — gated by `ENABLE_PWA`
+  (default false). Assets under `app/static/icons/`, `app/static/src/sw.js`,
+  `app/templates/offline.html`; see `docs/PWA_IMPLEMENTATION.md`.
+- **Observability (OBS1/OBS2, issues #71–#72)**: guarded Sentry init with a
+  `before_send` scrubber (request bodies/cookies dropped; firm names, licence
+  numbers, addresses, query text redacted), request correlation bound before the
+  auth gates, and a blank `SENTRY_DSN` as a true off switch. Plus the Prometheus
+  surface: all metrics constructed in `app/observability/metrics.py` under
+  allowlisted labels and a bearer-guarded, fail-closed `GET /metrics` on the
+  FastAPI edge with HTTP instrumentation on both surfaces (each request counted
+  once). See `docs/OBSERVABILITY_SENTRY_PROMETHEUS_SPEC.md`.
+- **Photo-evidence probabilistic assessment (ADR-0011)**: a vision model scores
+  a premises photo per checklist item; the score is advisory and the FSO
+  confirms. Fail-closed audit row on any model failure. See
+  `app/inspection/photo_scoring.py`, `docs/adr/0011-photo-evidence-assessment.md`.
+- **LLM kill switch + call budget**: `LLM_ENABLED=false` (default) blocks
+  every outgoing LLM/decision call — RAG serves a deterministic no-op stub,
+  the AI assistant raises (routes translate to 503), photo scoring records a
+  failed assessment. Per-process cap via `MAX_LLM_CALLS`; decision models ride
+  the same switch (jev-router banned outright). See `app/shared/llm_client.py`.
+- **QStash sync-fallback self-diagnosing**: missing env vars are surfaced rather
+  than failing silently (`fix(qstash)`).
+- **Sparse BM25 on Render**: `fastembed` installed via the `[sparse]` extra so
+  server-side BM25 stays online (`fix(render)`).
+- **TLS enforcement in LLM client**: certificate verification enforced on all
+  external LLM lookups (`shared/llm_client.py`, `rag/generation/llm_client.py`).
+- **App secrets table**: new migration `add_app_secrets_table` for runtime
+  secrets storage.
+- **Unsafe verdict + Unsafe File (prohibition order)** in sample adjudication:
+  opt-out unsafe toggle by default, 14-column landscape table, unsafe-only
+  document gating, prayer section, FBO-directed prohibition order page, case
+  number reference. List label relabelled "Prayer".
+- **FBO improvement notices unified actions**: union of violations and FBO
+  issues, dedup by field, recommendations, items-to-be-purchased section, B&W
+  HTML report, well-formatted actions file endpoint.
+- **Tiered provision extraction engine (ADR-0009)**: tiered statutory provision
+  extraction with rules default.
+- **Query understanding improvements**: expanded patterns, fuzzy matching,
+  parser dispatch, form detection; `form_query` integrated as a parallel
+  additive retrieval arm for workflow/procedure queries; section-filter field
+  name corrected to `section_number`.
+- **Targeted retry planner (P1-6)**: real identifier/definition/hierarchy/KG
+  builders replace placeholder retries; `expand_query` retry strategy handled.
+- **Answer-contract strengthening (2026-10-21)**: stronger mandatory directives,
+  forbid blanket refusals when a governing provision/named sections are present,
+  expanded false-abstention detection; identifier sections; prompt/grounding
+  repairs. Still experimental and default off (`RAG_ANSWER_CONTRACT`).
+- **Ponytail refactor**: simplified secret-key, blueprint, and config wiring
+  (`app/blueprints.py`, `app/shared/config.py`); `app/models/config.py` removed.
+- **Knowledge graph hardening**: silent-no-return fix, provision dedup, bounded
+  fusion footprint, agent node + `[Source n]` citation form, default fusion off.
+- **Evaluation tooling**: text-fallback gold resolution across all production
+  evaluation pipelines and the step-3 gate; Jev decision threshold tuned to
+  0.13 (retry triggers on missing authority as well as missing concepts);
+  evaluator-v4 ruler v4.2 promoted (retire -dev) with live A/B replicate
+  harness; IE lane A disposition packets for the 11 missed-refusal qids (0 LLM);
+  decision-pathway scoring cache, tau sweep, 3-arm selector A/B; gold-labelling
+  audit, veto guard, prompt-length A/B; resume_experiment_b_errors one-command
+  retry of 309 error records; coverage & error-rate disclosure in the summary
+  footer.
+- **RAG answer-quality measurement**: top-lawyer rubric harness, amendment-prose
+  packing hygiene (`RAG_CONTEXT_DROP_AMENDMENT_PROSE`), two-pass structured
+  answering (`ENABLE_STRUCTURED_REASONER`), query-type conditioned directives
+  (`RAG_QUERY_TYPE_DIRECTIVES`), and the live shipped-prompt vs legacy
+  scan-only A/B (cond_v5) with paired gained/lost/net reporting.
+- **Test & CI hardening**: restored test module, enforced TLS in LLM client,
+  formatted PWA service worker, fixed listed test failures and pyright/lint
+  issues; keepalive workflow parse fix; vendored assets excluded from Prettier.
+
 ### Added (2026-10-13) — Top-lawyer RAG answer-quality program
 
 - **Failure-mode rubric harness** (`evaluation/rubric_top_lawyer.py`): scores
@@ -123,9 +195,21 @@ Version 0.9.1 (published 2026-09-30) is the most recent documented release. The
 work summarised in this section has been integrated since that publication and
 awaits a versioned release.
 
-Implemented and verified as of 2026-10-11:
+Implemented and verified as of 2026-10-22:
 
 - Platform phases 0–16, 19, 20, 21, Phase A, and OCR Phases B–E
+- Progressive Web App (opt-in, issue #70), Observability (Sentry + Prometheus,
+  issues #71–#72), and the photo-evidence probabilistic assessment pipeline
+  (ADR-0011)
+- Unsafe verdict + prohibition order workflow and FBO improvement notices
+  unified actions (sample adjudication)
+- Tiered provision extraction engine (ADR-0009), query understanding + form
+  retrieval arm, targeted retry planner (P1-6)
+- Knowledge graph hardening, LLM kill switch + call budget, QStash
+  self-diagnosing sync fallback, TLS enforcement on LLM lookups
+- RAG architecture deepening candidates C1–C7 (2026-10-20), top-lawyer
+  answer-quality program, answer-contract strengthening, Jev threshold tuning,
+  evaluator-v4 ruler, IE lane A disposition packets
 - Architectural Deepening items D1–D5 and D7
 - Security close-out items S9a, S10c, and S2
 - Priority items 6 and 7
@@ -141,8 +225,8 @@ Implemented and verified as of 2026-10-11:
   (Phases 1–5), and the configuration seam
 - CI/CD gates G1–G14 (verified 2026-08-23, 46/46 structural tests passing)
 
-Test suite: approximately 5,188 collected tests (3,832 fast shard; 1,356
-`slow`-marked), all passing as of 2026-10-11 (commit `8861620`).
+Test suite: approximately 5,200+ collected tests across 90+ modules, all passing
+as of 2026-10-22 (HEAD `8cb9fff`).
 
 Outstanding items:
 
