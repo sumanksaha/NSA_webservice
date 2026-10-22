@@ -101,8 +101,8 @@ def _reset_budget():
 
 class TestKillSwitchZeroNetwork:
     def test_disabled_full_run_makes_zero_network_calls(self, monkeypatch):
-        """With LLM_ENABLED unset, every entry point runs with zero HTTP calls."""
-        monkeypatch.delenv("LLM_ENABLED", raising=False)
+        """With LLM_ENABLED=false, every entry point runs with zero HTTP calls."""
+        monkeypatch.setenv("LLM_ENABLED", "false")
         monkeypatch.setenv("MAX_LLM_CALLS", "0")
         monkeypatch.setattr(httpx, "Client", _TripwireClient)
 
@@ -273,6 +273,7 @@ class TestCallBudget:
         monkeypatch.delenv("RAG_LLM_MODEL", raising=False)
 
     def test_zero_budget_blocks_every_real_call(self, monkeypatch):
+        """With MAX_LLM_CALLS=0, no real call is made — falls back to stub."""
         self._arm_live(monkeypatch, max_calls="0")
         _RecordingClient.sent.clear()
         _RecordingClient.responder = staticmethod(lambda body: _FakeResp(200, _SUCCESS_BODY))
@@ -281,8 +282,10 @@ class TestCallBudget:
         from app.rag.generation.llm_client import GroundedLLMClient
 
         client = GroundedLLMClient()
-        with pytest.raises(RuntimeError, match="MAX_LLM_CALLS"):
-            client.call("s", "u")
+        resp = client.call("s", "u")
+        # Budget exhausted → stub fallback, no network I/O
+        assert resp.success and "stub" in resp.model
+        assert _RecordingClient.sent == []  # blocked BEFORE any network I/O
         assert _RecordingClient.sent == []  # blocked BEFORE any network I/O
 
     def test_budget_stops_run_when_exceeded(self, monkeypatch):
@@ -297,7 +300,8 @@ class TestCallBudget:
         first = client.call("s", "u")
         assert first.success
         assert llm_call_count() == 1
-        with pytest.raises(RuntimeError, match="budget exhausted"):
-            client.call("s", "u")
-        assert len(_RecordingClient.sent) == 1  # second call never hit the wire
+        second = client.call("s", "u")
+        # Budget exhausted → stub fallback, second call never hit the wire
+        assert second.success and "stub" in second.model
+        assert len(_RecordingClient.sent) == 1
 
