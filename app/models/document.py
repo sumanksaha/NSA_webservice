@@ -146,6 +146,14 @@ class Adjudication(db.Model):
     inspection_date = db.Column(db.DateTime, nullable=False)
     authorization_date = db.Column(db.DateTime)
 
+    # Reinspection fields (mirroring Inspection model)
+    is_reinspection = db.Column(db.Boolean, nullable=True, default=False)
+    days_allowed_for_errors = db.Column(db.Integer, nullable=True)
+    errors_in_second_inspection = db.Column(db.Integer, nullable=True)
+
+    # Inspection notes (e.g., discarded items)
+    notes = db.Column(db.Text, nullable=True)
+
     # Checklist items (storing as string 'yes'/'no')
     clean_premise = db.Column(db.String(10), default="yes")
     refrigerator_clean = db.Column(db.String(10), default="yes")

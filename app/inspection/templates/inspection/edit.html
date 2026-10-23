@@ -37,12 +37,33 @@
             </div>
         </div>
 
+<div class="form-row form-row--2">
+            <div class="form-group">
+                <label for="inspection_date" class="form-label">Inspection Date</label>
+                <input type="date" id="inspection_date" name="inspection_date" class="form-input"
+                       value="{{ inspection.inspection_date.strftime('%Y-%m-%d') if inspection.inspection_date else '' }}"
+                       onchange="updateComplianceDeadline()">
+            </div>
+            <div class="form-group">
+                <label for="is_reinspection" class="form-label">Is Reinspection</label>
+                <input type="checkbox" id="is_reinspection" name="is_reinspection" class="form-check-input"
+                    {% if inspection.is_reinspection %}checked{% endif %}>
+                <small class="form-hint">Check if this is a reinspection of the premises</small>
+            </div>
+        </div>
+
         <div class="form-row form-row--2">
             <div class="form-group">
-                <label for="compliance_deadline" class="form-label">Compliance Deadline</label>
-                <input type="date" id="compliance_deadline" name="compliance_deadline" class="form-input"
-                       value="{{ inspection.compliance_deadline.strftime('%Y-%m-%d') if inspection.compliance_deadline else '' }}">
+                <label for="days_allowed_for_errors" class="form-label">Days Allowed for Errors to be Corrected</label>
+                <input type="number" id="days_allowed_for_errors" name="days_allowed_for_errors" class="form-input"
+                       min="0" value="{{ inspection.days_allowed_for_errors or '' }}" placeholder="e.g., 30">
             </div>
+            <div class="form-group">
+                <label for="errors_in_second_inspection" class="form-label">Errors in Second Inspection</label>
+                <input type="number" id="errors_in_second_inspection" name="errors_in_second_inspection" class="form-input"
+                       min="0" value="{{ inspection.errors_in_second_inspection or '' }}" placeholder="e.g., 5">
+            </div>
+        </div>
             <div class="form-group">
                 <label for="concerned_food" class="form-label">Concerned Food</label>
                 <input type="text" id="concerned_food" name="concerned_food" class="form-input"
@@ -66,6 +87,14 @@
             <div class="form-group full-width">
                 <label for="problem" class="form-label">Problem Description</label>
                 <textarea id="problem" name="problem" class="form-textarea" placeholder="Describe the problem or violation found">{{ inspection.problem or '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="notes" class="form-label">Inspection Notes</label>
+                <textarea id="notes" name="notes" class="form-textarea" placeholder="e.g., 1 kg of dal was discarded">{{ inspection.notes or '' }}</textarea>
+                <small class="form-hint">Capture any notes about discarded items or other observations during inspection.</small>
             </div>
         </div>
 

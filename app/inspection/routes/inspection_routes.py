@@ -201,9 +201,23 @@ def create_inspection():
     fbo_address = form_data.get("fbo_address", "").strip() or None
     concerned_food = form_data.get("concerned_food", "").strip() or None
     problem = form_data.get("problem", "").strip() or None
+    notes = form_data.get("notes", "").strip() or None
     checklist = {field: form_data[field].strip() for field in CHECKLIST_FIELDS if form_data.get(field, "").strip()}
 
     visit_purpose = (form_data.get("visit_purpose") or "").strip().lower()
+    is_reinspection = form_data.get("is_reinspection", "").strip().lower() in ("on", "true", "1", "yes")
+    days_allowed_for_errors = form_data.get("days_allowed_for_errors", "").strip()
+    if days_allowed_for_errors:
+        try:
+            days_allowed_for_errors = int(days_allowed_for_errors)
+        except ValueError:
+            days_allowed_for_errors = None
+    errors_in_second_inspection = form_data.get("errors_in_second_inspection", "").strip()
+    if errors_in_second_inspection:
+        try:
+            errors_in_second_inspection = int(errors_in_second_inspection)
+        except ValueError:
+            errors_in_second_inspection = None
     if visit_purpose not in ("", "routine", "complaint"):
         return jsonify({"error": 'visit_purpose must be "routine" or "complaint"'}), 400
     visit_purpose = visit_purpose or None
@@ -228,6 +242,7 @@ def create_inspection():
         fbo_address=fbo_address,
         concerned_food=concerned_food,
         problem=problem,
+        notes=notes,
         visit_purpose=visit_purpose,
         checklist_json=json.dumps(checklist) if checklist else None,
         inspection_date=parse_date(inspection_date),
@@ -236,6 +251,9 @@ def create_inspection():
         created_at=datetime.now(UTC),
         sample_collected=sample_collected,
         sample_code=sample_code,
+        is_reinspection=is_reinspection,
+        days_allowed_for_errors=days_allowed_for_errors,
+        errors_in_second_inspection=errors_in_second_inspection,
     )
 
     try:
@@ -310,6 +328,7 @@ def get_inspection(inspection_id):
         "fbo_address": inspection.fbo_address,
         "concerned_food": inspection.concerned_food,
         "problem": inspection.problem,
+        "notes": inspection.notes,
         "visit_purpose": inspection.visit_purpose,
         "checklist": _parse_checklist(inspection.checklist_json),
         "inspection_date": inspection.inspection_date,
@@ -322,6 +341,9 @@ def get_inspection(inspection_id):
         "synced_at": inspection.synced_at.isoformat() if inspection.synced_at else None,
         "sample_collected": inspection.sample_collected,
         "sample_code": inspection.sample_code,
+        "is_reinspection": inspection.is_reinspection,
+        "days_allowed_for_errors": inspection.days_allowed_for_errors,
+        "errors_in_second_inspection": inspection.errors_in_second_inspection,
     })
 
 
@@ -356,6 +378,8 @@ def update_inspection(inspection_id):
         inspection.concerned_food = form_data["concerned_food"].strip() or None
     if "problem" in form_data:
         inspection.problem = form_data["problem"].strip() or None
+    if "notes" in form_data:
+        inspection.notes = form_data["notes"].strip() or None
     if "visit_purpose" in form_data:
         purpose_value = (form_data["visit_purpose"] or "").strip().lower()
         if purpose_value not in ("", "routine", "complaint"):
@@ -367,6 +391,24 @@ def update_inspection(inspection_id):
             inspection.compliance_deadline = calculate_compliance_deadline(inspection.inspection_date)
     if "compliance_deadline" in form_data:
         inspection.compliance_deadline = parse_date(form_data["compliance_deadline"].strip())
+
+    # Update reinspection fields
+    if "is_reinspection" in form_data:
+        inspection.is_reinspection = form_data["is_reinspection"].strip().lower() in ("on", "true", "1", "yes")
+    if "days_allowed_for_errors" in form_data:
+        days_allowed = form_data["days_allowed_for_errors"].strip()
+        if days_allowed:
+            try:
+                inspection.days_allowed_for_errors = int(days_allowed)
+            except ValueError:
+                pass
+    if "errors_in_second_inspection" in form_data:
+        errors_allowed = form_data["errors_in_second_inspection"].strip()
+        if errors_allowed:
+            try:
+                inspection.errors_in_second_inspection = int(errors_allowed)
+            except ValueError:
+                pass
 
     # Update checklist if any checklist fields are present
     checklist_updated = False
@@ -416,6 +458,9 @@ def update_inspection(inspection_id):
                 "synced_at": datetime.now(UTC).isoformat(),
                 "sample_collected": str(inspection.sample_collected) if inspection.sample_collected is not None else "",
                 "sample_code": inspection.sample_code or "",
+                "is_reinspection": str(inspection.is_reinspection) if inspection.is_reinspection is not None else "",
+                "days_allowed_for_errors": str(inspection.days_allowed_for_errors) if inspection.days_allowed_for_errors is not None else "",
+                "errors_in_second_inspection": str(inspection.errors_in_second_inspection) if inspection.errors_in_second_inspection is not None else "",
             }
             sync_row("inspection_log", row_dict, entity_id=inspection.id)
         except Exception as e:

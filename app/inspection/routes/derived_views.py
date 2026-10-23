@@ -186,6 +186,10 @@ def create_adjudication_from_inspection(inspection_id):
         "compliance_deadline": inspection.compliance_deadline,
         "concerned_food": inspection.concerned_food or "",
         "problem": inspection.problem or "",
+        "notes": inspection.notes or "",
+        "is_reinspection": inspection.is_reinspection,
+        "days_allowed_for_errors": inspection.days_allowed_for_errors,
+        "errors_in_second_inspection": inspection.errors_in_second_inspection,
     }
 
     return redirect(url_for("adjudication.index", **prefill))

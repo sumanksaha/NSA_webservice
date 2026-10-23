@@ -62,7 +62,7 @@ block content %}
         <table class="data-table inspection-list-table">
             <thead>
                 <tr>
-                    <th onclick="sortTable('inspection_code')">
+<th onclick="sortTable('inspection_code')">
                         Inspection Code {% if sort_by == 'inspection_code' %} {% if sort_order ==
                         'asc' %}
                         <i class="fa-solid fa-sort-up"></i>
@@ -95,6 +95,9 @@ block content %}
                         {% endif %} {% endif %}
                     </th>
                     <th>Corrective Implemented</th>
+                    <th>Reinspection</th>
+                    <th>Days Allowed</th>
+                    <th>Errors 2nd Insp</th>
                     <th>Notice</th>
                     <th>Photos</th>
                     <th>Sample</th>
@@ -120,6 +123,17 @@ block content %}
                         </span>
                         {% endif %}
                     </td>
+<td>
+                    {% if inspection.is_reinspection %}
+                    <span class="status-badge status-badge--warning">
+                        <i class="fa-solid fa-redo"></i> Yes
+                    </span>
+                    {% else %}
+                    <span class="status-badge" aria-label="Not a reinspection">No</span>
+                    {% endif %}
+                </td>
+                    <td>{{ inspection.days_allowed_for_errors or '' }}</td>
+                    <td>{{ inspection.errors_in_second_inspection or '' }}</td>
                     <td>
                         {% if inspection.notice_issued_at %}
                         <span class="status-badge status-badge--success" title="Improvement Notice issued {{ inspection.notice_issued_at.strftime('%d %b %Y') }}">

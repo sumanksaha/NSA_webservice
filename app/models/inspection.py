@@ -62,6 +62,14 @@ class Inspection(db.Model):
     sample_collected = db.Column(db.Boolean, nullable=True)
     sample_code = db.Column(db.String(100), nullable=True)
 
+    # Reinspection fields
+    is_reinspection = db.Column(db.Boolean, nullable=True, default=False)
+    days_allowed_for_errors = db.Column(db.Integer, nullable=True)
+    errors_in_second_inspection = db.Column(db.Integer, nullable=True)
+
+    # Inspection notes (e.g., discarded items)
+    notes = db.Column(db.Text, nullable=True)
+
     __table_args__ = (
         db.Index("idx_inspection_code", "inspection_code"),
         db.Index("idx_inspection_date", "inspection_date"),

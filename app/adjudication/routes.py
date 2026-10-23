@@ -143,7 +143,7 @@ def _process_adjudication_form(form_data):
         fbo_name=form_data.get("fbo_name", ""),
         fbo_address=form_data.get("fbo_address", ""),
         fssai_license=form_data.get("fssai_license", ""),
-        concerned_food=form_data.get("concerned_food", ""),
+concerned_food=form_data.get("concerned_food", ""),
         problem=form_data.get("problem", ""),
         First_inspection_date=parse_date(form_data.get("first_inspection_date", "")),
         compliance_deadline=parse_date(form_data.get("compliance_deadline", "")),
@@ -167,6 +167,9 @@ def _process_adjudication_form(form_data):
         section_58=form_data.get("section_58", "no"),
         section_63=form_data.get("section_63", "no"),
         section_64=form_data.get("section_64", "no"),
+        is_reinspection=form_data.get("is_reinspection", "no") in ("on", "true", "1", "yes", "Yes"),
+        days_allowed_for_errors=int(form_data.get("days_allowed_for_errors")) if form_data.get("days_allowed_for_errors") else None,
+        errors_in_second_inspection=int(form_data.get("errors_in_second_inspection")) if form_data.get("errors_in_second_inspection") else None,
     )
 
 
@@ -303,6 +306,7 @@ _ADJUDICATION_FORM_FIELDS: tuple[str, ...] = (
     "fssai_license",
     "concerned_food",
     "problem",
+    "notes",
     "clean_premise",
     "refrigerator_clean",
     "proper_attire",
@@ -341,6 +345,10 @@ def adjudication_form_dict(adj) -> dict:
     }
     for field in _ADJUDICATION_FORM_FIELDS:
         form[field] = record.get(field) or ""
+    # Reinspection fields
+    form["is_reinspection"] = record.get("is_reinspection") or False
+    form["days_allowed_for_errors"] = record.get("days_allowed_for_errors") or ""
+    form["errors_in_second_inspection"] = record.get("errors_in_second_inspection") or ""
     for form_field, model_col in _ADJUDICATION_DATE_MAP.items():
         form[form_field] = form_date(record.get(model_col))
     return form
@@ -363,6 +371,16 @@ def apply_adjudication_update(adj, form_data: dict) -> None:
             else form_data.get(form_field)
         )
         setattr(adj, model_col, parse_date(raw) if raw else None)
+
+    # Reinspection fields (type-converted)
+    if "is_reinspection" in form_data:
+        adj.is_reinspection = str(form_data.get("is_reinspection", "")).strip().lower() in ("on", "true", "1", "yes", "Yes")
+    if "days_allowed_for_errors" in form_data:
+        raw = str(form_data.get("days_allowed_for_errors", "")).strip()
+        adj.days_allowed_for_errors = int(raw) if raw else None
+    if "errors_in_second_inspection" in form_data:
+        raw = str(form_data.get("errors_in_second_inspection", "")).strip()
+        adj.errors_in_second_inspection = int(raw) if raw else None
 
 
 # --------------------------------------------------------------------------- #
