@@ -431,6 +431,88 @@ inspection.inspection_code }}{% endblock %} {% block content %}
         {% endif %}
     </div>
 
+    <!-- Photo Scoring Results (ADR-0011) -->
+    {% if photo_scoring_enabled %}
+    <div class="card bg--subtle" style="margin-top: 1.25rem">
+        <div class="section-header">
+            <h3><i class="fa-solid fa-magnifying-glass"></i> Photo Violation Assessment</h3>
+            <p class="form-hint">Probabilistic per-violation scores from the decision model. Advisory only — the FSO confirms before saving to the checklist.</p>
+        </div>
+        {% if assessments %}
+        <div style="margin: 1rem 0;">
+            {% for photo in photos %}
+            {% set assessment = assessments.get(photo.id) %}
+            {% if assessment %}
+            <div class="photo-scoring-card" style="border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; background: var(--bg-card);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                    <div>
+                        <strong style="font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Photo {{ loop.index }}</strong>
+                        <br>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">{{ photo.filename }}</span>
+                    </div>
+                    <span class="status-badge {% if assessment.gate_passed %}status-badge--success{% else %}status-badge--error{% endif %}" style="font-size: 0.75rem;">
+                        {% if assessment.gate_passed %}
+                        <i class="fa-solid fa-circle-check"></i> Premises photo — scored
+                        {% else %}
+                        <i class="fa-solid fa-circle-exclamation"></i> Not a premises photo — abstained
+                        {% endif %}
+                    </span>
+                </div>
+
+                {% if not assessment.gate_passed %}
+                <div class="info-box info-box--warning" style="margin-bottom: 0.75rem;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    The model judged this image as not a premises interior photograph. No violation probabilities were scored. This is a recorded abstention, not a compliance finding.
+                </div>
+                {% elif assessment.error %}
+                <div class="info-box info-box--error" style="margin-bottom: 0.75rem;">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    Scoring error: {{ assessment.error }}
+                </div>
+                {% else %}
+                <div class="scoring-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem; margin-bottom: 0.75rem;">
+                    {% for item in assessment.items %}
+                    {% if item.observable and item.p_violation is not none %}
+                    {% set is_violation = item.p_violation >= photo_scoring_threshold %}
+                    <div style="padding: 0.5rem; border: 1px solid {{ 'var(--color-success)' if is_violation else 'var(--border)' }}; border-radius: var(--radius); background: {{ 'rgba(34, 197, 94, 0.1)' if is_violation else 'transparent' }};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                            <label style="font-size: 0.75rem; font-weight: 600; margin: 0;">{{ item.field }}</label>
+                            <span style="font-size: 0.75rem; font-weight: 700; color: {{ 'var(--color-success)' if is_violation else 'var(--text-muted)' }};">
+                                {{ "%.0f%%"|format(item.p_violation * 100) }}
+                            </span>
+                        </div>
+                        <div style="background: var(--border); height: 6px; border-radius: 3px; overflow: hidden;">
+                            <div style="background: {{ 'var(--color-success)' if is_violation else 'var(--text-muted)' }}; height: 100%; width: {{ (item.p_violation * 100)|round(0) }}%;"></div>
+                        </div>
+                        <span style="font-size: 0.65rem; color: var(--text-muted); display: block; margin-top: 0.25rem;">
+                            {% if is_violation %}Suggested violation{% else %}Below threshold{% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+
+                {% set suggested = assessment.suggested_fields %}
+                {% if suggested | length > 0 %}
+                <button type="button" class="btn btn-primary btn-sm" onclick="applyScoringSuggestion('{{ photo.id }}', {{ suggested | tojson }})">
+                    <i class="fa-solid fa-check"></i> Apply {{ suggested | length }} suggestion{{ 's' if suggested | length > 1 else '' }} to checklist
+                </button>
+                {% else %}
+                <span class="form-hint" style="font-size: 0.75rem;">No violations above the {{ photo_scoring_threshold }} threshold.</span>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="info-box info-box--info" style="margin: 1rem 0;">
+            <i class="fa-solid fa-info-circle"></i>
+            No photo assessments yet. Upload a premises photo to get probabilistic violation scores.
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Improvement Notice Section -->
     {% if not inspection.is_dismissed %}
     <div class="section-header">
@@ -1311,6 +1393,41 @@ inspection.inspection_code }}{% endblock %} {% block content %}
                         alert("Error: " + err.message);
                         auditorGenerateBtn.disabled = false;
                     });
+            });
+        }
+
+        // ===================================================================
+        // Photo Scoring — Apply suggestions to checklist
+        // ===================================================================
+        function applyScoringSuggestion(photoId, suggestedFields) {
+            if (!suggestedFields || suggestedFields.length === 0) {
+                alert("No suggestions to apply.");
+                return;
+            }
+
+            if (!confirm("Apply " + suggestedFields.length + " photo-scoring suggestion" +
+                (suggestedFields.length > 1 ? "s" : "") + " to the inspection checklist? " +
+                "You can still edit the checklist before saving.")) {
+                return;
+            }
+
+            fetch("/inspection/" + INSPECTION_ID + "/checklist/apply-suggestion", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fields: suggestedFields })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    alert("Error: " + data.error);
+                    return;
+                }
+                alert("Applied " + data.applied.length + " suggestion" +
+                    (data.applied.length > 1 ? "s" : "") + " to the checklist.");
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert("Error: " + err.message);
             });
         }
 </script>

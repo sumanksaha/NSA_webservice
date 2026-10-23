@@ -299,18 +299,36 @@ class PhotoEvidenceScorer:
         }
 
     @staticmethod
-    def fetch_image_as_data_uri(url: str, *, timeout: float = 30.0, max_bytes: int = 5 * 1024 * 1024) -> str:
-        """Fetch *url* and return a base64 data URI.
+    def fetch_image_as_data_uri(url_or_path: str, *, timeout: float = 30.0, max_bytes: int = 5 * 1024 * 1024) -> str:
+        """Fetch *url_or_path* and return a base64 data URI.
 
-        The decision endpoint takes base64 data URLs only — remote URLs are not
-        supported — so the stored Cloudinary/R2 URL has to be fetched here.
+        Accepts either an HTTP(S) URL (Cloudinary/R2) or a local filesystem
+        path (inspection evidence stored on disk).  The decision endpoint takes
+        base64 data URLs only, so the image bytes are encoded here either way.
 
         Raises ``ValueError`` when the response is not a usable image.
         """
+        import mimetypes
+        from pathlib import Path
+
         import httpx
 
+        p = Path(url_or_path)
+        if p.is_file():
+            content = p.read_bytes()
+            if len(content) > max_bytes:
+                raise ValueError(f"image is {len(content)} bytes, over the {max_bytes} byte scoring limit")
+            content_type = mimetypes.guess_type(url_or_path)[0] or "image/jpeg"
+            if not content_type.startswith("image/"):
+                raise ValueError(f"stored evidence is not an image (content-type {content_type!r})")
+            b64 = base64.b64encode(content).decode()
+            return f"data:{content_type};base64,{b64}"
+
+        if not url_or_path.startswith(("https://", "http://")):
+            raise ValueError(f"not a valid URL or file path: {url_or_path!r}")
+
         with httpx.Client(timeout=timeout) as c:
-            resp = c.get(url)
+            resp = c.get(url_or_path)
         if resp.status_code != 200:
             raise ValueError(f"could not fetch image for scoring (HTTP {resp.status_code})")
         if len(resp.content) > max_bytes:
@@ -338,14 +356,6 @@ class PhotoEvidenceScorer:
 
         if not cfg["api_key"]:
             return _failed("no API key for the decision endpoint", provider_model=model)
-        if not image_url.startswith(("https://", "http://")):
-            # Only cloud-backed evidence is scoreable: an inspection photo keeps a
-            # local temp path here, which the remote endpoint cannot fetch.
-            return _failed(
-                "evidence has no remote image URL to score (filepath is a local path)",
-                provider_model=model,
-            )
-
         started = time.monotonic()
         try:
             data_uri = self.fetch_image_as_data_uri(

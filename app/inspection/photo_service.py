@@ -34,6 +34,7 @@ from app.inspection.image_processing import process_and_stamp_image
 from app.inspection.photo_scoring import PhotoEvidenceScorer
 from app.inspection.verification_service import verify_photo_location
 from app.services.audit_context import audit_logger
+from app.shared.config import cfg
 from app.utils.storage import delete_photo, upload_photo
 
 logger = logging.getLogger(__name__)
@@ -156,6 +157,30 @@ class InspectionPhotoService:
         # Stage 4 — best-effort OCR dispatch.
         ocr_task_id, ocr_result = self._dispatch_ocr(filepath, image_id)
 
+        # Stage 5 — probabilistic photo scoring (ADR-0011).
+        # Runs after the image is in storage; never blocks the upload.
+        scoring_result = None
+        if bool(cfg.photo_scoring_enabled):
+            try:
+                scorer = PhotoEvidenceScorer()
+                scoring_result = scorer.score(photo_evidence)
+                if scoring_result is not None:
+                    from app.models import EvidenceAssessment
+
+                    assessment = scorer.build_assessment(
+                        photo_evidence.id,
+                        getattr(photo_evidence, "adjudication_id", None),
+                        scoring_result,
+                    )
+                    db.session.add(assessment)
+                    db.session.commit()
+            except ValueError:
+                # Scoring switched off mid-request — never blocks the upload.
+                current_app.logger.exception(
+                    "Photo scoring skipped for inspection %s; upload saved without assessment",
+                    inspection_id,
+                )
+
         audit_logger("photo").log(image_id, "PHOTO_SAVED", actor=actor, filepath=filepath)
 
         return PhotoUploadResult(
@@ -168,6 +193,7 @@ class InspectionPhotoService:
             stamped=True,
             ocr_task_id=ocr_task_id,
             ocr_result=ocr_result,
+            scoring=scoring_result,
         )
 
     def _guard_upload(self, inspection_id: int):

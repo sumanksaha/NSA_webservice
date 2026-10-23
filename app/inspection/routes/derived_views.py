@@ -232,7 +232,9 @@ def link_adjudication(inspection_id, adjudication_id):
 @inspection_bp.route("/<int:inspection_id>/detail")
 def inspection_detail(inspection_id):
     """Render the inspection detail page with photo upload UI."""
-    from app.models import Evidence
+    import json
+
+    from app.models import Evidence, EvidenceAssessment
 
     inspection = db.session.get(Inspection, inspection_id)
     if not inspection:
@@ -250,11 +252,52 @@ def inspection_detail(inspection_id):
     checklist = None
     if inspection.checklist_json:
         try:
-            import json
-
             checklist = json.loads(inspection.checklist_json)
         except (ValueError, TypeError):
             checklist = None
+
+    # Load the latest assessment per photo (append-only history -> newest first)
+    assessments = {}
+    if photos:
+        photo_ids = [p.id for p in photos]
+        rows = (
+            EvidenceAssessment.query
+            .filter(EvidenceAssessment.evidence_id.in_(photo_ids))
+            .order_by(EvidenceAssessment.evidence_id, EvidenceAssessment.created_at.desc(), EvidenceAssessment.id.desc())
+            .all()
+        )
+        seen = set()
+        for row in rows:
+            if row.evidence_id in seen:
+                continue
+            seen.add(row.evidence_id)
+            try:
+                payload = json.loads(row.payload) if row.payload else {}
+            except (ValueError, TypeError):
+                payload = {}
+            try:
+                suggested = json.loads(row.suggested_fields) if row.suggested_fields else []
+            except (ValueError, TypeError):
+                suggested = []
+            assessments[row.evidence_id] = {
+                "id": row.id,
+                "gate_passed": bool(payload.get("gate_passed")),
+                "overall_observable": bool(row.overall_observable),
+                "suggested_fields": suggested,
+                "items": [
+                    {
+                        "field": it.get("field"),
+                        "observable": bool(it.get("observable")),
+                        "p_violation": it.get("p_violation"),
+                    }
+                    for it in (payload.get("items") or [])
+                ],
+                "error": row.error,
+                "provider_model": row.provider_model,
+                "latency_ms": row.latency_ms,
+            }
+
+    from app.shared.config import cfg
 
     return render_template(
         "inspection/detail.html",
@@ -262,4 +305,7 @@ def inspection_detail(inspection_id):
         photos=photos,
         fso_names=fso_names,
         checklist=checklist,
+        assessments=assessments,
+        photo_scoring_enabled=bool(cfg.photo_scoring_enabled),
+        photo_scoring_threshold=float(cfg.photo_scoring_threshold),
     )
