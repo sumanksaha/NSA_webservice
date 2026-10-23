@@ -14,7 +14,7 @@ Fail-closed controls (both default to "no calls"):
   LLM calls; ``0`` blocks every call.  To permit LLM calls you must set
   BOTH ``LLM_ENABLED=true`` AND ``MAX_LLM_CALLS=<positive budget>``.
 * ``ALLOWED_MODELS`` — the answer model must be the default
-  ``minimax/minimax-m3.1-flash:free`` (free, via OpenRouter) or another
+  ``minimax/minimax-m3.1-flash`` (via OpenRouter) or another
   allow-listed slug: laguna (retires 2026-10-31; retained for cached eval
   baselines) plus the free swap candidates under evaluation (see
   ``evaluation/MODEL_SWAP_FREE_PLAN.md``).  Any other id raises; there is no
@@ -45,7 +45,7 @@ ALLOWED_MODELS: frozenset[str] = frozenset({
     "nvidia/nemotron-3.5-lightning:free",
     "thinkingmachines/inkling-small:free",
     "google/gemma-4-26b-a4b-it:free",
-    "minimax/minimax-m3.1-flash:free",
+    "minimax/minimax-m3.1-flash",
     # Paid GLM 5.3 Flash — first paid candidate, added 2026-10-19 for the
     # cost-gated swap eval (evaluation/MODEL_SWAP_FREE_PLAN.md §8).
     "z-ai/glm-5.3-flash",
@@ -54,7 +54,7 @@ ALLOWED_MODELS: frozenset[str] = frozenset({
 })
 
 #: Default answer-model resolution (single source of truth).
-DEFAULT_ANSWER_MODEL = "minimax/minimax-m3.1-flash:free"
+DEFAULT_ANSWER_MODEL = "minimax/minimax-m3.1-flash"
 
 #: The answer model is served by OpenRouter — no other base URL is permitted.
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -111,9 +111,7 @@ def _increment_call_count() -> None:
             "Set MAX_LLM_CALLS to a positive budget (and LLM_ENABLED=true) to allow them."
         )
     if count > cap:
-        raise RuntimeError(
-            f"LLM call budget exhausted: {count} calls > MAX_LLM_CALLS={cap}."
-        )
+        raise RuntimeError(f"LLM call budget exhausted: {count} calls > MAX_LLM_CALLS={cap}.")
 
 
 def _log_llm_call(
@@ -204,9 +202,7 @@ def get_llm_client(
 
     client = GroundedLLMClient(model=resolved_model, api_key=api_key, base_url=base_url)
     if not llm_enabled():
-        logger.info(
-            "get_llm_client: LLM_ENABLED=false — returning no-op stub client (zero network)"
-        )
+        logger.info("get_llm_client: LLM_ENABLED=false — returning no-op stub client (zero network)")
     return client
 
 

@@ -62,7 +62,7 @@ REASONER_SYSTEM_PROMPT = (
 #: headroom over the measured size while still bounding a runaway generation;
 #: the model stops at the JSON's closing brace, so the budget is a ceiling,
 #: not a spend.
-DEFAULT_MAX_TOKENS = 8192
+DEFAULT_MAX_TOKENS = 4096
 
 
 class ConditionEvaluation(BaseModel):

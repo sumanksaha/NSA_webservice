@@ -633,8 +633,8 @@ class TestGroundedLLMClient:
         assert resp.usage["prompt_tokens"] > 0
 
     def test_model_default_is_minimax(self):
-        """The default model is minimax/minimax-m3.1-flash:free."""
-        assert GroundedLLMClient().model == "minimax/minimax-m3.1-flash:free"
+        """The default model is minimax/minimax-m3.1-flash."""
+        assert GroundedLLMClient().model == "minimax/minimax-m3.1-flash"
 
     def test_model_not_allowed_arg_raises(self):
         """Only the Laguna allow-list model may be constructed (no silent switch)."""
@@ -894,7 +894,7 @@ class TestGroundedGenerationService:
     def test_full_pipeline_stub(self):
         result = GroundedGenerationService().generate("Question", _make_chunks(3), "section_lookup")
         assert result.answer
-        assert result.llm_model == "stub-minimax/minimax-m3.1-flash:free"
+        assert result.llm_model == "stub-minimax/minimax-m3.1-flash"
         assert result.token_usage["prompt"] == 100
         assert result.debug["chunk_count"] == 3
 

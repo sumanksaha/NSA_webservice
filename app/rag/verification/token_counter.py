@@ -63,14 +63,14 @@ class TokenCounter:
     Args:
         model: Model name passed to ``tiktoken.encoding_for_model``.
             Only used when ``tiktoken`` is installed.  Defaults to
-            ``minimax/minimax-m3.1-flash:free`` (matching
+            ``minimax/minimax-m3.1-flash`` (matching
             :class:`~app.rag.generation.llm_client.GroundedLLMClient`);
             since tiktoken has no native encoding for this model,
             it will fall back to the word-count heuristic.
 
     """
 
-    def __init__(self, model: str = "minimax/minimax-m3.1-flash:free") -> None:
+    def __init__(self, model: str = "minimax/minimax-m3.1-flash") -> None:
         self.model = model
         self._encoder = None
         self._encoder_attempted = False

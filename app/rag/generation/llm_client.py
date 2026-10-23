@@ -10,7 +10,7 @@ When the ``OPENROUTER_API_KEY`` environment variable is unset (or
 pipeline can be tested without network access.
 
 The model must be in ``app.shared.llm_client.ALLOWED_MODELS`` (default
-``minimax/minimax-m3.1-flash:free``, OpenRouter) —
+``minimax/minimax-m3.1-flash``, OpenRouter) —
 a ``RAG_LLM_MODEL`` value outside the allow-list raises instead of
 silently switching providers.  Real calls additionally require the
 ``LLM_ENABLED=true`` kill switch and a positive ``MAX_LLM_CALLS`` budget
@@ -112,7 +112,6 @@ def answer_text(choice: dict[str, Any]) -> tuple[str, str | None]:
     )
 
 
-
 class GroundedLLMClient:
     """Call an LLM to generate a grounded response.
 
@@ -120,13 +119,13 @@ class GroundedLLMClient:
     OpenAI-compatible endpoints, following the pattern in
     ``app/ai_assistant/service.py``.
 
-    The model defaults to ``minimax/minimax-m3.1-flash:free`` (OpenRouter) —
+    The model defaults to ``minimax/minimax-m3.1-flash`` (OpenRouter) —
     the answer model for grounded RAG generation.  The base URL
     defaults to the OpenRouter endpoint.
 
     Args:
     model: Optional override for the model name.  Defaults to the
-        ``RAG_LLM_MODEL`` env var, or ``minimax/minimax-m3.1-flash:free``
+        ``RAG_LLM_MODEL`` env var, or ``minimax/minimax-m3.1-flash``
         if unset.
         api_key: Optional override for the API key.  Falls back to the
             ``OPENROUTER_API_KEY`` then ``OPENAI_API_KEY`` env var.
@@ -137,7 +136,7 @@ class GroundedLLMClient:
     """
 
     #: Default model for grounded RAG generation (OpenRouter free tier).
-    DEFAULT_MODEL = "minimax/minimax-m3.1-flash:free"
+    DEFAULT_MODEL = "minimax/minimax-m3.1-flash"
 
     #: OpenRouter's OpenAI-compatible endpoint.
     DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
@@ -177,9 +176,7 @@ class GroundedLLMClient:
         # when an API key is configured, so callers can deterministically
         # exercise the pipeline without network access.
         self._use_stub = (
-            bool(stub_response)
-            or not self._api_key
-            or os.environ.get("RAG_USE_STUB_LLM", "").lower() == "true"
+            bool(stub_response) or not self._api_key or os.environ.get("RAG_USE_STUB_LLM", "").lower() == "true"
         )
 
         if self._use_stub and not self._stub:

@@ -1831,6 +1831,21 @@ textarea.form-input {
     margin-top: 0.75rem;
 }
 
+.fso-grid-wrap {
+    max-height: 320px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 0.5rem;
+    scroll-behavior: smooth;
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: var(--radius, 8px);
+    background: var(--bg-subtle, #f9fafb);
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
 /* ===================== Evidence (Phase 5) ===================== */
 
 .evidence-dropzone {

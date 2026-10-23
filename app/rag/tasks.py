@@ -625,6 +625,7 @@ def run_generation_pipeline(
     filters: dict[str, Any] | None = None,
     pipeline: str | None = None,
     evidence_set: dict[str, Any] | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     """Run the full Phase 2 grounded-generation pipeline for *query*.
 
@@ -710,7 +711,10 @@ def run_generation_pipeline(
     if cfg.food_answer_mode and cfg.food_intent_enabled:
         food_bundle, food_prompt = _generate_food_prompt(query, retrieval_data, chunk_objects, query_type)
 
-    service = GroundedGenerationService()
+    from app.shared.llm_client import get_llm_client
+
+    llm_client = get_llm_client(model=model) if model else None
+    service = GroundedGenerationService(llm_client=llm_client)
     if food_prompt is not None:
         rag_response = service.generate_with_prompts(query, chunk_objects, query_type, prompts=food_prompt)
     else:

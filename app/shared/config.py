@@ -912,6 +912,13 @@ _TABLE: tuple[Setting, ...] = (
         help="",
     ),
     Setting(
+        "RAG_REASONER_MODEL",
+        "reasoner_model",
+        str,
+        "",
+        help="Optional override for the structured reasoner model; empty uses RAG_LLM_MODEL.",
+    ),
+    Setting(
         "PHOTO_SCORING_ENDPOINT",
         "photo_scoring_endpoint",
         str,
