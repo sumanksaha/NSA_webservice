@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2026-11-26) — Photo violation scoring in inspection UI (ADR-0011)
+
+- **Photo violation assessment** (`app/inspection/photo_scoring.py`, `app/inspection/photo_service.py`, `app/inspection/routes/photo_routes.py`, `app/inspection/routes/derived_views.py`): a Food Safety Officer can click a premises photo during an inspection; the decision model (`inception/mercury-decide:free`, not JEV — JEV is a text retrieval model and cannot analyze images) scores the photo against every photo-visible checklist field and returns an independent `p_violation` probability (0–1) per field, with no cap on selections — all 12, none, or any subset can be flagged. A premises-interior gate question suppresses scoring on non-premises images (documents, scans, exteriors), and `Pest_report`/`Water_report` are excluded since they require documents, not photos. Results are persisted as append-only `EvidenceAssessment` rows and shown on the inspection detail page with per-field progress bars, a threshold (default 0.70, `PHOTO_SCORING_THRESHOLD`) for "suggested violation" labeling, and an "Apply to checklist" button that pre-fills the FSO's checklist (advisory only — the FSO confirms before saving).
+- **Scoring at upload**: inspection photo uploads (`POST /inspection/photo-upload`) now run the scorer between storage and the Evidence insert; the photo and its assessment land in one transaction, and a scoring failure never blocks the upload.
+- **Apply-suggestion endpoint**: `POST /inspection/<id>/checklist/apply-suggestion` accepts `{"fields": [...]}` and writes the correct form polarity (checklist fields → `"no"`, `artificial_colour`/`Expired_item` → `"yes"`).
+
 ### Added (2026-10-20) — RAG architecture deepening pass (C1–C7)
 
 - **Shared RAG model runtime** (`app/rag/model_runtime.py`, ADR-0012): one
