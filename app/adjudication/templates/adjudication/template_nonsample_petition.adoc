@@ -131,7 +131,7 @@ Kolkata Municipal Corporation
 . That the complainant above named is the Food Safety Officer (hereinafter referred to as the "FSO") appointed u/s 37 of the Food Safety and Standards Act, 2006 for whole area of Kolkata under Kolkata Municipal Corporation and he has been authorised by the Designated Officer, Kolkata Municipal Corporation dated {{ authorization_date }} to launch the present complaint for adjudication before the Ld. Adjudicating Officer, Kolkata Municipal Corporation.
 . That on *{{ first_inspection_date }}*, FSO inspected the premises of *{{ fbo_name }}* (hereinafter referred to as the "FBO") situated at {{ fbo_address }}, {% if '63' in applicable_sections or non_license == 'yes' %}Trade License No- {{ ce_license_no }}{% else %}License/Registration No- {{ fssai_license }}{% endif %}, where he found that said business was operated by {{ fbo_owner }}, who also disclosed that he was looking after the day to day affairs of the FBO including storage and selling of food articles.
 {% if notes %}
-. That during the said inspection, the following items were discarded: {{ notes }}
+. That during the said inspection, {{ notes }}
 {% endif %}
 {% if is_reinspection %}
 . That this is a reinspection of the premises. Days allowed for errors to be corrected: {{ days_allowed_for_errors or 'N/A' }}. Errors found in second inspection: {{ errors_in_second_inspection or 'N/A' }}.
