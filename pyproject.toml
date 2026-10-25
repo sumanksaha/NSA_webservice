@@ -91,6 +91,11 @@ dependencies = [
   # on PyPI, so an unpinned install would not be reproducible.
   "sentry-sdk[flask]==2.72.0",
   "prometheus-client==0.26.0",
+  # Security floor (pip-audit gate, 2026-10-25): filelock is transitive
+  # (huggingface-hub, torch, transformers) and 3.32.7 is flagged by
+  # CVE-2026-112907 / CVE-2026-112913 / CVE-2026-112940. Fixed in 4.2.1;
+  # pin the floor so the resolve cannot fall back to a vulnerable build.
+  "filelock>=4.2.1",
   # NOTE: heavy ML deps (sentence-transformers, fastembed, easyocr,
   # opencv-python-headless) are OPTIONAL — install via the [ocr] and
   # [embeddings] extras, or [all] for both.  The app boots and serves
@@ -137,7 +142,12 @@ dev = [
   "bandit-sarif-formatter==1.1.1", # SARIF reporter for bandit (CI CodeQL upload)
   "pre-commit>=4.6.1",
   "pip-audit>=2.7.3",
-  "safety>=3.8.1",
+  # safety removed (2026-10-25): its `check` command was already dropped from
+  # validation.yml on 2026-10-11 (it crashed before scanning), and the latest
+  # release (3.8.1) hard-caps `filelock<4.0`, which makes the resolve pick the
+  # vulnerable 3.32.x and fails the blocking pip-audit gate (CVE-2026-112907 /
+  # -112913 / -112940). pip-audit covers the same advisory DB. Re-add only if a
+  # release relaxes that cap.
   "types-requests>=2.33.0.20260712",
   "types-python-dateutil>=2.9.0.20260716",
   "types-PyYAML>=6.0.12.20260724",
