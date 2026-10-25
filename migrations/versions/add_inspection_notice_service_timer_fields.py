@@ -25,8 +25,9 @@ def upgrade():
 
     with op.batch_alter_table("adjudications") as batch_op:
         batch_op.add_column(sa.Column("inspection_id", sa.Integer(), nullable=True))
-        batch_op.create_foreign_key("fk_adjudication_inspection", "inspection",
-                                    ["inspection_id"], ["id"], ondelete="SET NULL")
+        batch_op.create_foreign_key(
+            "fk_adjudication_inspection", "inspection", ["inspection_id"], ["id"], ondelete="SET NULL"
+        )
 
 
 def downgrade():
