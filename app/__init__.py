@@ -235,6 +235,11 @@ def create_app(db_uri: str | None = None):
         session_cookie_http_only=True,
         session_cookie_samesite="Lax",
     )
+    # Session lifetime: a worker returning from a site visit must not find
+    # their session gone. 30 minutes of inactivity expires the session, after
+    # which a re-auth path that preserves unsynced captures is required
+    # (see docs/OFFLINE_CAPTURE_DESIGN.md §5).
+    app.config["PERMANENT_SESSION_LIFETIME"] = 1800
 
     # Initialize CSRF protection (uses SECRET_KEY set above)
     csrf.init_app(app)

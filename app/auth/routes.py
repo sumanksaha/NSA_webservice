@@ -195,6 +195,9 @@ def first_setup():
 @auth_bp.route("/logout")
 @login_required
 def logout():
+    from app.services.device_data import purge_device_data
+
+    purge_device_data(current_user.id if current_user.is_authenticated else None)
     logout_user()
     session.pop("auth_generation", None)
     flash("You have been logged out.", "info")

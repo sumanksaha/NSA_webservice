@@ -187,7 +187,16 @@ def create_inspection():
     if not fso:
         return jsonify({"error": f'FSO "{food_safety_officer_name}" not found in database'}), 400
 
-    inspection_code = generate_inspection_code()
+    # Offline capture: a device-issued provisional id means the record was
+    # captured offline and the server-issued inspection code is allocated at
+    # sync time. Otherwise allocate the code now (online path).
+    provisional_id = form_data.get("provisional_id", "").strip() or None
+    captured_at_raw = form_data.get("captured_at", "").strip()
+    captured_at = parse_date(captured_at_raw) if captured_at_raw else None
+    if provisional_id:
+        inspection_code = None
+    else:
+        inspection_code = generate_inspection_code()
 
     compliance_deadline = form_data.get("compliance_deadline", "").strip()
     if not compliance_deadline:
@@ -205,6 +214,8 @@ def create_inspection():
     checklist = {field: form_data[field].strip() for field in CHECKLIST_FIELDS if form_data.get(field, "").strip()}
 
     visit_purpose = (form_data.get("visit_purpose") or "").strip().lower()
+    reinspection_of_id_raw = form_data.get("reinspection_of_id", "").strip()
+    reinspection_of_id = int(reinspection_of_id_raw) if reinspection_of_id_raw.isdigit() else None
     is_reinspection = form_data.get("is_reinspection", "").strip().lower() in ("on", "true", "1", "yes")
     days_allowed_for_errors = form_data.get("days_allowed_for_errors", "").strip()
     if days_allowed_for_errors:
@@ -235,6 +246,8 @@ def create_inspection():
 
     inspection = Inspection(
         inspection_code=inspection_code,
+        provisional_id=provisional_id,
+        captured_at=captured_at,
         fso_name=food_safety_officer_name,
         fssai_license=fssai_license,
         ce_license_no=ce_license_no,
@@ -242,7 +255,6 @@ def create_inspection():
         fbo_address=fbo_address,
         concerned_food=concerned_food,
         problem=problem,
-        notes=notes,
         visit_purpose=visit_purpose,
         checklist_json=json.dumps(checklist) if checklist else None,
         inspection_date=parse_date(inspection_date),
@@ -252,6 +264,7 @@ def create_inspection():
         sample_collected=sample_collected,
         sample_code=sample_code,
         is_reinspection=is_reinspection,
+        reinspection_of_id=reinspection_of_id,
         days_allowed_for_errors=days_allowed_for_errors,
         errors_in_second_inspection=errors_in_second_inspection,
     )
@@ -278,6 +291,8 @@ def create_inspection():
                 "adjudication_id": str(inspection.adjudication_id or ""),
                 "created_at": inspection.created_at.isoformat() if inspection.created_at else "",
                 "synced_at": "",
+                "provisional_id": inspection.provisional_id or "",
+                "captured_at": inspection.captured_at.isoformat() if inspection.captured_at else "",
                 "sample_collected": str(inspection.sample_collected) if inspection.sample_collected is not None else "",
                 "sample_code": inspection.sample_code or "",
             }
@@ -292,6 +307,7 @@ def create_inspection():
                 "message": "Inspection created successfully",
                 "inspection_id": inspection.id,
                 "inspection_code": inspection.inspection_code,
+                "provisional_id": inspection.provisional_id,
             }),
             201,
         )
@@ -498,7 +514,33 @@ def delete_inspection(inspection_id):
         return jsonify({"error": f"Failed to delete inspection: {e!s}"}), 500
 
 
-@inspection_bp.route("/premises/search", methods=["GET", "POST"])
+@inspection_bp.route("/<int:inspection_id>/serve-notice", methods=["POST"])
+def serve_notice(inspection_id):
+    """Capture the manual service date of an improvement notice and set 15 working-day re-inspection timer."""
+    inspection = db.session.get(Inspection, inspection_id)
+    if not inspection:
+        return jsonify({"error": "Inspection not found"}), 404
+
+    served_raw = (request.form.get("service_date") or request.json.get("service_date") if request.is_json else None) if request.is_json else request.form.get("service_date")
+    served_at = parse_date(served_raw.strip()) if served_raw else datetime.now(UTC)
+    if not served_at:
+        served_at = datetime.now(UTC)
+
+    from app.inspection.working_days import add_working_days
+
+    inspection.improvement_notice_served_at = served_at
+    inspection.reinspection_due_at = add_working_days(served_at, 15)
+
+    try:
+        db.session.commit()
+        return jsonify({
+            "message": "Notice service date recorded",
+            "served_at": served_at.isoformat(),
+            "reinspection_due_at": inspection.reinspection_due_at.isoformat(),
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 # ponytail: auth gate added; RBAC handled by blueprint-level auth
 # Add @login_required if required by app auth policy.
 def premises_search():
@@ -546,3 +588,58 @@ def premises_search():
         results=results,
         checklist=checklist,
     )
+
+
+# appended escalation routes placeholder
+
+
+@inspection_bp.route('/<int:inspection_id>/mark-shortcomings', methods=['POST'])
+def mark_shortcomings(inspection_id):
+    inspection = db.session.get(Inspection, inspection_id)
+    if not inspection:
+        return jsonify({'error': 'Inspection not found'}), 404
+    persist = request.form.get('persist')
+    if request.is_json:
+        persist = request.json.get('persist', persist)
+    inspection.shortcomings_persist = str(persist).lower() in ('1', 'true', 'yes', 'on')
+    if request.is_json and request.json.get('shortcomings'):
+        import json as _j
+        inspection.shortcomings_json = _j.dumps(request.json.get('shortcomings'))
+    try:
+        db.session.commit()
+        return jsonify({'message': 'ok', 'shortcomings_persist': inspection.shortcomings_persist}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@inspection_bp.route('/<int:inspection_id>/escalate-adjudication', methods=['POST'])
+def escalate_adjudication(inspection_id):
+    inspection = db.session.get(Inspection, inspection_id)
+    if not inspection:
+        return jsonify({'error': 'Inspection not found'}), 404
+    if not inspection.shortcomings_persist:
+        return jsonify({'error': 'No persisting shortcomings'}), 400
+    from app.models import Adjudication
+    adj = Adjudication(
+        case_number=inspection.inspection_code or f"INSP-{inspection.id}",
+        food_safety_officer=inspection.fso_name,
+        fbo_owner=inspection.fbo_name or "",
+        fbo_name=inspection.fbo_name or "",
+        fbo_address=inspection.fbo_address or "",
+        fssai_license=inspection.fssai_license or "",
+        inspection_id=inspection.id,
+        First_inspection_date=inspection.inspection_date,
+        compliance_deadline=inspection.compliance_deadline,
+        inspection_date=inspection.inspection_date,
+        notes=inspection.shortcomings_json or inspection.notes,
+    )
+    try:
+        db.session.add(adj)
+        db.session.commit()
+        inspection.adjudication_id = adj.id
+        db.session.commit()
+        return jsonify({'message': 'escalated', 'adjudication_id': adj.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500

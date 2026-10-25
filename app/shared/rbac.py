@@ -69,6 +69,13 @@ def register_auth_gates(app, public_endpoints: set[str]) -> None:
                 session["auth_generation"] = current
             elif stored != current:
                 # Session predates the current app instance (restart/redeploy).
+                # Purge device-local data so a stale session cannot leave
+                # queued offline captures addressable after redeploy. Capture
+                # the user id before logout_user() clears current_user.
+                from app.services.device_data import purge_device_data
+
+                uid = current_user.id
+                purge_device_data(uid)
                 logout_user()
                 session.clear()
                 flash("Your session expired after a server restart. Please log in again.", "info")

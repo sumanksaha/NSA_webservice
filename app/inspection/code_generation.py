@@ -26,6 +26,21 @@ class InspectionCodeGenerator:
             str: Generated inspection code (e.g., 'INSP-2026-00001')
 
         """
+        return self.next_code()
+
+    def next_code(self) -> str:
+        """Allocate the next server-issued inspection code.
+
+        Increments the ``code_sequence`` row for the current year and
+        returns the formatted ``INSP-YYYY-#####`` code without requiring a
+        full Inspection row. Used by the sync push path to reconcile a
+        provisionally-created offline inspection into a real server-issued
+        code.
+
+        Returns:
+            str: Generated inspection code (e.g., 'INSP-2026-00001')
+
+        """
         year = datetime.now(UTC).year
         seq_key = f"inspection:{year}"
         max_retries = 10
