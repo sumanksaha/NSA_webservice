@@ -475,8 +475,12 @@ def update_inspection(inspection_id):
                 "sample_collected": str(inspection.sample_collected) if inspection.sample_collected is not None else "",
                 "sample_code": inspection.sample_code or "",
                 "is_reinspection": str(inspection.is_reinspection) if inspection.is_reinspection is not None else "",
-                "days_allowed_for_errors": str(inspection.days_allowed_for_errors) if inspection.days_allowed_for_errors is not None else "",
-                "errors_in_second_inspection": str(inspection.errors_in_second_inspection) if inspection.errors_in_second_inspection is not None else "",
+                "days_allowed_for_errors": str(inspection.days_allowed_for_errors)
+                if inspection.days_allowed_for_errors is not None
+                else "",
+                "errors_in_second_inspection": str(inspection.errors_in_second_inspection)
+                if inspection.errors_in_second_inspection is not None
+                else "",
             }
             sync_row("inspection_log", row_dict, entity_id=inspection.id)
         except Exception as e:
@@ -521,7 +525,11 @@ def serve_notice(inspection_id):
     if not inspection:
         return jsonify({"error": "Inspection not found"}), 404
 
-    served_raw = (request.form.get("service_date") or request.json.get("service_date") if request.is_json else None) if request.is_json else request.form.get("service_date")
+    served_raw = (
+        (request.form.get("service_date") or request.json.get("service_date") if request.is_json else None)
+        if request.is_json
+        else request.form.get("service_date")
+    )
     served_at = parse_date(served_raw.strip()) if served_raw else datetime.now(UTC)
     if not served_at:
         served_at = datetime.now(UTC)
@@ -541,6 +549,8 @@ def serve_notice(inspection_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+
 # ponytail: auth gate added; RBAC handled by blueprint-level auth
 # Add @login_required if required by app auth policy.
 def premises_search():
@@ -593,53 +603,54 @@ def premises_search():
 # appended escalation routes placeholder
 
 
-@inspection_bp.route('/<int:inspection_id>/mark-shortcomings', methods=['POST'])
+@inspection_bp.route("/<int:inspection_id>/mark-shortcomings", methods=["POST"])
 def mark_shortcomings(inspection_id):
     inspection = db.session.get(Inspection, inspection_id)
     if not inspection:
-        return jsonify({'error': 'Inspection not found'}), 404
-    persist = request.form.get('persist')
+        return jsonify({"error": "Inspection not found"}), 404
+    persist = request.form.get("persist")
     if request.is_json:
-        persist = request.json.get('persist', persist)
-    inspection.shortcomings_persist = str(persist).lower() in ('1', 'true', 'yes', 'on')
-    if request.is_json and request.json.get('shortcomings'):
+        persist = request.json.get("persist", persist)
+    inspection.shortcomings_persist = str(persist).lower() in ("1", "true", "yes", "on")
+    if request.is_json and request.json.get("shortcomings"):
         import json as _j
-        inspection.shortcomings_json = _j.dumps(request.json.get('shortcomings'))
+
+        inspection.shortcomings_json = _j.dumps(request.json.get("shortcomings"))
     try:
         db.session.commit()
-        return jsonify({'message': 'ok', 'shortcomings_persist': inspection.shortcomings_persist}), 200
+        return jsonify({"message": "ok", "shortcomings_persist": inspection.shortcomings_persist}), 200
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@inspection_bp.route('/<int:inspection_id>/escalate-adjudication', methods=['POST'])
+@inspection_bp.route("/<int:inspection_id>/escalate-adjudication", methods=["POST"])
 def escalate_adjudication(inspection_id):
     inspection = db.session.get(Inspection, inspection_id)
     if not inspection:
-        return jsonify({'error': 'Inspection not found'}), 404
+        return jsonify({"error": "Inspection not found"}), 404
     if not inspection.shortcomings_persist:
-        return jsonify({'error': 'No persisting shortcomings'}), 400
+        return jsonify({"error": "No persisting shortcomings"}), 400
     from app.models import Adjudication
-    adj = Adjudication(
-        case_number=inspection.inspection_code or f"INSP-{inspection.id}",
-        food_safety_officer=inspection.fso_name,
-        fbo_owner=inspection.fbo_name or "",
-        fbo_name=inspection.fbo_name or "",
-        fbo_address=inspection.fbo_address or "",
-        fssai_license=inspection.fssai_license or "",
-        inspection_id=inspection.id,
-        First_inspection_date=inspection.inspection_date,
-        compliance_deadline=inspection.compliance_deadline,
-        inspection_date=inspection.inspection_date,
-        notes=inspection.shortcomings_json or inspection.notes,
-    )
+
+    adj = Adjudication()
+    adj.case_number = inspection.inspection_code or f"INSP-{inspection.id}"
+    adj.food_safety_officer = inspection.fso_name
+    adj.fbo_owner = inspection.fbo_name or ""
+    adj.fbo_name = inspection.fbo_name or ""
+    adj.fbo_address = inspection.fbo_address or ""
+    adj.fssai_license = inspection.fssai_license or ""
+    adj.inspection_id = inspection.id
+    adj.First_inspection_date = inspection.inspection_date
+    adj.compliance_deadline = inspection.compliance_deadline
+    adj.inspection_date = inspection.inspection_date
+    adj.notes = inspection.shortcomings_json or inspection.notes
     try:
         db.session.add(adj)
         db.session.commit()
         inspection.adjudication_id = adj.id
         db.session.commit()
-        return jsonify({'message': 'escalated', 'adjudication_id': adj.id}), 201
+        return jsonify({"message": "escalated", "adjudication_id": adj.id}), 201
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
