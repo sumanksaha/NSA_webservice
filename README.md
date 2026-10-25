@@ -304,7 +304,7 @@ The platform provides an end‑to‑end solution for food safety inspections, sa
 | Evaluation Framework      | ✅ Complete    | 28 modules — retrieval arms, metrics, reports                                                                                                                                                                                                                                      |
 | Benchmark v1.0            | ✅ Frozen      | 150-question multi-domain golden benchmark                                                                                                                                                                                                                                         |
 | Rust PyO3 Normalizers     | ✅ Complete    | PyO3 legal-text normalizers (4 modules)                                                                                                                                                                                                                                            |
-| CI/CD                     | ✅ Complete    | 14 gates (G1–G14): deploy gating, staging env, pre-deploy migrations, health check, full security blocking (Bandit+Safety+pip-audit), coverage gate, Docker path, release automation, Dependabot, workflow hygiene, ce-v2 gate, env parity, deploy serialization, dev-dep scanning |
+| CI/CD                     | ✅ Complete    | 14 gates (G1–G14): deploy gating, staging env, pre-deploy migrations, health check, full security blocking (Bandit+pip-audit), coverage gate, Docker path, release automation, Dependabot, workflow hygiene, ce-v2 gate, env parity, deploy serialization, dev-dep scanning |
 | RBAC / Roles              | ⚠️ Partial     | Role/UserRole/Comment models + migration + `is_admin` admin UI done; `@role_required` + comment API/UI + role assignment pending (~30%)                                                                                                                                            |
 | PostgreSQL Migration      | 🔄 In Progress | Schema ready; Supabase migration prepared — pooler-safe engine options, `scripts/migrate_render_to_supabase.sh` (Render → Supabase), and a daily keepalive workflow (`.github/workflows/supabase-keepalive.yml`)                                                                                                                  |
 | Schedule & Premises       | ✅ Complete    | Alias-aware premises search with confusable-street separation; selection records diary duty slots and draft inspections (`tests/test_schedule_planner.py`)                                                                                                                                                                                      |
@@ -672,7 +672,7 @@ the regression shield.
 | G2   | Staging environment    | `deploy_staging` → staging GitHub env + Render staging service on `main`                | `TestStagingEnvironment` (11)       |
 | G3   | Migrations             | `preDeployCommand: flask db upgrade` on web + staging services                          | `TestRenderHealthAndMigrations` (5) |
 | G4   | Health check           | `healthCheckPath: /health` on web + staging                                             | `TestRenderHealthAndMigrations` (5) |
-| G5   | Full security blocking | Bandit (HIGH/HIGH), Safety, pip-audit — all blocking in `validation.yml`                | `TestSecurityGates` (3)             |
+| G5   | Full security blocking | Bandit (HIGH/HIGH), pip-audit — all blocking in `validation.yml`                | `TestSecurityGates` (3)             |
 | G6   | Coverage gate          | `fail_under = 60` (slow shard only)                                                     | `TestCoverageGate` (2)              |
 | G7   | Docker path            | `ENTRYPOINT` + `CMD → uvicorn asgi:app` (ASGI)                                          | `TestDockerConsistency` (4)         |
 | G8   | Release automation     | `release.yml` — `push: tags` + `workflow_dispatch` → `gh-release@v2`                    | `TestReleaseWorkflow` (4)           |
@@ -686,7 +686,7 @@ the regression shield.
 ### Deploy flow
 
 ```
-1. PR → CI: lint + ruff + test-fast + Bandit + Safety + pip-audit
+1. PR → CI: lint + ruff + test-fast + Bandit + pip-audit
 2. Merge to main → CI: test-slow (with coverage, fail_under=60)
 3. On green "Repository Validation" → deploy.yml workflow_run:
    a. deploy_staging → staging environment (Render staging service, `main`)
@@ -705,7 +705,7 @@ the regression shield.
 | Scanner       | Config file         | Scope              | Threshold | Blocking? |
 | ------------- | ------------------- | ------------------ | --------- | --------- |
 | **Bandit**    | `pyproject.toml`    | `app/`             | HIGH/HIGH | ✅ Yes    |
-| **Safety**    | —                   | `requirements.txt` | any       | ✅ Yes    |
+| **Safety**    | —                   | `requirements.txt` | any       | ⛔ Retired |
 | **pip-audit** | `requirements*.txt` | All dependencies   | any       | ✅ Yes    |
 
 Bandit skips `B101` (assert), `B311` (random), `B324` (hashlib) as known false
@@ -834,7 +834,7 @@ Please read [SECURITY.md](SECURITY.md) for security vulnerability reporting and 
 - Hash-chained audit logging
 - Optimistic concurrency control (`StaleDataError → 409`)
 - TLS certificate verification on all external lookups (S7)
-- CI/CD security scanning: Bandit (HIGH/HIGH), Safety, pip-audit — all blocking (G5)
+- CI/CD security scanning: Bandit (HIGH/HIGH), pip-audit — all blocking (G5)
 - Dependency scanning: Dependabot (pip + github-actions + npm)
 
 ### Level 4: Testing & Validation ✅

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security (2026-10-25) — filelock CVE floor, retire `safety` dev pin
+
+- Pinned `filelock>=4.2.1` in `[project.dependencies]`. The package arrives
+  transitively (huggingface-hub, torch, transformers) and the resolved 3.32.7 is
+  flagged by CVE-2026-112907 / CVE-2026-112913 / CVE-2026-112940, which failed
+  the blocking `pip-audit` / `audit` gate on every run.
+- Removed `safety` from the `dev` extra. Its `check` command was already dropped
+  from `validation.yml` on 2026-10-11 (it crashed before scanning), and the only
+  published release (3.8.1) hard-caps `filelock<4.0`, so it forced the vulnerable
+  resolve. `pip-audit` covers the same advisory DB.
+
 ### Added (2026-10-20) — RAG architecture deepening pass (C1–C7)
 
 - **Shared RAG model runtime** (`app/rag/model_runtime.py`, ADR-0012): one
