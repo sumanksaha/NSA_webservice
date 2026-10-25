@@ -164,11 +164,11 @@ def _fetch_anchor(
     from app.rag.retrieval.provision_metadata import commodity_phrase_match
 
     food = view.food
+    if not cfg.identifier_route:
+        return
     if not (food.entity and food.entity != "unknown"):
         return
-    has_anchor = any(
-        commodity_phrase_match(str(getattr(c, "text", "") or ""), food.entity) for c in ranked
-    )
+    has_anchor = any(commodity_phrase_match(str(getattr(c, "text", "") or ""), food.entity) for c in ranked)
     if has_anchor or view.anchor_budget[0] <= 0:
         return
     view.anchor_budget[0] -= 1
@@ -292,5 +292,3 @@ def _fallback_rounds(
         if validation.get("valid"):
             break
     return rounds_used
-
-

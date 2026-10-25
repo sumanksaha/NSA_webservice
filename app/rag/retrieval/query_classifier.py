@@ -79,8 +79,7 @@ _RUNTIME_TYPE_BY_CANONICAL: dict[str, QueryType] = {}
 for _member in QueryType:
     _canonical = _registry.resolve(_member.value)
     assert _canonical is not None, (
-        f"QueryType.{_member.name} ({_member.value!r}) is absent from "
-        "app.rag.query_type_registry"
+        f"QueryType.{_member.name} ({_member.value!r}) is absent from app.rag.query_type_registry"
     )
     assert _canonical not in _RUNTIME_TYPE_BY_CANONICAL, (
         f"QueryType.{_member.name} and "
@@ -145,7 +144,8 @@ _QUERY_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     (
         "provision_search",
         re.compile(
-            r"\b(fss\s*act|food\s*safety\s*and\s*standards\s*act|fssa|regulation|sub[-\s]?regulation)", re.IGNORECASE,
+            r"\b(fss\s*act|food\s*safety\s*and\s*standards\s*act|fssa|regulation|sub[-\s]?regulation)",
+            re.IGNORECASE,
         ),
     ),
     # Penalty queries — fines, imprisonment, penalty amounts
@@ -226,8 +226,7 @@ _LABEL_TO_TYPE: dict[str, QueryType] = {}
 for _label, _pattern in _QUERY_PATTERNS:
     _canonical = _registry.resolve(_label)
     assert _canonical == _label, (
-        f"QueryClassifier pattern label {_label!r} must be a canonical "
-        f"query-type id (resolved to {_canonical!r})"
+        f"QueryClassifier pattern label {_label!r} must be a canonical query-type id (resolved to {_canonical!r})"
     )
     _LABEL_TO_TYPE[_label] = _RUNTIME_TYPE_BY_CANONICAL[_canonical]
 del _label, _pattern, _canonical
@@ -315,6 +314,7 @@ class SectionQueryParser:
         if run_match:
             numbers = re.findall(r"\d{1,3}", run_match.group(1))
             if numbers:
+                result["section_numbers"] = numbers
                 result["section_number"] = numbers
 
         # Single section with optional subsection: "Section 55(2)"
@@ -553,7 +553,9 @@ class JurisdictionQueryParser:
 
         # 2. State abbreviation / alias match
         for alias, full_name in sorted(
-            JurisdictionQueryParser._STATE_ALIASES.items(), key=lambda kv: len(kv[0]), reverse=True,
+            JurisdictionQueryParser._STATE_ALIASES.items(),
+            key=lambda kv: len(kv[0]),
+            reverse=True,
         ):
             pattern = re.compile(r"\b" + re.escape(alias) + r"\b", re.IGNORECASE)
             if pattern.search(query):

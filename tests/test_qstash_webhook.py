@@ -221,9 +221,26 @@ class TestDeliveryFailed:
 
         Note: we cannot produce a valid Upstash signature in tests, so we
         verify the 200 path by monkeypatching the verifier to return True.
+        Redis is replaced with an in-memory fake so the test does not require
+        a live Redis instance (CI has no redis service).
         """
         _set_qstash_env(monkeypatch)
         monkeypatch.setattr("app.tasks_webhook.routes._verify_qstash_signature", lambda signature: True)
+
+        # In-memory Redis stand-in shared between store_task_status and
+        # get_task_status via the module-level _get_redis() indirection.
+        store: dict = {}
+
+        class _FakeRedis:
+            def set(self, key, value, ex=None):
+                store[key] = value
+
+            def get(self, key):
+                return store.get(key)
+
+        shared = _FakeRedis()
+        monkeypatch.setattr("app.utils.qstash_client._redis_client", shared)
+        monkeypatch.setattr("app.utils.qstash_client._get_redis", lambda: shared)
 
         resp = client.post(
             "/tasks/failed/generate_bill_pdf",

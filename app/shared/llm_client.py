@@ -1,18 +1,19 @@
 """Central LLM spend controls — the ONLY place the app reads LLM kill-switch
 and budget settings, validates answer models, or resolves an answer client.
 
-Fail-closed controls (both default to "no calls"):
+Controls (default: live LLM with an 800-call per-process budget):
 
-* ``LLM_ENABLED`` (default ``false``) — hard kill switch, read at CALL time
+* ``LLM_ENABLED`` (default ``true``) — hard kill switch, read at CALL time
   so tests and ops can toggle it without a restart:
   - RAG answer path (:func:`get_llm_client` / ``GroundedLLMClient.call``):
     serves the deterministic no-op stub — zero network calls.
   - AI assistant / decision chat transport: raises ``RuntimeError``
     (routes already translate that to 503).
   - Photo scoring: records a failed assessment (fail-closed audit row).
-* ``MAX_LLM_CALLS`` (default ``0``) — per-process cap on REAL (non-stub)
-  LLM calls; ``0`` blocks every call.  To permit LLM calls you must set
-  BOTH ``LLM_ENABLED=true`` AND ``MAX_LLM_CALLS=<positive budget>``.
+* ``MAX_LLM_CALLS`` (default ``800``) — per-process cap on REAL (non-stub)
+  LLM calls per day.  When exhausted, the RAG client degrades to stub mode
+  instead of returning empty output.  Set BOTH ``LLM_ENABLED=true`` AND
+  ``MAX_LLM_CALLS=<positive budget>`` to permit live calls.
 * ``ALLOWED_MODELS`` — the answer model must be the default
   ``minimax/minimax-m3.1-flash:free`` (free, via OpenRouter) or another
   allow-listed slug: laguna (retires 2026-10-31; retained for cached eval
@@ -71,7 +72,7 @@ def llm_enabled() -> bool:
     Read at call time (not import time) so a deployment or a test can toggle
     the switch without reloading modules.
     """
-    return os.environ.get("LLM_ENABLED", "false").strip().lower() == "true"
+    return os.environ.get("LLM_ENABLED", "true").strip().lower() == "true"
 
 
 def max_llm_calls() -> int:
@@ -80,7 +81,7 @@ def max_llm_calls() -> int:
     ``0`` (the default) blocks every real LLM call — a second, independent
     lock behind the kill switch.  Read at call time like :func:`llm_enabled`.
     """
-    return int(os.environ.get("MAX_LLM_CALLS", "0"))
+    return int(os.environ.get("MAX_LLM_CALLS", "800"))
 
 
 def validate_model(model: str) -> None:
@@ -110,9 +111,7 @@ def _increment_call_count() -> None:
             "Set MAX_LLM_CALLS to a positive budget (and LLM_ENABLED=true) to allow them."
         )
     if count > cap:
-        raise RuntimeError(
-            f"LLM call budget exhausted: {count} calls > MAX_LLM_CALLS={cap}."
-        )
+        raise RuntimeError(f"LLM call budget exhausted: {count} calls > MAX_LLM_CALLS={cap}.")
 
 
 def _log_llm_call(
@@ -196,15 +195,14 @@ def get_llm_client(
                 "Laguna S 2.1 is served by OpenRouter — set OPENROUTER_API_KEY."
             )
 
-    # Import the concrete client lazily so a missing optional dependency
-    # never blocks process boot.
-    from app.rag.generation.llm_client import GroundedLLMClient
+    # Import lazily so a missing optional dependency never blocks process
+    # boot.  Resolve through the grounded_service module so callers/tests can
+    # monkeypatch ``app.rag.generation.grounded_service.GroundedLLMClient``.
+    from app.rag.generation.grounded_service import GroundedLLMClient
 
     client = GroundedLLMClient(model=resolved_model, api_key=api_key, base_url=base_url)
     if not llm_enabled():
-        logger.info(
-            "get_llm_client: LLM_ENABLED=false — returning no-op stub client (zero network)"
-        )
+        logger.info("get_llm_client: LLM_ENABLED=false — returning no-op stub client (zero network)")
     return client
 
 

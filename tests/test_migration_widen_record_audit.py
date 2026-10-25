@@ -93,4 +93,4 @@ class TestWidenRecordAuditRecordIdMigration:
         cfg = Config()
         cfg.set_main_option("script_location", str(repo_root / "migrations"))
         script = ScriptDirectory.from_config(cfg)
-        assert script.get_heads() == ["widen_record_audit_record_id"]
+        assert script.get_heads() == ["add_evidence_assessment"]

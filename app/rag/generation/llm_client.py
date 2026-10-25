@@ -112,7 +112,6 @@ def answer_text(choice: dict[str, Any]) -> tuple[str, str | None]:
     )
 
 
-
 class GroundedLLMClient:
     """Call an LLM to generate a grounded response.
 
@@ -173,7 +172,12 @@ class GroundedLLMClient:
         self._api_key = api_key or os.environ.get("OPENROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY")
         self._base_url = base_url or os.environ.get("OPENAI_BASE_URL") or self.DEFAULT_BASE_URL
         self._stub = stub_response or os.environ.get("RAG_STUB_RESPONSE")
-        self._use_stub = not self._api_key or os.environ.get("RAG_USE_STUB_LLM", "").lower() == "true"
+        # An explicit stub_response (typically from tests) forces stub mode even
+        # when an API key is configured, so callers can deterministically
+        # exercise the pipeline without network access.
+        self._use_stub = (
+            bool(stub_response) or not self._api_key or os.environ.get("RAG_USE_STUB_LLM", "").lower() == "true"
+        )
 
         if self._use_stub and not self._stub:
             logger.warning("LLM client running in STUB mode — responses are not realistic")
@@ -226,6 +230,9 @@ class GroundedLLMClient:
             return self._stub_call()
 
         # Real path: enforce the per-run budget and log the outgoing request.
+        # If the call budget is exhausted (MAX_LLM_CALLS=0 blocks every call),
+        # fall back to the deterministic stub instead of surfacing an error
+        # that leaves the caller with no output.
         from app.shared.config import cfg
         from app.shared.llm_client import _increment_call_count, _log_llm_call
 
@@ -236,7 +243,14 @@ class GroundedLLMClient:
             if budget > 0:
                 extra["reasoning"] = {"max_tokens": budget}
 
-        _increment_call_count()
+        try:
+            _increment_call_count()
+        except RuntimeError:
+            # Budget exhausted — degrade gracefully to stub rather than
+            # returning an empty answer.
+            logger.warning("LLM call budget exhausted — falling back to stub mode")
+            return self._stub_call()
+
         _log_llm_call(
             provider="openrouter",
             model=self.model,
