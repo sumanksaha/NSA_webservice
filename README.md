@@ -579,7 +579,7 @@ git push origin main
 # Render Dashboard → New → Blueprint → Select repository
 ```
 
-See [POSTGRES_MIGRATION.md](POSTGRES_MIGRATION.md) for detailed deployment instructions.
+See [POSTGRES_MIGRATION.md](docs/ops/POSTGRES_MIGRATION.md) for detailed deployment instructions.
 
 ### Manual Deployment
 

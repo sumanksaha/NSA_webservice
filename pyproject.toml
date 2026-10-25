@@ -371,6 +371,11 @@ ignore = [
 "count_csv.py" = ["T201"]
 "inspect_csv.py" = ["T201"]
 "upsert_reg.py" = ["T201", "S608"]
+# One-off scripts relocated out of the repo root (see
+# tests/test_repo_root_layout.py). SQL identifiers there are interpolated from
+# internal constants, never from request/user input — same rationale as
+# scripts/**/* above.
+"scripts/oneoff/**/*" = ["S608"]
 "app/inspection/inspection_utils.py" = ["S311"]
 "app/sample/sample_utils.py" = ["S311"]
 # Epsilon-greedy action selection and uniform warm-start sampling in the RAG
