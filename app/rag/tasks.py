@@ -71,6 +71,54 @@ def _decomposition_queries(query: str) -> list[str]:
     return SubQueryDecomposer().decompose(query)
 
 
+def _merge_subquery_chunks(groups: list[list[Any]], top_k: int) -> list[Any]:
+    """Merge per-sub-query retrieval pools without losing a sub-query.
+
+    The old merge concatenated every sub-query pool, sorted by score and cut
+    to ``top_k``.  One high-scoring topic could therefore consume the whole
+    window and the other sub-query's evidence vanished — the cross-topic
+    dilution item 7 is meant to remove.  Allocate one quota per sub-query
+    first, then fill the remaining slots by score.
+    """
+    if not groups:
+        return []
+    seen: set[str] = set()
+    unique: list[Any] = []
+    for group in groups:
+        for chunk in group:
+            cid = str(getattr(chunk, "chunk_id", ""))
+            if cid and cid not in seen:
+                seen.add(cid)
+                unique.append(chunk)
+    if len(groups) == 1:
+        return sorted(unique, key=lambda c: c.score, reverse=True)[:top_k]
+
+    # A window smaller than the sub-query count cannot represent every group;
+    # take the best chunk from each and let the score sort decide the cut.
+    if top_k < len(groups):
+        best = [max(group, key=lambda c: c.score) for group in groups if group]
+        return sorted(best, key=lambda c: c.score, reverse=True)[:top_k]
+
+    quota = max(1, top_k // len(groups))
+    selected: list[Any] = []
+    selected_ids: set[str] = set()
+    for group in groups:
+        ranked = sorted(group, key=lambda c: c.score, reverse=True)
+        for chunk in ranked[:quota]:
+            cid = str(getattr(chunk, "chunk_id", ""))
+            if cid and cid not in selected_ids:
+                selected.append(chunk)
+                selected_ids.add(cid)
+    for chunk in sorted(unique, key=lambda c: c.score, reverse=True):
+        if len(selected) >= top_k:
+            break
+        cid = str(getattr(chunk, "chunk_id", ""))
+        if cid and cid not in selected_ids:
+            selected.append(chunk)
+            selected_ids.add(cid)
+    return sorted(selected, key=lambda c: c.score, reverse=True)[:top_k]
+
+
 def clear_retrieval_cache() -> None:
     """Drop every cached retrieval result (admin re-ingest, tests)."""
     _default_cache.clear()
@@ -897,8 +945,10 @@ def _generate_resolve_evidence(
         is_compound = len(sub_queries) > 1
 
         if is_compound:
-            # Run retrieval for each sub-query and merge results
-            all_chunks: list[RetrievedChunk] = []
+            # Run retrieval for each sub-query and merge results.  The merge
+            # reserves a quota per sub-query so one topic cannot consume the
+            # whole window (P1 item 7).
+            per_subquery: list[list[RetrievedChunk]] = []
             merged_retrieval_data: dict[str, Any] = {}
             for sq in sub_queries:
                 sq_data = run_retrieval_pipeline(
@@ -908,21 +958,16 @@ def _generate_resolve_evidence(
                     filters=filters,
                     pipeline=pipeline,
                 )
-                for raw in sq_data.get("chunks", []):
-                    chunk = _as_chunk(raw)
-                    if chunk is not None:
-                        all_chunks.append(chunk)
+                sq_chunks = [
+                    chunk
+                    for chunk in (_as_chunk(raw) for raw in sq_data.get("chunks", []))
+                    if chunk is not None
+                ]
+                per_subquery.append(sq_chunks)
                 # Use the first sub-query retrieval data for metadata
                 if not merged_retrieval_data:
                     merged_retrieval_data = sq_data
-            # Deduplicate by chunk_id
-            seen = set()
-            unique_chunks = []
-            for c in all_chunks:
-                if c.chunk_id not in seen:
-                    seen.add(c.chunk_id)
-                    unique_chunks.append(c)
-            chunk_objects = sorted(unique_chunks, key=lambda c: c.score, reverse=True)[:top_k]
+            chunk_objects = _merge_subquery_chunks(per_subquery, top_k)
             retrieval_data = merged_retrieval_data
             retrieval_data["chunks"] = chunk_objects
             retrieval_data["sub_queries"] = sub_queries
@@ -942,6 +987,29 @@ def _generate_resolve_evidence(
 
     chunk_objects = [c for c in (_as_chunk(raw) for raw in raw_chunks) if c is not None]
     return retrieval_data, chunk_objects, query_type
+
+
+def _kg_backfill_index(chunk_objects: list[Any]) -> dict[tuple[str, str], str]:
+    """Return the best available ``(act, section) -> body`` index.
+
+    Prefer the corpus-wide cache (payload cache / ``LegalChunk`` table); fall
+    back to the current retrieval pool only when no corpus index is available.
+    """
+    try:
+        from kg.backfill import build_index_from_chunks, load_corpus_index
+
+        index = load_corpus_index()
+        if index:
+            return index
+        return build_index_from_chunks(chunk_objects)
+    except Exception as exc:
+        logger.warning("_kg_backfill_index: %s", exc)
+        try:
+            from kg.backfill import build_index_from_chunks
+
+            return build_index_from_chunks(chunk_objects)
+        except Exception:
+            return {}
 
 
 def _generate_apply_kg_context(
@@ -965,6 +1033,8 @@ def _generate_apply_kg_context(
     if cfg.kg_fusion and chunk_objects:
         try:
             from kg.hybrid import (
+                filter_injectable_kg_chunks,
+                is_kg_chunk,
                 provisions_to_retrieved_chunks,
                 rrf_fuse_chunks,
             )
@@ -972,21 +1042,50 @@ def _generate_apply_kg_context(
 
             provisions = provisions_for_query(query, LegalKGQueries(), limit=cfg.kg_max_provisions)
             logger.info("_generate_apply_kg_context: kg_contract provisions=%s", len(provisions))
-            kg_chunks = provisions_to_retrieved_chunks(provisions, limit=cfg.kg_max_provisions)
+            # Corpus-wide index: the provisions that need backfill are the
+            # ones the vector pool did not retrieve, so a top-k-only index
+            # cannot cover them.
+            backfill = _kg_backfill_index(chunk_objects)
+            kg_chunks = provisions_to_retrieved_chunks(
+                provisions,
+                limit=cfg.kg_max_provisions,
+                backfill=backfill or None,
+            )
+            before_filter = len(kg_chunks)
+            kg_chunks = filter_injectable_kg_chunks(kg_chunks, cfg.kg_min_body_chars)
+            logger.info(
+                "_generate_apply_kg_context: kg payload kept=%d/%d min_body_chars=%d",
+                len(kg_chunks),
+                before_filter,
+                cfg.kg_min_body_chars,
+            )
             if kg_chunks:
                 from app.rag.generation.context_builder import ContextBuilder
 
                 slot_budget = ContextBuilder().max_context_chunks
-                chunk_objects = rrf_fuse_chunks([chunk_objects, kg_chunks], rrf_k=60.0, top_k=slot_budget)
+                # P1 fairness: protect the vector list's own top-k.  KG fills
+                # only slots the vector pool did not need, so it cannot evict
+                # vector gold when a wide pool is truncated to the prompt
+                # budget.  (Production retrieves top_k=10 into a ~20-slot
+                # window, so spare slots normally exist.)
+                chunk_objects = rrf_fuse_chunks(
+                    [chunk_objects, kg_chunks],
+                    rrf_k=60.0,
+                    top_k=slot_budget,
+                    preserve_vector_top_k=cfg.kg_fair_fusion,
+                )
+                injected = sum(1 for c in chunk_objects if is_kg_chunk(c))
                 kg_contract = {
                     "provisions": len(provisions),
-                    "injected": len(kg_chunks),
+                    "injected": injected,
                     "fused": True,
                 }
                 logger.info(
-                    "_generate_apply_kg_context: RRF-fused %d KG contract provisions into context (slot budget %d)",
+                    "_generate_apply_kg_context: RRF-fused %d/%d KG contract provisions into context (slot budget %d, fair=%s)",
+                    injected,
                     len(kg_chunks),
                     slot_budget,
+                    cfg.kg_fair_fusion,
                 )
         except Exception as exc:
             logger.warning("_generate_apply_kg_context: kg contract fusion failed: %s", exc)
@@ -998,7 +1097,12 @@ def _generate_apply_kg_context(
     if (kg_contract or {}).get("injected", 0) > 0:
         pass
     elif cfg.kg_expansion and chunk_objects:
-        from kg.hybrid import KGContextExpander, provisions_to_retrieved_chunks
+        from kg.hybrid import (
+            KGContextExpander,
+            filter_injectable_kg_chunks,
+            is_kg_chunk,
+            provisions_to_retrieved_chunks,
+        )
 
         kg_expansion = KGContextExpander().expand_chunks(c.chunk_id for c in chunk_objects)
         logger.info(
@@ -1009,19 +1113,40 @@ def _generate_apply_kg_context(
         )
         kg_provisions = kg_expansion.get("provisions") or []
         if kg_provisions:
-            kg_chunks = provisions_to_retrieved_chunks(kg_provisions, limit=cfg.kg_max_provisions)
+            _backfill = _kg_backfill_index(chunk_objects)
+            kg_chunks = provisions_to_retrieved_chunks(
+                kg_provisions,
+                limit=cfg.kg_max_provisions,
+                backfill=_backfill or None,
+            )
+            before_filter = len(kg_chunks)
+            kg_chunks = filter_injectable_kg_chunks(kg_chunks, cfg.kg_min_body_chars)
+            logger.info(
+                "_generate_apply_kg_context: kg expansion payload kept=%d/%d min_body_chars=%d",
+                len(kg_chunks),
+                before_filter,
+                cfg.kg_min_body_chars,
+            )
             if kg_chunks:
-                # Repaired candidate fusion (2026-08-12): RRF so KG evidence
-                # interleaves by merit rather than always ranking last.
+                # P1 fairness: same non-lossy invariant as contract fusion —
+                # KG only fills slots the vector top-k did not need.
                 from app.rag.generation.context_builder import ContextBuilder
                 from kg.hybrid import rrf_fuse_chunks
 
                 slot_budget = ContextBuilder().max_context_chunks
-                chunk_objects = rrf_fuse_chunks([chunk_objects, kg_chunks], rrf_k=60.0, top_k=slot_budget)
+                chunk_objects = rrf_fuse_chunks(
+                    [chunk_objects, kg_chunks],
+                    rrf_k=60.0,
+                    top_k=slot_budget,
+                    preserve_vector_top_k=cfg.kg_fair_fusion,
+                )
+                injected = sum(1 for c in chunk_objects if is_kg_chunk(c))
                 logger.info(
-                    "_generate_apply_kg_context: RRF-fused %d KG provisions into context (slot budget %d)",
+                    "_generate_apply_kg_context: RRF-fused %d/%d KG expansion provisions into context (slot budget %d, fair=%s)",
+                    injected,
                     len(kg_chunks),
                     slot_budget,
+                    cfg.kg_fair_fusion,
                 )
 
     return chunk_objects, kg_contract, kg_expansion

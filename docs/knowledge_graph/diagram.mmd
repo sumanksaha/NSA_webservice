@@ -1,0 +1,54 @@
+erDiagram
+%%{init: {'theme': 'base'}}%%
+
+    document "document" {
+        string description "Legal case / adjudication document"
+        string source "CaseFile / Adjudication"
+    }
+
+    authority "authority" {
+        string description "Authority / inspectorate entity (FBO, Food Safety Officer, lab)"
+        string source "FBO / Inspector / Lab"
+    }
+
+    evidence "evidence" {
+        string description "Evidence item (sample, photo/document evidence)"
+        string source "Sample / Evidence"
+    }
+
+    section "section" {
+        string description "Statutory section / sub-section"
+        string source "kg_sections"
+    }
+
+    reference "reference" {
+        string description "Reference document (bills, annexures)"
+        string source "Bills / Annexures"
+    }
+
+    document ||--o{ authority : "supports"
+
+    document ||--o{ authority : "inspected by"
+
+    authority ||--o{ evidence : "sampled from"
+
+    evidence ||--o{ authority : "tested at"
+
+    document ||--o{ section : "violates"
+
+    document ||--o{ reference : "references"
+
+    section ||--o{ section : "cites"
+
+    section ||--o{ section : "amends"
+
+    section ||--o{ section : "overrules"
+
+    section ||--o{ document : "applies to jurisdiction"
+
+
+    classDef caseStyle fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef authorityStyle fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef evidenceStyle fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef sectionStyle fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef referenceStyle fill:#f9f,stroke:#333,stroke-width:2px;

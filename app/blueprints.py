@@ -32,6 +32,7 @@ def register_blueprints(app: Flask) -> None:
     from app.health import health_bp as _health_bp
     from app.inspection.routes import inspection_bp as _inspection_bp
     from app.knowledge_graph import kg_bp as _kg_bp
+    from app.knowledge_graph.api import graph_search_bp as _graph_search_bp
     from app.legal_analysis import legal_analysis_bp as _legal_analysis_bp
     from app.notepad import notepad_bp as _notepad_bp
     from app.sample.routes import sample_bp as _sample_bp
@@ -79,6 +80,7 @@ def register_blueprints(app: Flask) -> None:
         (_validation_bp, "/validation"),
         (_health_bp, None),
         (_food_cell_bp, "/food-cell"),
+        (_graph_search_bp, None),
         (_kg_bp, "/knowledge-graph"),
         (_notepad_bp, "/notepad"),
         (_sync_bp, "/sync"),

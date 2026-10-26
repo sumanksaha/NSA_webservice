@@ -187,7 +187,7 @@ class KGContextExpander:
                     p.provision_id AS provision_id,
                     p.provision_number AS provision_number,
                     p.title AS title,
-                    left(coalesce(p.provision_text, ''), 500) AS text,
+                    coalesce(p.provision_text, '') AS text,
                     coalesce(p.status, '') AS status,
                     i.instrument_id AS instrument_id,
                     i.title AS instrument_title,
@@ -221,8 +221,15 @@ class KGContextExpander:
                         "document_uri": _unwrap(r.get("document_uri")) or "",
                         "authorities": [],
                         "issuing_authority": _unwrap(r.get("issuing_authority_name")) or "",
+                        "source_chunk_ids": [],
                     },
                 )
+                for source_cid in (
+                    _unwrap(r.get("chunk_node_id")),
+                    _unwrap(r.get("qdrant_point_id")),
+                ):
+                    if source_cid and str(source_cid) not in entry["source_chunk_ids"]:
+                        entry["source_chunk_ids"].append(str(source_cid))
                 if r.get("authority_name"):
                     name = _unwrap(r["authority_name"])
                     if name and name not in entry["authorities"]:
@@ -321,25 +328,53 @@ class KGContextExpander:
         }
 
 
+def is_kg_chunk(chunk: Any) -> bool:
+    """True when *chunk* is graph-derived evidence, not a vector hit."""
+    if str(getattr(chunk, "document_type", "")) == "KG-Provision":
+        return True
+    return str(getattr(chunk, "chunk_id", "")).startswith("KG:")
+
+
 def rrf_fuse_chunks(
     chunk_lists: Iterable[list[Any]],
     rrf_k: float = 60.0,
     top_k: int = 10,
     dedupe_kg: bool = True,
     reserve_kg_slots: int = 0,
+    preserve_vector_top_k: bool = True,
 ) -> list[Any]:
     """Reciprocal-Rank-Fuse several ranked chunk lists into one ranked list.
 
-    Repair of candidate fusion (2026-08-12): KG evidence must participate in
-    the ranking — interleaved by its retrieval rank — rather than being
-    tail-appended after the vector top-k (which structurally hides it from
-    Recall@K / MRR / nDCG).  Each input list contributes ``1/(rank+1+rrf_k)``
-    to its items; items present in several lists accumulate (agreement
-    boost).  Chunk scores are overwritten with the fused RRF score so
-    downstream sort-by-score consumers (ContextBuilder) rank correctly.
+    Candidate fusion has two jobs that pull in opposite directions:
+
+    * KG evidence must be able to reach the prompt at all.  Tail-appending it
+      after every vector chunk structurally hides it from Recall@K / MRR /
+      nDCG and from the prompt window.
+    * A short KG list must not evict vector evidence merely because RRF scores
+      rank position.  A KG item at rank 1 contributes ``1/(1+1+rrf_k)`` while
+      a vector item at rank 500 contributes ``1/(500+1+rrf_k)``; with a ~500
+      chunk vector pool and a ~20 chunk prompt budget, unbounded competition
+      is not a fair merge.
+
+    ``preserve_vector_top_k`` resolves that tension with a non-lossy invariant
+    (the same rule :class:`HybridRetriever` uses for newly added arms): the
+    first input list is the base vector ranking, and every item in its own
+    top-k is retained.  KG evidence fills only the slots the base ranking does
+    not need.  When the vector pool is wider than the prompt budget, no KG
+    item can displace a vector candidate that would otherwise have survived
+    the truncation.  When the vector pool is narrower (the production default:
+    ``top_k=10`` retrieval into a 20-slot prompt), the spare slots are filled
+    with KG evidence in RRF order.
+
+    Scores in this mode are reassigned by final position, not raw RRF: a
+    downstream ``ContextBuilder`` sorts by ``chunk.score``, and leaving a KG
+    item's rank-1 RRF score intact would let it jump back above the protected
+    vector head after the merge.
 
     Args:
-        chunk_lists: Iterable of ranked ``RetrievedChunk`` lists.
+        chunk_lists: Iterable of ranked ``RetrievedChunk`` lists.  The first
+            list is the base vector ranking when ``preserve_vector_top_k`` is
+            on and the last list is graph-derived.
         rrf_k: RRF constant (default 60 — matches HybridRetriever).
         top_k: Maximum fused results to return.
         dedupe_kg: When true (default), a ``document_type == "KG-Provision"``
@@ -349,17 +384,15 @@ def rrf_fuse_chunks(
             The act match is a light normalisation (lowercase, leading
             ``the`` stripped, whitespace collapsed); a miss only leaves a
             redundant slot, never drops a novel provision.
-        reserve_kg_slots: When > 0, this many slots at the tail of the
-            fused list are filled from the last input list (the KG list)
-            first, and the remaining ``top_k - reserve_kg_slots`` slots are
-            filled from the other lists.  Without this, a KG item at rank 1
-            of its own list outranks every vector item past rank ~top_k by
-            construction -- each contributes ``1/(1+1+rrf_k)`` while vector
-            rank 500 contributes ``1/(500+1+rrf_k)`` -- so a short KG list
-            evicts proportionally more vector evidence than it adds.  The
-            vector pool is ~500 chunks wide while the prompt budget is ~20,
-            so unbounded competition is not a fair merge.  Defaults to 0,
-            preserving the original rank-fusion behaviour.
+        reserve_kg_slots: Legacy bounded-footprint mode.  When > 0, this many
+            tail slots are filled from the last (KG) list and the remaining
+            ``top_k - reserve_kg_slots`` from the other lists.  It is kept for
+            reproducing the 2026-08 reserve sweep; production uses
+            ``preserve_vector_top_k`` instead.  Defaults to 0.
+        preserve_vector_top_k: When true (default) and the last list is
+            graph-derived, retain the first list's own top-k and fill only
+            unused slots from the fused ranking.  Set false to reproduce the
+            original unbounded interleave for offline experiments.
 
     Returns:
         Ranked list of the input chunk objects, deduplicated by chunk_id.
@@ -372,13 +405,14 @@ def rrf_fuse_chunks(
     an equally-ranked vector item.
 
     """
+    lists = list(chunk_lists)
     if dedupe_kg:
-        chunk_lists = _dedupe_kg_over_chunks(list(chunk_lists))
+        lists = _dedupe_kg_over_chunks(lists)
     from app.rag.retrieval.rrf import reciprocal_rank_fuse
 
-    scores = reciprocal_rank_fuse(chunk_lists, rrf_k=rrf_k)
+    scores = reciprocal_rank_fuse(lists, rrf_k=rrf_k)
     best: dict[str, Any] = {}
-    for ranked in chunk_lists:
+    for ranked in lists:
         for chunk in ranked:
             cid = str(getattr(chunk, "chunk_id", ""))
             if not cid:
@@ -389,13 +423,38 @@ def rrf_fuse_chunks(
     # (see tie policy in the docstring) — deterministic across runs.
     ordered = sorted(scores, key=scores.get, reverse=True)  # type: ignore[arg-type]
 
-    if reserve_kg_slots > 0 and len(chunk_lists) > 1:
-        # Reserve tail slots for the KG list (the last input) so a short KG
-        # list cannot evict vector evidence purely on rank position.  KG
-        # items keep their fused order among themselves; vector items fill
-        # the head.  This bounds KG's footprint at ``reserve_kg_slots``
-        # instead of letting it scale with the vector pool width.
-        lists = list(chunk_lists)
+    fair = (
+        preserve_vector_top_k
+        and reserve_kg_slots <= 0
+        and len(lists) > 1
+        and bool(lists[0])
+        and any(is_kg_chunk(chunk) for chunk in lists[-1])
+    )
+    if fair:
+        # The base vector list's own top-k is the protected set.  Preserve its
+        # order (it is already relevance-ranked) rather than letting KG
+        # agreement boosts reorder it.
+        protected: list[str] = []
+        seen: set[str] = set()
+        for chunk in lists[0]:
+            cid = str(getattr(chunk, "chunk_id", ""))
+            if cid and cid not in seen and cid in scores:
+                seen.add(cid)
+                protected.append(cid)
+            if len(protected) >= top_k:
+                break
+        protected_set = set(protected)
+        remaining = [cid for cid in ordered if cid not in protected_set]
+        ordered = protected + remaining[: max(top_k - len(protected), 0)]
+        # ContextBuilder sorts by score, so make the final order authoritative.
+        scores = {
+            cid: 1.0 / (rank + 1 + rrf_k)
+            for rank, cid in enumerate(ordered)
+        }
+    elif reserve_kg_slots > 0 and len(lists) > 1:
+        # Legacy reserve sweep: bound KG's footprint at ``reserve_kg_slots``
+        # instead of letting it scale with the vector pool width.  KG items
+        # keep their fused order among themselves; vector items fill the head.
         kg_ids = [str(getattr(c, "chunk_id", "")) for c in lists[-1]]
         kg_ids = [cid for cid in kg_ids if cid]
         kg_ordered = [cid for cid in ordered if cid in set(kg_ids)]
@@ -412,7 +471,7 @@ def rrf_fuse_chunks(
 
 
 def _norm_act(title: Any) -> str:
-    """Light act-title normalisation for the KG-redundancy check."""
+    """Light act-title normalisation shared by backfill and KG dedupe."""
     s = re.sub(r"\s+", " ", str(title or "").strip().lower())
     return re.sub(r"^(the|an|a)\s+", "", s)
 
@@ -426,32 +485,60 @@ def _dedupe_kg_over_chunks(chunk_lists: list[list[Any]]) -> list[list[Any]]:
     and other types are untouched).  Returns new lists; the inputs are not
     mutated.
     """
-    covered: set[tuple[str, str]] = set()
+    covered_keys: set[tuple[str, str]] = set()
+    covered_ids: set[str] = set()
     for ranked in chunk_lists:
         for chunk in ranked:
             if str(getattr(chunk, "document_type", "")) == "KG-Provision":
                 continue
-            act = _norm_act(getattr(chunk, "document_title", ""))
-            section = str(getattr(chunk, "section_number", "") or "").strip()
+            cid = str(getattr(chunk, "chunk_id", "") or "")
+            if cid:
+                covered_ids.add(cid)
+            act = str(
+                getattr(chunk, "act_name", "")
+                or getattr(chunk, "document_title", "")
+                or ""
+            )
+            section = str(
+                getattr(chunk, "section_number", "")
+                or getattr(chunk, "clause_number", "")
+                or ""
+            ).strip()
             if act and section:
-                covered.add((act, section))
-    if not covered:
+                covered_keys.update(backfill_key_variants(act, section))
+    if not covered_keys and not covered_ids:
         return chunk_lists
+
+    def _is_covered(chunk: Any) -> bool:
+        if str(getattr(chunk, "document_type", "")) != "KG-Provision":
+            return False
+        source_ids = {
+            str(cid)
+            for cid in (getattr(chunk, "source_chunk_ids", None) or [])
+            if cid
+        }
+        if source_ids & covered_ids:
+            return True
+        act = str(
+            getattr(chunk, "act_name", "")
+            or getattr(chunk, "document_title", "")
+            or ""
+        )
+        section = str(
+            getattr(chunk, "section_number", "")
+            or getattr(chunk, "clause_number", "")
+            or ""
+        ).strip()
+        if not act or not section:
+            return False
+        # ``backfill_key_variants`` normalises both sides: the graph names
+        # sections ``fssai:s57`` while the corpus stamps ``57``, and the old
+        # raw-string comparison silently missed that pair.
+        return bool(set(backfill_key_variants(act, section)) & covered_keys)
+
     out: list[list[Any]] = []
     for ranked in chunk_lists:
-        kept = [
-            chunk
-            for chunk in ranked
-            if not (
-                str(getattr(chunk, "document_type", "")) == "KG-Provision"
-                and (
-                    _norm_act(getattr(chunk, "document_title", "")),
-                    str(getattr(chunk, "section_number", "") or "").strip(),
-                )
-                in covered
-            )
-        ]
-        out.append(kept)
+        out.append([chunk for chunk in ranked if not _is_covered(chunk)])
     return out
 
 
@@ -531,10 +618,11 @@ def provisions_to_retrieved_chunks(
                 if _key in backfill:
                     backfilled_body = backfill[_key]
                     break
-        if body:
-            parts.append(body)
-        elif backfilled_body:
-            parts.append(backfilled_body)
+        # Prefer the fuller body: a header-only graph text must not beat a
+        # backfilled statutory body just because it arrived in the first alias.
+        resolved_body = max((body or "", backfilled_body or ""), key=len).strip()
+        if resolved_body:
+            parts.append(resolved_body)
         else:
             parts.append("[No statutory text available for this provision.]")
 
@@ -550,9 +638,36 @@ def provisions_to_retrieved_chunks(
                 document_title=instrument or title,
                 document_type="KG-Provision",
                 authority=auth,
+                source_chunk_ids=[
+                    str(cid)
+                    for cid in (p.get("source_chunk_ids") or [])
+                    if cid
+                ],
+                body_char_count=len(resolved_body),
             ),
         )
     return chunks
+
+
+def filter_injectable_kg_chunks(
+    chunks: Iterable[Any],
+    min_body_chars: int = 0,
+) -> list[Any]:
+    """Keep only KG chunks with enough statutory body to be useful evidence.
+
+    Pointer-only KG provisions still carry identity (number, instrument,
+    status) but no quotable text.  Fusing them spends prompt slots that vector
+    evidence could use, which is the measured failure mode.  ``0`` preserves
+    the historical behaviour (emit everything); the production fusion path
+    passes ``cfg.kg_min_body_chars``.
+    """
+    if min_body_chars <= 0:
+        return list(chunks)
+    return [
+        chunk
+        for chunk in chunks
+        if int(getattr(chunk, "body_char_count", 0) or 0) >= min_body_chars
+    ]
 
 
 def _norm_text(value: Any) -> str:
@@ -572,7 +687,10 @@ def backfill_key(instrument: str, number: str, provision_id: str = "") -> tuple[
     and currently unused.
     """
     sec = str(number or "").split(":")[-1].strip().lower()
-    return (_norm_text(instrument), _norm_text(sec))
+    # ``_norm_act`` strips a leading article ("The Food Safety..." ->
+    # "Food Safety...") before punctuation collapse, so corpus and graph
+    # titles match whether or not the drafter included the article.
+    return (_norm_text(_norm_act(instrument)), _norm_text(sec))
 
 
 def backfill_key_variants(instrument: str, number: str,

@@ -107,6 +107,7 @@ Files the engineering skills read before acting:
 ## Domain reference
 
 - [domain/KNOWLEDGE_GRAPH.md](domain/KNOWLEDGE_GRAPH.md) — Knowledge-graph model and construction
+- [knowledge_graph/README.md](knowledge_graph/README.md) — Knowledge-graph engine for Legal RAG: unified schema, legal edges, hybrid search API, incremental upsert, and tests
 - [domain/AI_MODULE_MEMORY.md](domain/AI_MODULE_MEMORY.md) — Cross-session memory of AI-module decisions
 
 ## Implemented

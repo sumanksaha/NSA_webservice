@@ -560,6 +560,8 @@ When `RAG_RERANKER_ENDPOINT` is set, the CE head is scored via TEI HTTP endpoint
 | RAG_IDENTIFIER_ROUTE | bool | true | Enable identifier-based retrieval routing |
 | RAG_KG_FUSION | bool | false | Enable KG contract fusion |
 | RAG_KG_EXPANSION | bool | false | Enable KG graph expansion |
+| RAG_KG_FAIR_FUSION | bool | true | Protect vector top-k; KG fills only spare context slots |
+| RAG_KG_MIN_BODY_CHARS | int | 200 | Minimum resolved statutory body for KG injection |
 | RAG_HALLUCINATION_DETECTOR | bool | true | Enable hallucination detection |
 | RAG_FULL_ENRICHMENT | bool | false | Enable full Phase 2 enrichment |
 | RAG_AGENT_CHECKPOINTER | string | memory | Agent checkpointer type (memory/postgres) |

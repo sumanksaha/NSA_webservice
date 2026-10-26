@@ -75,6 +75,29 @@ class TestRescoreProvenance:
         assert skipped == ["Q1"]
         assert out[0]["m"]["citation_recall"] == 0.9
 
+    def test_rescore_expands_kg_source_chunk_aliases(self):
+        """A cited ``KG:*`` chunk is credited through ``source_chunk_ids``."""
+        rows = [_row("Q1", answer="Penalty applies. [Source 1]", gold=["gold"], recall=0.0)]
+        rows[0]["pool_chunk_ids"] = ["KG:prov1", "other"]
+        rows[0]["pool_source_chunk_ids"] = {"KG:prov1": ["gold"]}
+        out, skipped = _rescore_rows(rows)
+        assert skipped == []
+        assert out[0]["m"]["citation_recall"] == 1.0
+        assert out[0]["m"]["gold_in_prompt"] == 1
+
+
+class TestCitationIdentity:
+    def test_cited_ids_include_source_chunk_aliases(self):
+        from app.rag.retrieval.result import RetrievedChunk
+
+        chunk = RetrievedChunk(
+            chunk_id="KG:prov1",
+            score=0.0,
+            text="",
+            source_chunk_ids=["gold", "qdrant-gold"],
+        )
+        assert ab_kg_fusion._cited_ids([chunk]) == {"KG:prov1", "gold", "qdrant-gold"}
+
 
 class TestReportLabelsStaleRows:
     @staticmethod

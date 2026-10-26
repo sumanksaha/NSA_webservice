@@ -41,11 +41,11 @@ class CaseFile(db.Model):
     retailer_fssai = db.Column(db.String(50), nullable=False)
     retailer_name = db.Column(db.String(200), nullable=False)
     retailer_fbo_name = db.Column(db.String(200), nullable=False)
-    retailer_address = db.Column(db.Text, nullable=False)    # RCM (Retailer-cum-Manufacturer) loose foods: prepared and sold by the
+    retailer_address = db.Column(
+        db.Text, nullable=False
+    )  # RCM (Retailer-cum-Manufacturer) loose foods: prepared and sold by the
     # retailer — no separate manufacturer, no batch/mfg/expiry details.
-    retailer_cum_manufacturer = db.Column(
-        db.Boolean, nullable=False, default=False, server_default=db.text("0")
-    )
+    retailer_cum_manufacturer = db.Column(db.Boolean, nullable=False, default=False, server_default=db.text("0"))
 
     # Product details
     product_name = db.Column(db.String(200), nullable=False)
@@ -84,6 +84,7 @@ class CaseFile(db.Model):
 
     # Audit & Sync fields
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
     synced_at = db.Column(db.DateTime, nullable=True)
 
     # Archive (soft-delete): archived rows are hidden from case lists but
@@ -177,6 +178,7 @@ class Adjudication(db.Model):
 
     # Audit & Sync fields
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
     synced_at = db.Column(db.DateTime, nullable=True)
 
     # Archive (soft-delete): archived rows are hidden from case lists but
@@ -188,6 +190,37 @@ class Adjudication(db.Model):
     # Photo evidence — unified Evidence model (Phase 5); photos are
     # queried via ``Evidence.query.filter_by(adjudication_id=...,
     # evidence_type="photo")`` rather than an ORM relationship.
+
+
+class Section(db.Model):
+    """Statutory section / sub-section used for knowledge-graph enrichment.
+
+    Rows are the canonical source of metadata (``full_text``, effective /
+    expiry dates, jurisdiction) attached to ``section`` KG nodes produced by
+    :class:`app.knowledge_graph.engine.KnowledgeGraphEngine`.  Rows may be
+    seeded from the FSSAI corpus; lookup by ``section_number`` gracefully
+    returns ``None`` when no row exists, in which case the engine falls back
+    to un-enriched section nodes.
+    """
+
+    __tablename__ = "kg_sections"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    section_number = db.Column(db.String(32), nullable=False, unique=True, index=True)
+    act = db.Column(db.String(120), nullable=False, default="FSS Act, 2006")
+    title = db.Column(db.String(200), nullable=True)
+    full_text = db.Column(db.Text, nullable=True)
+    effective_date = db.Column(db.DateTime, nullable=True)
+    expiry_date = db.Column(db.DateTime, nullable=True)
+    jurisdiction = db.Column(db.String(80), nullable=True)
+    source_table = db.Column(db.String(64), nullable=True)
+    source_id = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC))
+
+    __table_args__ = (db.Index("idx_kg_sections_number_act", "section_number", "act"),)
+
+    def __repr__(self) -> str:
+        return f"<Section {self.section_number} ({self.act})>"
 
 
 class Annexure(db.Model):
@@ -502,6 +535,7 @@ class Entity(db.Model):
     metadata_json = db.Column(db.Text, nullable=True)  # JSON blob of extra attributes
 
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC))
+    graph_last_modified = db.Column(db.DateTime, nullable=True)
 
     __table_args__ = (
         db.Index("idx_entity_type", "entity_type"),
@@ -529,6 +563,7 @@ class Relationship(db.Model):
     weight = db.Column(db.Float, nullable=True)
 
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC))
+    graph_last_modified = db.Column(db.DateTime, nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint("source_id", "target_id", "relationship_type", name="uq_relationship_edge"),
@@ -539,3 +574,42 @@ class Relationship(db.Model):
 
     def __repr__(self) -> str:
         return f"<Relationship {self.source_id}->{self.target_id} ({self.relationship_type})>"
+
+
+class AdjudicationEntity(db.Model):
+    """Knowledge-graph node for adjudication graphs."""
+
+    __tablename__ = "adjudication_entity"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_type = db.Column(db.String(64), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    source_table = db.Column(db.String(64), nullable=True)
+    source_id = db.Column(db.Integer, nullable=True)
+    metadata_json = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC))
+    graph_last_modified = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (db.Index("idx_adj_entity_type", "entity_type"),)
+
+
+class AdjudicationRelationship(db.Model):
+    """Knowledge-graph edge between adjudication entities."""
+
+    __tablename__ = "adjudication_relationship"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    source_id = db.Column(db.Integer, db.ForeignKey("adjudication_entity.id", ondelete="CASCADE"), nullable=False)
+    target_id = db.Column(db.Integer, db.ForeignKey("adjudication_entity.id", ondelete="CASCADE"), nullable=False)
+    relationship_type = db.Column(db.String(64), nullable=False)
+    weight = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC))
+    graph_last_modified = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("source_id", "target_id", "relationship_type", name="uq_adj_relationship_edge"),
+        db.Index("idx_adj_relationship_source_id", "source_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AdjudicationRelationship {self.source_id}->{self.target_id} ({self.relationship_type})>"

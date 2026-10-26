@@ -47,6 +47,16 @@ class RetrievedChunk:
     #: mirrors ``domain`` for traceability and eval harnessing.
     collection: str = ""
 
+    #: KG-provision evidence can point at the corpus chunk(s) that support it.
+    #: Keeping those ids on the chunk lets dedupe and citation scoring match a
+    #: graph provision against the vector evidence it represents (a KG chunk's
+    #: own ``chunk_id`` lives in the ``KG:`` namespace and is not a gold id).
+    source_chunk_ids: list[str] = field(default_factory=list)
+
+    #: Length of the resolved statutory body (not the header/metadata lines).
+    #: Fusion uses this to keep pointer-only KG stubs out of the prompt.
+    body_char_count: int = 0
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "chunk_id": self.chunk_id,
@@ -64,6 +74,8 @@ class RetrievedChunk:
             "document_id": self.document_id,
             "domain": self.domain,
             "collection": self.collection,
+            "source_chunk_ids": list(self.source_chunk_ids),
+            "body_char_count": self.body_char_count,
         }
 
     @classmethod
@@ -84,6 +96,8 @@ class RetrievedChunk:
             document_id=data.get("document_id", ""),
             domain=data.get("domain", ""),
             collection=data.get("collection", ""),
+            source_chunk_ids=[str(c) for c in (data.get("source_chunk_ids") or []) if c],
+            body_char_count=int(data.get("body_char_count") or 0),
         )
 
     @classmethod
