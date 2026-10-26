@@ -245,9 +245,11 @@ classify ──► retrieve ──► generate ──► verify ──► finali
 
 ## Project Status & Capabilities
 
-**Version:** 0.9.1 (Pre‑Production)
+**Version:** Oct/2026
 
-The platform provides an end‑to‑end solution for food safety inspections, sample management, adjudication, and reporting. The current release is documented in [CHANGELOG.md](CHANGELOG.md); integration activity recorded since the 0.9.1 publication of 2026‑09‑30 — the Schedule and Notepad blueprints, the RAG answer‑feedback and autoresearch loop, and the section/act‑scoped structural retrieval arm — is summarised under Unreleased pending versioned release. The most recent pass (2026‑10‑20) deepened seven RAG seams: shared model runtime, Qdrant construction/filter, point → chunk conversion, chunk field access, orphan codegen cleanup, the benchmark/metrics type boundary, and the query-type registry migration. Key capabilities include:
+Release nomenclature: base releases use month/year (`Mon/YYYY`, e.g. `Oct/2026`); minor/patch releases append `.N` (e.g. `Oct/2026.1`, `Oct/2026.2`). The next base release rolls to the calendar month (`Nov/2026`). This nomenclature is effective from this release forward.
+
+The platform provides an end‑to‑end solution for food safety inspections, sample management, adjudication, and reporting. The current release is documented in [CHANGELOG.md](CHANGELOG.md); integration activity recorded since the `Oct/2026` publication — the Schedule and Notepad blueprints, the RAG answer‑feedback and autoresearch loop, the Knowledge Graph Legal RAG roadmap (schema adapter, legal edges, adjudication persistence, hybrid search API, incremental upsert), and the section/act‑scoped structural retrieval arm — is summarised under Unreleased pending versioned release. The most recent pass (2026‑10‑20) deepened seven RAG seams: shared model runtime, Qdrant construction/filter, point → chunk conversion, chunk field access, orphan codegen cleanup, the benchmark/metrics type boundary, and the query-type registry migration. Key capabilities include:
 
 - **Inspection Management** with photo verification and geo‑tagging.
 - **Sample Tracking** with unique code generation, lab submission, and analyst reporting.
