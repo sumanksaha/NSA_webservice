@@ -348,7 +348,7 @@ jobs:
 
             - name: Upload Bandit SARIF results
               if: always()
-              uses: github/codeql-action/upload-sarif@v4.39.0
+              uses: github/codeql-action/upload-sarif@v4.39.1
               with:
                   sarif_file: bandit-results.sarif
                   category: bandit
