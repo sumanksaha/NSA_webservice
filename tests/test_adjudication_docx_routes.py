@@ -19,6 +19,11 @@ import pytest
 from app import create_app
 from app.models import Adjudication
 
+# Full document pipeline (Jinja2 → pandoc → DOCX): an integration test, not a
+# unit test. It stays out of the memory-constrained fast job and runs with the
+# slow suite.
+pytestmark = pytest.mark.slow
+
 
 @pytest.fixture
 def client():

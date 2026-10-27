@@ -24,6 +24,12 @@ from app import create_app
 from app.extensions import db
 from app.models import CaseFile
 
+# Full document pipeline (Jinja2 → pandoc → DOCX): an integration test, not a
+# unit test. It stays out of the memory-constrained fast job — executing it there
+# reproducibly got the runner shut down ("The runner has received a shutdown
+# signal") — and runs with the slow suite instead.
+pytestmark = pytest.mark.slow
+
 
 @pytest.fixture
 def client():
