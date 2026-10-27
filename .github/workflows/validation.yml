@@ -178,7 +178,10 @@ jobs:
     test-fast:
         name: Fast Tests (Pytest, no slow)
         runs-on: ubuntu-24.04
-        timeout-minutes: 10
+        # ~12-13 min of real work (166 files, no single pathological file).
+        # 10 minutes cancelled the job mid-run; xdist is not an option because
+        # tests/conftest.py pins one SQLite database and modules call drop_all().
+        timeout-minutes: 20
         steps:
             - name: Checkout repository
               uses: actions/checkout@v7

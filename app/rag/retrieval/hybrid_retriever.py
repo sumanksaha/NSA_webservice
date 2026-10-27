@@ -341,7 +341,15 @@ class HybridRetriever:
         # Optional reranking
         if self.reranker is not None and fused_chunks:
             try:
-                fused_chunks = self.reranker.rerank(query, fused_chunks, top_k=top_k, query_type=query_type)
+                reranked = self.reranker.rerank(query, fused_chunks, top_k=top_k, query_type=query_type)
+                # An empty rerank result would read as "no evidence" even
+                # though both arms matched. Keep the fused pool in that case:
+                # the reranker is a re-ordering stage, never a filter.
+                if reranked:
+                    fused_chunks = reranked
+                else:
+                    logger.warning("Reranker returned no chunks; keeping the %d fused results", len(fused_chunks))
+                    fused_chunks = fused_chunks[:top_k]
             except (ConnectionError, RuntimeError) as exc:
                 logger.warning("Reranker failed, returning unfused results: %s (%s)", exc, type(exc).__name__)
                 fused_chunks = fused_chunks[:top_k]

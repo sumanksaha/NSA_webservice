@@ -299,13 +299,16 @@ def test_expand_query_node_stub_llm_returns_something():
 
 
 def test_expand_query_node_keeps_query_on_llm_failure(monkeypatch):
-    import app.rag.generation.llm_client as llm_mod
+    # The node resolves its client through the shared spend-control seam
+    # (app.shared.llm_client.get_llm_client), not by constructing
+    # GroundedLLMClient in the generation module — patch where it is read.
+    import app.shared.llm_client as llm_mod
 
     class FailingClient:
         def call(self, *args, **kwargs):
             return type("R", (), {"success": False, "text": ""})()
 
-    monkeypatch.setattr(llm_mod, "GroundedLLMClient", lambda *a, **k: FailingClient())
+    monkeypatch.setattr(llm_mod, "get_llm_client", lambda *a, **k: FailingClient())
     out = expand_query_node(_make_state())
     assert out["expanded_query"] == "penalty for selling substandard food"
     assert out["retry_count"] == 1

@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (2026-10-25) — CI RAG test isolation + fast-test timeout
+
+- **Reranker can no longer turn a good pool into "no evidence"**
+  (`app/rag/retrieval/reranker.py`): a cross-encoder that returns fewer scores
+  than it was given chunks — a stub, a mocked module, a broken wrapper — is now
+  treated as a reranker failure and falls back to the deterministic
+  text-overlap reranker. It used to return `[]` silently.
+- **`HybridRetriever` keeps the fused pool when the reranker returns nothing**
+  (`app/rag/retrieval/hybrid_retriever.py`): reranking is a re-ordering stage,
+  never a filter. Previously an empty rerank result propagated as
+  `total=0`, which read downstream as "this query has no evidence".
+- **`tests/test_experiment_d_helpers.py` no longer leaks process-global stubs**:
+  the `matplotlib` / `torch` / `sentence_transformers` stubs were installed into
+  `sys.modules` at import time and never removed, which poisoned every later
+  module in the CI slow-test job — `model_runtime` resolved `CrossEncoder` to a
+  `_AnyStub` whose `predict()` iterates as empty. The stubs are now installed by
+  the module's fixture and uninstalled (plus `model_runtime.clear_model_cache()`)
+  when the module finishes.
+- **`tests/test_rag_agent_nodes.py` patches the live expand-query seam**: the
+  node resolves its client via `app.shared.llm_client.get_llm_client`, so the
+  failure-path test patches that instead of the retired
+  `app.rag.generation.llm_client.GroundedLLMClient`.
+- **`Fast Tests` timeout raised 10 → 20 minutes** (`.github/workflows/validation.yml`):
+  the suite is ~12–13 minutes across 166 files with no single slow outlier, so
+  the old limit cancelled the job mid-run. `pytest-xdist` is not safe here
+  (one pinned SQLite database, `drop_all()` in module fixtures).
+
 ### Security (2026-10-25) — filelock CVE floor, retire `safety` dev pin
 
 - Pinned `filelock>=4.2.1` in `[project.dependencies]`. The package arrives
