@@ -37,6 +37,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   independent jobs take a deterministic third each (round-robin over the sorted
   file list) with a 15-minute limit. `pytest-xdist` is not safe here: `tests/conftest.py`
   pins one SQLite database, and modules call `drop_all()`/`create_all()`.
+- **`Prohibition_order.adoc` closes its AsciiDoc comment block**
+  (`app/case_file_generator/templates/case_file_generator/Prohibition_order.adoc`):
+  the block opened with `////` on line 1 but was terminated with `//`, so the
+  whole template stayed inside a comment. Pandoc's `asciidoc` reader does not
+  reject that — it loops forever while allocating, which is what shut the runner
+  down (`exit code 143`) with no pytest output at all. Reproduced with pandoc
+  3.11: `////\nfoo\n` never returns, `////\nfoo\n////\n` converts in 0.2s.
+- **`_pandoc_asciidoc_to_docx` is now bounded** (`app/shared/adoc_renderer.py`):
+  a 30-second `PANDOC_TIMEOUT_SECONDS` cap makes a hung converter fall back to the
+  python-docx renderer instead of stalling the request (and the CI job) forever.
+  `tests/test_adoc_renderer.py` covers the timeout, the missing-binary path, and
+  asserts every `.adoc` template has balanced `////` fences.
 
 ### Security (2026-10-25) — filelock CVE floor, retire `safety` dev pin
 
