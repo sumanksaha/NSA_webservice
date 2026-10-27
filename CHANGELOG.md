@@ -29,10 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   node resolves its client via `app.shared.llm_client.get_llm_client`, so the
   failure-path test patches that instead of the retired
   `app.rag.generation.llm_client.GroundedLLMClient`.
-- **`Fast Tests` timeout raised 10 → 20 minutes** (`.github/workflows/validation.yml`):
-  the suite is ~12–13 minutes across 166 files with no single slow outlier, so
-  the old limit cancelled the job mid-run. `pytest-xdist` is not safe here
-  (one pinned SQLite database, `drop_all()` in module fixtures).
+- **`Fast Tests` now runs as three shards** (`.github/workflows/validation.yml`,
+  `scripts/ci_shard.py`): the unsplit suite needs ~10–16 minutes and accumulates
+  enough memory that the runner is shut down mid-run — reproducibly at ~68%,
+  while the DOCX/PDF modules load, logged as `The runner has received a shutdown
+  signal` (a genuine timeout says `The operation was canceled.`). Three
+  independent jobs take a deterministic third each (round-robin over the sorted
+  file list) with a 15-minute limit. `pytest-xdist` is not safe here: `tests/conftest.py`
+  pins one SQLite database, and modules call `drop_all()`/`create_all()`.
 
 ### Security (2026-10-25) — filelock CVE floor, retire `safety` dev pin
 
