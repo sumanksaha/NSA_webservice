@@ -22,6 +22,11 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "evaluation"))
 
+# The evaluation package hard-imports the scientific stack at module scope.
+# The fast CI job deliberately does not install it, and a module-level
+# ImportError here aborts collection for the *whole* suite — skip instead.
+pytest.importorskip("matplotlib")
+
 import evaluation.step3_gated_generation as s
 from evaluation.resolution import FamilyMap
 from evaluation.step3_gated_generation import (
