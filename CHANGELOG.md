@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scoring at upload**: inspection photo uploads (`POST /inspection/photo-upload`) now run the scorer between storage and the Evidence insert; the photo and its assessment land in one transaction, and a scoring failure never blocks the upload.
 - **Apply-suggestion endpoint**: `POST /inspection/<id>/checklist/apply-suggestion` accepts `{"fields": [...]}` and writes the correct form polarity (checklist fields → `"no"`, `artificial_colour`/`Expired_item` → `"yes"`).
 
+### Fixed (2026-10-28)
+
+- **Casefile validation: sections 51 and 52 now allowed** (`app/utils/sections_data.py`, `app/utils/suggester.py`, `app/validation/rules.py`): FSS Act sections 51 (sub-standard) and 52 (mis-branded) were added to `VALID_SECTION_IDS`, so casefiles citing them no longer fail the `StatutoryReferenceRule` warning. The validator message now lists the tracked sections dynamically instead of a stale hardcoded list.
+- **Work Diary note: only mention samples when count > 0** (`app/diary.py`): the premises/samples count sentence now reports each count only when it is non-zero, instead of the combined `(premises or samples)` guard that wrote "collected 0 sample(s)" on days with premises but no samples.
+
 ### Added (2026-10-20) — RAG architecture deepening pass (C1–C7)
 
 - **Shared RAG model runtime** (`app/rag/model_runtime.py`, ADR-0012): one
