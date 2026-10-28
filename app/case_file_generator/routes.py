@@ -169,9 +169,7 @@ def validate_case_file_form(form_data: dict) -> dict[str, str]:
     # Designated Officer when the permission file is submitted, i.e. after
     # first data entry.  It stays editable and gates petition generation.
     standard_required = tuple(
-        field
-        for field, label in _REQUIRED_FIELDS.items()
-        if field not in ("authorization_date", *_RCM_EXEMPT_FIELDS)
+        field for field, label in _REQUIRED_FIELDS.items() if field not in ("authorization_date", *_RCM_EXEMPT_FIELDS)
     )
     for field, label in _REQUIRED_FIELDS.items():
         if field not in standard_required:
@@ -1098,7 +1096,8 @@ def _unsafe_offender_table_rows(case_data: dict) -> list[dict]:
 
 
 def _compute_per_packet_sample_quantity(
-    sample_quantity: str | None, packet_count: str | int | None,
+    sample_quantity: str | None,
+    packet_count: str | int | None,
 ) -> str:
     """Derive per-packet sample quantity for the (per_packet X packet_count = sample_quantity) equation.
 
@@ -1195,7 +1194,8 @@ def download_prohibition_order_docx(case_id: int):
     # packet_count, formatted for the
     # "(per_packet X packet_count = sample_quantity)" equation in the letter.
     case_data["per_packet_sample_quantity"] = _compute_per_packet_sample_quantity(
-        case_data.get("sample_quantity"), case_data.get("packet_count"),
+        case_data.get("sample_quantity"),
+        case_data.get("packet_count"),
     )
 
     # A prohibition order is issued only to a separate manufacturer. Prepared/
@@ -1243,8 +1243,7 @@ def download_both_docx(case_id: int):
         return (
             jsonify(
                 {
-                    "error": "Petition/permission not available for unsafe cases; "
-                    "download the unsafe file instead",
+                    "error": "Petition/permission not available for unsafe cases; download the unsafe file instead",
                 },
             ),
             403,

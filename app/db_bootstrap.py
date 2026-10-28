@@ -388,9 +388,10 @@ def _bootstrap_locked(app: Flask, engine) -> None:
                 # for a genuinely broken database.
                 db.session.rollback()
                 app.logger.warning(
-                    "Admin seed collided (%s) — continuing boot; the account "
-                    "exists if a concurrent boot committed it.",
+                    "Admin seed collided (%s) — continuing boot; the account exists if a concurrent boot committed it.",
                     type(exc).__name__,
                 )
             else:
-                app.logger.info("Default admin account created (username=admin). Change the password after first login.")
+                app.logger.info(
+                    "Default admin account created (username=admin). Change the password after first login."
+                )
