@@ -92,6 +92,8 @@ _DATE_FIELDS: list[str] = [
     "directive_letter_date",
     "retailer_report_receive_date",
     "manufacturer_report_receive_date",
+    "case_submission_date",
+    "hearing_date",
 ]
 
 
@@ -367,6 +369,8 @@ def case_file_to_dict(case_file):
         "directive_letter_date",
         "retailer_report_receive_date",
         "manufacturer_report_receive_date",
+        "case_submission_date",
+        "hearing_date",
         "archived_at",
         "created_at",
         "synced_at",
@@ -451,6 +455,9 @@ def apply_case_file_update(case_file, form_data: dict) -> None:
     case_file.retailer_report_receive_date = parse_date(form_data.get("retailer_report_receive_date", ""))
     case_file.applicable_regulation = form_data.get("applicable_regulation", "")
     case_file.applicable_clause = form_data.get("applicable_clause", "")
+    case_file.case_submission_date = parse_date(form_data.get("case_submission_date", ""))
+    case_file.hearing_date = parse_date(form_data.get("hearing_date", ""))
+    case_file.penalty = (form_data.get("penalty") or "").strip()
     case_file.applicable_sections = ", ".join(get_applicable_sections(form_data))
 
 
@@ -505,6 +512,9 @@ def _process_case_file_form(form_data):
         manufacturer_report_receive_date=parse_date(form_data.get("manufacturer_report_receive_date", "")),
         applicable_regulation=form_data.get("applicable_regulation", ""),
         applicable_clause=form_data.get("applicable_clause", ""),
+        case_submission_date=parse_date(form_data.get("case_submission_date", "")),
+        hearing_date=parse_date(form_data.get("hearing_date", "")),
+        penalty=(form_data.get("penalty") or "").strip(),
         applicable_sections=", ".join(get_applicable_sections(form_data)),
     )
 

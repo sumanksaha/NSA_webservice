@@ -351,7 +351,11 @@ def _save_slot(
         return "noop"  # unknown activity values are ignored
     if not activity:
         if _is_blank_day(premises, samples, notes, place) or _is_untouched_stored(
-            stored, premises, samples, notes, place,
+            stored,
+            premises,
+            samples,
+            notes,
+            place,
         ):
             return "deleted" if _delete(owner, work_date, duty_seq) else "noop"
         activity = FIELD_ACTIVITY  # numbers (or notes/place) with no activity -> field work
@@ -425,26 +429,28 @@ def bulk():
             # compact it down to slot 1 so a day never holds a bare
             # seq=2 row (the same invariant as pre-save promotion above).
             present = {
-                seq: outcomes[seq] == "saved"
-                or (day_entries.get(seq) is not None and outcomes[seq] == "noop")
+                seq: outcomes[seq] == "saved" or (day_entries.get(seq) is not None and outcomes[seq] == "noop")
                 for seq in (1, 2)
             }
             if not present[1] and present[2]:
                 survivor = db.session.get(
-                    WorkDiaryEntry, {"fso_name": owner, "work_date": work_date, "duty_seq": 2},
+                    WorkDiaryEntry,
+                    {"fso_name": owner, "work_date": work_date, "duty_seq": 2},
                 )
                 if survivor is not None:
-                    db.session.add(WorkDiaryEntry(
-                        fso_name=owner,
-                        work_date=work_date,
-                        duty_seq=1,
-                        activity=survivor.activity,
-                        premises=survivor.premises,
-                        samples=survivor.samples,
-                        notes=survivor.notes,
-                        place_of_visit=survivor.place_of_visit,
-                        summary=survivor.summary,
-                    ))
+                    db.session.add(
+                        WorkDiaryEntry(
+                            fso_name=owner,
+                            work_date=work_date,
+                            duty_seq=1,
+                            activity=survivor.activity,
+                            premises=survivor.premises,
+                            samples=survivor.samples,
+                            notes=survivor.notes,
+                            place_of_visit=survivor.place_of_visit,
+                            summary=survivor.summary,
+                        )
+                    )
                     db.session.delete(survivor)
                     # The day compacted rather than cleared: drop its
                     # delete mark (a save mark, if any, already stands).
@@ -498,7 +504,12 @@ def bulk():
     daily_activity = [
         e["summary"]
         or _summary_line(
-            e["work_date"], e["activity"], e["premises"], e["samples"], e["notes"], e.get("place_of_visit", ""),
+            e["work_date"],
+            e["activity"],
+            e["premises"],
+            e["samples"],
+            e["notes"],
+            e.get("place_of_visit", ""),
         )
         for e in sorted(month_entries, key=lambda e: (e["work_date"], e.get("duty_seq", 1)))
     ]

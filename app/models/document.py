@@ -87,6 +87,12 @@ class CaseFile(db.Model):
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
     synced_at = db.Column(db.DateTime, nullable=True)
 
+    # Post-processing placeholder data (not rendered into the petition).
+    # Optional — may be filled by the FSO at any time after case creation.
+    case_submission_date = db.Column(db.DateTime, nullable=True)
+    hearing_date = db.Column(db.DateTime, nullable=True)
+    penalty = db.Column(db.String(200), nullable=True)
+
     # Archive (soft-delete): archived rows are hidden from case lists but
     # retained in the DB and synced to Supabase (is_archived flag included
     # in the upsert payload automatically).
@@ -186,6 +192,12 @@ class Adjudication(db.Model):
     # in the upsert payload automatically).
     is_archived = db.Column(db.Boolean, nullable=False, default=False)
     archived_at = db.Column(db.DateTime, nullable=True)
+
+    # Post-processing placeholder data (not rendered into the petition).
+    # Optional — may be filled by the FSO at any time after case creation.
+    case_submission_date = db.Column(db.DateTime, nullable=True)
+    hearing_date = db.Column(db.DateTime, nullable=True)
+    penalty = db.Column(db.String(200), nullable=True)
 
     # Photo evidence — unified Evidence model (Phase 5); photos are
     # queried via ``Evidence.query.filter_by(adjudication_id=...,

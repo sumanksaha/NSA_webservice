@@ -244,6 +244,23 @@
             </div>
         </div>
 
+        <!-- Post-processing placeholder data (not rendered into petition) -->
+        <div class="section-header"><h3>Post-Processing Data</h3></div>
+        <div class="form-row form-row--3">
+            <div class="form-group">
+                <label for="case_submission_date" class="form-label">Date of Submission of Case</label>
+                <input type="date" id="case_submission_date" name="case_submission_date" class="form-input" value="{{ form.case_submission_date or '' }}" />
+            </div>
+            <div class="form-group">
+                <label for="hearing_date" class="form-label">Date of Hearing</label>
+                <input type="date" id="hearing_date" name="hearing_date" class="form-input" value="{{ form.hearing_date or '' }}" />
+            </div>
+            <div class="form-group">
+                <label for="penalty" class="form-label">Penalty</label>
+                <input type="text" id="penalty" name="penalty" class="form-input" value="{{ form.penalty or '' }}" placeholder="e.g., Rs 50,000" />
+            </div>
+        </div>
+
         <div class="actions-centered">
             <button type="submit" class="btn btn-primary btn-lg" {% if is_archived %}disabled{% endif %}>
                 <i class="fa-solid fa-save"></i> Save Changes

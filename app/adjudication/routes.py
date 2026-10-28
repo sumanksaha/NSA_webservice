@@ -100,6 +100,8 @@ def adjudication_to_dict(adj):
         "Complaint_date",
         "inspection_date",
         "authorization_date",
+        "case_submission_date",
+        "hearing_date",
         "created_at",
         "synced_at",
         "archived_at",
@@ -167,6 +169,9 @@ concerned_food=form_data.get("concerned_food", ""),
         section_58=form_data.get("section_58", "no"),
         section_63=form_data.get("section_63", "no"),
         section_64=form_data.get("section_64", "no"),
+        case_submission_date=parse_date(form_data.get("case_submission_date", "")),
+        hearing_date=parse_date(form_data.get("hearing_date", "")),
+        penalty=form_data.get("penalty", ""),
         is_reinspection=form_data.get("is_reinspection", "no") in ("on", "true", "1", "yes", "Yes"),
         days_allowed_for_errors=int(form_data.get("days_allowed_for_errors")) if form_data.get("days_allowed_for_errors") else None,
         errors_in_second_inspection=int(form_data.get("errors_in_second_inspection")) if form_data.get("errors_in_second_inspection") else None,
@@ -189,6 +194,8 @@ def _format_adjudication_dates(context: dict) -> dict:
         # The follow-up date is stored on the model as ``inspection_date``.
         ("followup_inspection_date", "inspection_date"),
         ("authorization_date", "authorization_date"),
+        ("case_submission_date", "case_submission_date"),
+        ("hearing_date", "hearing_date"),
     ]
     for template_key, model_key in pairs:
         raw = context.get(template_key)
@@ -261,6 +268,8 @@ _ADJUDICATION_DATE_FIELDS: list[str] = [
     "complaint_date",
     "followup_inspection_date",
     "authorization_date",
+    "case_submission_date",
+    "hearing_date",
 ]
 
 
@@ -324,6 +333,9 @@ _ADJUDICATION_FORM_FIELDS: tuple[str, ...] = (
     "section_58",
     "section_63",
     "section_64",
+    "case_submission_date",
+    "hearing_date",
+    "penalty",
 )
 
 # Form field -> model column for date fields with mismatched names.
@@ -333,6 +345,8 @@ _ADJUDICATION_DATE_MAP: dict[str, str] = {
     "complaint_date": "Complaint_date",
     "followup_inspection_date": "inspection_date",
     "authorization_date": "authorization_date",
+    "case_submission_date": "case_submission_date",
+    "hearing_date": "hearing_date",
 }
 
 
@@ -371,6 +385,16 @@ def apply_adjudication_update(adj, form_data: dict) -> None:
             else form_data.get(form_field)
         )
         setattr(adj, model_col, parse_date(raw) if raw else None)
+
+    # Post-processing placeholder fields (optional)
+    if "case_submission_date" in form_data:
+        raw = (form_data.get("case_submission_date") or "").strip()
+        adj.case_submission_date = parse_date(raw) if raw else None
+    if "hearing_date" in form_data:
+        raw = (form_data.get("hearing_date") or "").strip()
+        adj.hearing_date = parse_date(raw) if raw else None
+    if "penalty" in form_data:
+        adj.penalty = (form_data.get("penalty") or "").strip()
 
     # Reinspection fields (type-converted)
     if "is_reinspection" in form_data:
@@ -796,6 +820,9 @@ def _create_adjudication_with_sync(form_data: dict) -> Adjudication:
         "section_58",
         "section_63",
         "section_64",
+        "case_submission_date",
+        "hearing_date",
+        "penalty",
     }
     try:
         row_dict = {k: v for k, v in form_data.items() if k in allowed_sheets_columns}
