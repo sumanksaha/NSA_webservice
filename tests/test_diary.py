@@ -202,6 +202,23 @@ class TestSave:
         )
         assert "Inspected 3 premises" in _summary_line("2026-03-05", "field", 3, 2, "", "")
 
+    def test_zero_samples_hides_collected_sentence(self):
+        # premises > 0 but samples == 0: must NOT print "collected 0 sample(s)".
+        from app.diary import _summary_line, print_activity
+
+        line = _summary_line("2026-03-05", "field", 3, 0, "", "Bazaar")
+        assert "collected 0" not in line, line
+        assert "Inspected 3 premises" in line, line
+
+        line = print_activity("field", 3, 0, "", "Bazaar")
+        assert "collected 0" not in line, line
+        assert "Inspected 3 premises" in line, line
+
+        # samples > 0 but premises == 0: must NOT print "Inspected 0 premises".
+        line = _summary_line("2026-03-05", "field", 0, 2, "", "")
+        assert "Inspected 0" not in line, line
+        assert "collected 2 sample(s)" in line, line
+
     def test_numbers_without_activity_become_field_work(self, env):
         app, clients = env
         _save_day(clients["officerA"], 9, activity="", premises=6, samples=0, notes="")

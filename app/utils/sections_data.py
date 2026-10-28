@@ -1,6 +1,6 @@
 """Canonical FSS Act section reference data.
 
-Loads the FSS Act section reference text (Sections 55, 56, 58, 63, 64) from
+Loads the FSS Act section reference text (Sections 51, 52, 55, 56, 58, 63, 64) from
 ``fss_sections.md`` in the workspace root and exposes it as a dict keyed by
 section number (``SECTIONS``) plus the whitelist of section ids the UI and the
 rule suggester are allowed to work with (``VALID_SECTION_IDS``).
@@ -45,4 +45,4 @@ def load_sections(path: str | Path = SECTION_MD_PATH) -> dict:
 
 
 SECTIONS = load_sections()
-VALID_SECTION_IDS = {"55", "56", "58", "63", "64"}
+VALID_SECTION_IDS = {"51", "52", "55", "56", "58", "63", "64"}

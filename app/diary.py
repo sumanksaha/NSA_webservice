@@ -196,8 +196,14 @@ def _summary_line(work_date: str, activity: str, premises: int, samples: int, no
     where = f" at {place.strip()}" if place.strip() else ""
     label = ACTIVITIES.get(activity, activity)
     line = f"On {work_date}: {label}{where}."
-    if activity in COUNT_ACTIVITIES and (premises or samples):
-        line += f" Inspected {premises} premises, collected {samples} sample(s)."
+    if activity in COUNT_ACTIVITIES:
+        count_parts = []
+        if premises:
+            count_parts.append(f"Inspected {premises} premises")
+        if samples:
+            count_parts.append(f"collected {samples} sample(s)")
+        if count_parts:
+            line += " " + ", ".join(count_parts) + "."
     remarks = (notes or "").strip()
     if remarks:
         line += f" Remarks: {remarks}"
@@ -223,8 +229,14 @@ def print_activity(activity: str, premises: int, samples: int, notes: str, place
         base = derive_diary_purpose(activity) or ACTIVITIES.get(activity, activity)
     where = f" at {place.strip()}" if place.strip() else ""
     line = f"{base}{where}."
-    if activity in COUNT_ACTIVITIES and (premises or samples):
-        line += f" Inspected {premises} premises, collected {samples} sample(s)."
+    if activity in COUNT_ACTIVITIES:
+        count_parts = []
+        if premises:
+            count_parts.append(f"Inspected {premises} premises")
+        if samples:
+            count_parts.append(f"collected {samples} sample(s)")
+        if count_parts:
+            line += " " + ", ".join(count_parts) + "."
     remarks = (notes or "").strip()
     if remarks:
         line += f" Remarks: {remarks}"
