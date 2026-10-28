@@ -53,8 +53,8 @@ inspection.inspection_code }}{% endblock %} {% block content %}
                 </span>
                 {% else %}
                 <span class="status-badge" style="opacity: 0.4">
-                    <i class="fa-solid fa-xmark"></i                                >
-                                No
+                    <i class="fa-solid fa-xmark"></i>
+                    No
                 </span>
                 {% endif %}
             </span>
@@ -65,6 +65,144 @@ inspection.inspection_code }}{% endblock %} {% block content %}
             <span class="detail-value">{{ inspection.sample_code }}</span>
         </div>
         {% endif %}
+
+        <!-- Sample Details Section (when a sample is linked) -->
+        {% if inspection.sample_collected and inspection.sample %}
+        <div class="section-header">
+            <h3><i class="fa-solid fa-flask"></i> Sample Details</h3>
+        </div>
+        <div class="grid--2">
+            <div class="detail-field">
+                <label>Sample Type</label>
+                <span class="detail-value">{{ inspection.sample.sample_type or 'N/A' }}</span>
+            </div>
+            <div class="detail-field">
+                <label>Sample Name</label>
+                <span class="detail-value">{{ inspection.sample.sample_name or 'N/A' }}</span>
+            </div>
+            <div class="detail-field">
+                <label>Collection Date</label>
+                <span class="detail-value">{{ inspection.sample.collection_date or 'N/A' }}</span>
+            </div>
+            <div class="detail-field">
+                <label>Price</label>
+                <span class="detail-value">{{ inspection.sample.price or 'N/A' }}</span>
+            </div>
+            <div class="detail-field">
+                <label>Status</label>
+                <span class="detail-value">
+                    {% set s = inspection.sample.sample_status %}
+                    {% if s == 'substandard' %}<span class="status-badge status-badge--warning">{{ s }}</span>
+                    {% elif s == 'misbranded' %}<span class="status-badge status-badge--warning">{{ s }}</span>
+                    {% elif s == 'unsafe' %}<span class="status-badge status-badge--error">{{ s }}</span>
+                    {% elif s == 'ok' %}<span class="status-badge status-badge--success">{{ s }}</span>
+                    {% else %}{{ s or 'N/A' }}{% endif %}
+                </span>
+            </div>
+            <div class="detail-field">
+                <label>Batch No.</label>
+                <span class="detail-value">{{ inspection.sample.batch_no or 'N/A' }}</span>
+            </div>
+            <div class="detail-field">
+                <label>MFD</label>
+                <span class="detail-value">{{ inspection.sample.mfd or 'N/A' }}</span>
+            </div>
+            <div class="detail-field">
+                <label>EXP</label>
+                <span class="detail-value">{{ inspection.sample.exp or 'N/A' }}</span>
+            </div>
+            <div class="detail-field">
+                <label>Submission Date</label>
+                <span class="detail-value">{{ inspection.sample.submission_date or 'N/A' }}</span>
+            </div>
+            <div class="detail-field">
+                <label>Manufacturer Details</label>
+                <span class="detail-value">{{ inspection.sample.manufacturer_details or 'N/A' }}</span>
+            </div>
+        </div>
+        {% endif %}
+
+
+        <!-- Richer Sample Fields (retailer details, OCR fields) -->
+        {% if inspection.sample_collected and inspection.sample %}
+        <div class="section-header">
+            <h3><i class="fa-solid fa-pen-to-square"></i> Edit Sample Details (Retailer / OCR Fields)</h3>
+        </div>
+        <form id="sampleDetailsForm" onsubmit="updateSampleDetails(event, {{ inspection.id }})">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row form-row--2">
+                <div class="form-group">
+                    <label for="retailer_fssai" class="form-label">Retailer FSSAI</label>
+                    <input type="text" id="retailer_fssai" name="retailer_fssai" class="form-input" value="{{ inspection.sample.retailer_fssai or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="retailer_name" class="form-label">Retailer Name</label>
+                    <input type="text" id="retailer_name" name="retailer_name" class="form-input" value="{{ inspection.sample.retailer_name or '' }}">
+                </div>
+            </div>
+            <div class="form-row form-row--2">
+                <div class="form-group">
+                    <label for="nature_of_food" class="form-label">Nature of Food</label>
+                    <input type="text" id="nature_of_food" name="nature_of_food" class="form-input" value="{{ inspection.sample.nature_of_food or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="batch_no" class="form-label">Batch No.</label>
+                    <input type="text" id="batch_no" name="batch_no" class="form-input" value="{{ inspection.sample.batch_no or '' }}">
+                </div>
+            </div>
+            <div class="form-row form-row--2">
+                <div class="form-group">
+                    <label for="mfd" class="form-label">MFD</label>
+                    <input type="text" id="mfd" name="mfd" class="form-input" value="{{ inspection.sample.mfd or '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="exp" class="form-label">EXP</label>
+                    <input type="text" id="exp" name="exp" class="form-input" value="{{ inspection.sample.exp or '' }}">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label for="manufacturer_details" class="form-label">Manufacturer Details</label>
+                    <textarea id="manufacturer_details" name="manufacturer_details" class="form-textarea">{{ inspection.sample.manufacturer_details or '' }}</textarea>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-save"></i> Save Sample Details
+            </button>
+        </form>
+        {% endif %}
+
+        <!-- Adjudication Actions -->
+        <div class="section-header">
+            <h3><i class="fa-solid fa-scale-balanced"></i> Adjudication Actions</h3>
+        </div>
+        <div class="form-row">
+            {% if inspection.notice_issued_at %}
+            <button type="button" class="btn btn-primary" onclick="launchAdjudication({{ inspection.id }}, false)">
+                <i class="fa-solid fa-scale-balanced"></i> Launch Non-Sample Adjudication
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="launchSampleAdjudication({{ inspection.id }})">
+                <i class="fa-solid fa-flask"></i> Launch Sample Adjudication
+            </button>
+            {% else %}
+            <span class="form-hint">Issue an Improvement Notice first to enable adjudication launch.</span>
+            {% endif %}
+        </div>
+
+        <div id="sampleAdjudicationPicker" style="display: none; margin-top: 1rem;">
+            <div class="form-group">
+                <label for="sample_id_select" class="form-label">Select Sample</label>
+                <select id="sample_id_select" name="sample_id" class="form-select">
+                    <option value="">-- Select a sample --</option>
+                    {% for s in fbo_samples or [] %}
+                    <option value="{{ s.id }}">{{ s.sample_code }} - {{ s.sample_name or 'N/A' }} ({{ s.sample_status or 'N/A' }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="confirmSampleAdjudication({{ inspection.id }})">
+                <i class="fa-solid fa-scale-balanced"></i> Launch Sample Adjudication
+            </button>
+        </div>
     </div>
 
     <div class="section-header">
@@ -87,6 +225,10 @@ inspection.inspection_code }}{% endblock %} {% block content %}
         <div class="detail-field">
             <label>FBO Address</label>
             <span class="detail-value">{{ inspection.fbo_address or 'N/A' }}</span>
+        <div class="detail-field">
+            <label>FBO Type (Premises Type)</label>
+            <span class="detail-value">{{ inspection.fbo_type or 'N/A' }}</span>
+        </div>
         </div>
         <div class="detail-field" style="grid-column: 1 / -1">
             <label>Concerned Food</label>
@@ -1424,6 +1566,93 @@ inspection.inspection_code }}{% endblock %} {% block content %}
                 }
                 alert("Applied " + data.applied.length + " suggestion" +
                     (data.applied.length > 1 ? "s" : "") + " to the checklist.");
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert("Error: " + err.message);
+            });
+        }
+
+        // Launch non-sample adjudication
+        function launchAdjudication(inspectionId, isSample) {
+            if (!confirm("Launch a non-sample adjudication for inspection #" + inspectionId + "?")) {
+                return;
+            }
+            fetch("/inspection/" + inspectionId + "/launch-adjudication", {
+                method: "POST",
+                headers: { "X-CSRFToken": document.querySelector('input[name="csrf_token"]').value },
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    alert("Error: " + data.error);
+                    return;
+                }
+                alert("Adjudication launched (ID: " + data.adjudication_id + ").");
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert("Error: " + err.message);
+            });
+        }
+
+        // Show/hide sample picker for sample-based adjudication
+        function launchSampleAdjudication(inspectionId) {
+            var picker = document.getElementById("sampleAdjudicationPicker");
+            if (picker) {
+                picker.style.display = picker.style.display === "none" ? "block" : "none";
+            }
+        }
+
+        // Confirm sample-based adjudication with selected sample
+        function confirmSampleAdjudication(inspectionId) {
+            var select = document.getElementById("sample_id_select");
+            var sampleId = select ? select.value : "";
+            if (!sampleId) {
+                alert("Please select a sample.");
+                return;
+            }
+            if (!confirm("Launch a sample-based adjudication linking sample #" + sampleId + "?")) {
+                return;
+            }
+            var formData = new FormData();
+            formData.append("sample_id", sampleId);
+            fetch("/inspection/" + inspectionId + "/launch-sample-adjudication", {
+                method: "POST",
+                headers: { "X-CSRFToken": document.querySelector('input[name="csrf_token"]').value },
+                body: formData,
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    alert("Error: " + data.error);
+                    return;
+                }
+                alert("Sample adjudication launched (ID: " + data.adjudication_id + ").");
+                window.location.reload();
+            })
+            .catch(function(err) {
+                alert("Error: " + err.message);
+            });
+        }
+
+        // Update richer sample details (retailer/OCR fields)
+        function updateSampleDetails(e, inspectionId) {
+            e.preventDefault();
+            var form = document.getElementById("sampleDetailsForm");
+            var formData = new FormData(form);
+            fetch("/inspection/" + inspectionId + "/update-sample-details", {
+                method: "POST",
+                headers: { "X-CSRFToken": document.querySelector('input[name="csrf_token"]').value },
+                body: formData,
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error) {
+                    alert("Error: " + data.error);
+                    return;
+                }
+                alert("Sample details updated successfully.");
                 window.location.reload();
             })
             .catch(function(err) {

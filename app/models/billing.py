@@ -81,11 +81,31 @@ class Sample(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     synced_at = db.Column(db.DateTime, nullable=True)
 
+    # Link back to the Inspection that drew this sample (nullable, unique when set).
+    inspection_id = db.Column(
+        db.Integer(),
+        db.ForeignKey("inspection.id", ondelete="SET NULL", use_alter=True),
+        nullable=True,
+    )
+    inspection = db.relationship(
+        "Inspection",
+        backref=db.backref("sample", uselist=False),
+        foreign_keys=[inspection_id],
+    )
+
+    # Sample status captured at inspection time: ok / substandard / misbranded / unsafe
+    sample_status = db.Column(db.String(length=20), nullable=True)
+
     __table_args__ = (
         db.Index("idx_sample_code", "sample_code"),
         db.Index("idx_sample_collection_date", "collection_date"),
         db.Index("idx_sample_fso_name", "fso_name"),
         db.Index("idx_sample_billed", "billed"),
+        db.Index("idx_sample_inspection_id", "inspection_id"),
+        db.CheckConstraint(
+            "sample_status IN ('ok','substandard','misbranded','unsafe')",
+            name="ck_sample_status",
+        ),
     )
 
 

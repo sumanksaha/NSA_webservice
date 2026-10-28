@@ -17,6 +17,7 @@ def register_blueprints(app: Flask) -> None:
     the app can serve requests.
     """
     # Import blueprints lazily so the app can boot without optional deps.
+    # Import blueprints lazily so the app can boot without optional deps.
     from app.adjudication.routes import adjudication_bp as _adjudication_bp
     from app.annexure import annexure_bp as _annexure_bp
     from app.audit import audit_bp as _audit_bp
@@ -35,7 +36,8 @@ def register_blueprints(app: Flask) -> None:
     from app.knowledge_graph.api import graph_search_bp as _graph_search_bp
     from app.legal_analysis import legal_analysis_bp as _legal_analysis_bp
     from app.notepad import notepad_bp as _notepad_bp
-    from app.sample.routes import sample_bp as _sample_bp
+    # Phase 4: sample blueprint deprecated — samples accessed via inspection module
+    # from app.sample.routes import sample_bp as _sample_bp
     from app.search import search_bp as _search_bp
     from app.settings.routes import settings_bp as _settings_bp
     from app.sync import sync_bp as _sync_bp
@@ -67,7 +69,6 @@ def register_blueprints(app: Flask) -> None:
         (_evidence_bp, "/evidence"),
         (_bill_generator_bp, "/bill_generator"),
         (_fbo_issue_bp, "/fbo-issue"),
-        (_sample_bp, "/sample"),
         (_billing_bp, "/billing"),
         (_settings_bp, "/settings"),
         (_inspection_bp, "/inspection"),

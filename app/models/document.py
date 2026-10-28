@@ -199,6 +199,18 @@ class Adjudication(db.Model):
     hearing_date = db.Column(db.DateTime, nullable=True)
     penalty = db.Column(db.String(200), nullable=True)
 
+    # Link to the Sample record when this adjudication was launched from a
+    # sampled inspection (nullable — non-sample adjudications leave it NULL).
+    sample_id = db.Column(
+        db.Integer(),
+        db.ForeignKey("sample.id", ondelete="SET NULL", use_alter=True),
+        nullable=True,
+    )
+    sample = db.relationship(
+        "Sample",
+        foreign_keys=[sample_id],
+    )
+
     # Photo evidence — unified Evidence model (Phase 5); photos are
     # queried via ``Evidence.query.filter_by(adjudication_id=...,
     # evidence_type="photo")`` rather than an ORM relationship.
@@ -302,7 +314,7 @@ class Evidence(db.Model):
     id = db.Column(db.String(36), primary_key=True)
     case_id = db.Column(db.Integer, db.ForeignKey("case_files.id", ondelete="SET NULL"), nullable=True)
     adjudication_id = db.Column(db.Integer, db.ForeignKey("adjudications.id", ondelete="SET NULL"), nullable=True)
-    inspection_id = db.Column(db.Integer, db.ForeignKey("inspection.id", ondelete="SET NULL"), nullable=True)
+    inspection_id = db.Column(db.Integer, db.ForeignKey("inspection.id", ondelete="SET NULL", use_alter=True), nullable=True)
 
     evidence_type = db.Column(db.String(20), nullable=False)
 

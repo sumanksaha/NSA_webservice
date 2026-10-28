@@ -40,6 +40,8 @@ class Inspection(db.Model):
     ce_license_no = db.Column(db.String(100), nullable=True)
     fbo_name = db.Column(db.String(200), nullable=True)
     fbo_address = db.Column(db.Text, nullable=True)
+    # Premises type: manufacturer / retailer / food vending establishment
+    fbo_type = db.Column(db.String(50), nullable=True)
     concerned_food = db.Column(db.String(200), nullable=True)
     problem = db.Column(db.Text, nullable=True)
     # Explicit diary purpose picked by the FSO at entry time:
@@ -55,7 +57,7 @@ class Inspection(db.Model):
     is_dismissed = db.Column(db.Boolean, default=False)
     dismissed_by = db.Column(db.String(100), nullable=True)
     dismissed_at = db.Column(db.DateTime, nullable=True)
-    adjudication_id = db.Column(db.Integer, db.ForeignKey("adjudications.id", ondelete="SET NULL"), nullable=True)
+    adjudication_id = db.Column(db.Integer, db.ForeignKey("adjudications.id", ondelete="SET NULL", use_alter=True), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     synced_at = db.Column(db.DateTime, nullable=True)
     # Device-issued provisional id used while a capture is offline. The
@@ -71,7 +73,8 @@ class Inspection(db.Model):
     sample_collected = db.Column(db.Boolean, nullable=True)
     sample_code = db.Column(db.String(100), nullable=True)
 
-    # Reinspection fields
+    # Relationship to the linked Sample record (set when sample_collected=True).
+    # Populated via Inspection.sample_id -> Sample.inspection_id in the Sample model.
     is_reinspection = db.Column(db.Boolean, nullable=True, default=False)
     days_allowed_for_errors = db.Column(db.Integer, nullable=True)
     errors_in_second_inspection = db.Column(db.Integer, nullable=True)

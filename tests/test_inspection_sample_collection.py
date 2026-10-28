@@ -264,19 +264,23 @@ class TestUpdateInspectionSampleCollection:
 
 class TestValidateSampleCode:
     def test_valid_codes(self, env):
-        from app.inspection.routes.inspection_routes import validate_sample_code
+        from app.sample.sample_utils import validate_sample_code
 
-        assert validate_sample_code("SL/WB/123456/7890/12345") is True
-        assert validate_sample_code("SL/WB/000000/0000/00000") is True
+        assert validate_sample_code("SL/WB/123456/7890/12345", "enforcement") is None
+        assert validate_sample_code("SL/WB/000000/0000/00000", "enforcement") is None
+        assert validate_sample_code("FSO/Br-02/SS/INF/05/26-27", "surveillance") is None
 
     def test_invalid_codes(self, env):
-        from app.inspection.routes.inspection_routes import validate_sample_code
+        from app.sample.sample_utils import validate_sample_code
 
-        assert validate_sample_code("") is True
-        assert validate_sample_code(None) is True
-        assert validate_sample_code("INVALID") is False
-        assert validate_sample_code("SL/WB/123/45/678") is False
-        assert validate_sample_code("SL/WB/123456/7890/1234") is False
+        assert validate_sample_code("", "enforcement") == "sample_code is required"
+        assert validate_sample_code(None, "enforcement") == "sample_code is required"
+        assert validate_sample_code("INVALID", "enforcement") == \
+            "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL (e.g. SL/WB/110223/2026/25275)"
+        assert validate_sample_code("SL/WB/123/45/678", "enforcement") == \
+            "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL (e.g. SL/WB/110223/2026/25275)"
+        assert validate_sample_code("SL/WB/123456/7890/1234", "enforcement") == \
+            "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL (e.g. SL/WB/110223/2026/25275)"
 
 
 class TestWorkDiarySampleFields:

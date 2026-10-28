@@ -7,7 +7,7 @@ from flask import jsonify, redirect, render_template, request, url_for
 from app.extensions import db
 from app.inspection import inspection_bp
 from app.inspection.routes.inspection_routes import _apply_inspection_sorting
-from app.models import Adjudication, Inspection
+from app.models import Adjudication, Inspection, Sample
 from app.utils.fso_data import get_all_fso_names
 
 
@@ -299,6 +299,19 @@ def inspection_detail(inspection_id):
 
     from app.shared.config import cfg
 
+    # Linked sample (if any) for this inspection
+    linked_sample = inspection.sample  # via relationship on Inspection (backref from Sample.inspection_id)
+
+    # Samples for the same FBO (for the sample-adjudication picker)
+    fbo_samples = []
+    if inspection.fbo_name:
+        fbo_samples = (
+            Sample.query
+            .filter_by(fso_name=inspection.fso_name)
+            .order_by(Sample.collection_date.desc())
+            .all()
+        )
+
     return render_template(
         "inspection/detail.html",
         inspection=inspection,
@@ -308,4 +321,6 @@ def inspection_detail(inspection_id):
         assessments=assessments,
         photo_scoring_enabled=bool(cfg.photo_scoring_enabled),
         photo_scoring_threshold=float(cfg.photo_scoring_threshold),
+        sample=linked_sample,
+        fbo_samples=fbo_samples,
     )

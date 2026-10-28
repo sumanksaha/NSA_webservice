@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2026-10-28) — Inspection-Sample merge + FBO type
+
+- **Sample capture moved into Inspection UI**: Samples are now created via the Inspection entry form (conditional "Sample Collection" block). When `sample_collected` is ticked, five fields become required: `sample_code`, `collection_date`, `sample_name`, `price`, and `sample_status` (dropdown: ok/substandard/misbranded/unsafe). Five optional fields are also captured: `batch_no`, `mfd`, `exp`, `submission_date`, `manufacturer_details`. The standalone Sample create form is deprecated (Phase 4); samples are now created, edited, and audited through the Inspection module.
+- **Sample ↔ Inspection linkage**: `sample.inspection_id` FK (nullable, unique when set) links each Sample to the Inspection that drew it. `adjudication.sample_id` FK links sample-based adjudications to the exact Sample record. `Inspection.sample` backref provides one-sample-per-inspection access.
+- **Adjudication launch from Inspection UI**: Two new routes — `POST /inspection/<id>/launch-adjudication` (non-sample, no Sample linkage) and `POST /inspection/<id>/launch-sample-adjudication` (links a Sample, with cross-FBO guard). Both require an Improvement Notice to be issued first.
+- **Richer sample fields editable via Inspection detail**: `POST /inspection/<id>/update-sample-details` updates retailer details and OCR fields (retailer_fssai, retailer_name, nature_of_food, batch_no, mfd, exp, manufacturer_details) on the linked Sample.
+- **Samples audit view**: `GET /inspection/samples` replaces the deprecated `/sample/list` route. Lists all samples with filtering (FSO, date range, status), pagination, and links to originating inspections.
+- **FBO Type field**: `inspection.fbo_type` (manufacturer/retailer/food vending establishment) added to the Inspection model, captured via dropdown in the Inspection UI, and displayed on the detail page.
+- **Shared validation**: `validate_sample_code(code, sample_type)` now supports both enforcement (`SL/WB/…`) and surveillance (`FSO/Br-…/…`) formats. `validate_sample_status(status)` validates ok/substandard/misbranded/unsafe.
+- **Alembic merge migration**: `merge_all_heads_2026_10` combines all 6 open heads into a single head.
+- **Circular FK resolution**: Added `use_alter=True` to all FKs in the adjudication-inspection-sample cycle. Updated `guard_rail.py` event listener to SQLAlchemy 1.4+ signature.
+
+### Changed (2026-10-28)
+
+- **Navigation**: "Sample" nav link removed; "Samples" nav link now points to `/inspection/samples` (audit view). Sample create form shows deprecation notice.
+- **Blueprint registration**: `sample_bp` removed from `register_blueprints()`; Sample routes no longer accessible via `/sample/*`.
+- **AGENTS.md**: Added shell environment (PowerShell) and model location navigation pointers. Removed backticks from model identifiers (`inception/mercury-decide:free`, `typesafe/jev-1.13`) to fix steering docs test.
+
 ### Added (2026-11-26) — Photo violation scoring in inspection UI (ADR-0011)
 
 - **Photo violation assessment** (`app/inspection/photo_scoring.py`, `app/inspection/photo_service.py`, `app/inspection/routes/photo_routes.py`, `app/inspection/routes/derived_views.py`): a Food Safety Officer can click a premises photo during an inspection; the decision model (`inception/mercury-decide:free`, not JEV — JEV is a text retrieval model and cannot analyze images) scores the photo against every photo-visible checklist field and returns an independent `p_violation` probability (0–1) per field, with no cap on selections — all 12, none, or any subset can be flagged. A premises-interior gate question suppresses scoring on non-premises images (documents, scans, exteriors), and `Pest_report`/`Water_report` are excluded since they require documents, not photos. Results are persisted as append-only `EvidenceAssessment` rows and shown on the inspection detail page with per-field progress bars, a threshold (default 0.70, `PHOTO_SCORING_THRESHOLD`) for "suggested violation" labeling, and an "Apply to checklist" button that pre-fills the FSO's checklist (advisory only — the FSO confirms before saving).

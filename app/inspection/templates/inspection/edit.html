@@ -135,7 +135,7 @@
         <!-- Sample Collection Section -->
         <div class="section-header">
             <h3><i class="fa-solid fa-flask"></i> Sample Collection</h3>
-            <p class="form-hint">Indicate if a sample was collected during this inspection and provide the sample code.</p>
+            <p class="form-hint">Indicate if a sample was collected. When ticked, the marked fields become required.</p>
         </div>
 
         <div class="form-row">
@@ -145,10 +145,74 @@
                     {% if inspection.sample_collected %}checked{% endif %}>
                 <small class="form-hint">Check if a sample was collected during this inspection</small>
             </div>
-            <div class="form-group" id="sampleCodeGroup" style="display: {% if inspection.sample_collected %}block{% else %}none{% endif %};">
-                <label for="sample_code" class="form-label">Sample Code</label>
-                <input type="text" id="sample_code" name="sample_code" class="form-input" value="{{ inspection.sample_code or '' }}" placeholder="Enter sample code (e.g., SL/WB/XXXXXX/XXXX/XXXXX)">
-                <small class="form-hint">Required if sample was collected. Format: SL/WB/XXXXXX/XXXX/XXXXX</small>
+        </div>
+
+        <!-- Conditional sample details block — shown only when Sample Collected is ticked -->
+        <div class="form-row" id="sampleDetailsBlock" style="display: {% if inspection.sample_collected %}block{% else %}none{% endif %};">
+            <div class="form-group form-row--2">
+                <div class="form-group">
+                    <label for="sample_type" class="form-label">Sample Type <span class="required">*</span></label>
+                    <select id="sample_type" name="sample_type" class="form-select" required>
+                        <option value="">-- Select --</option>
+                        <option value="enforcement" {% if inspection.sample_code and inspection.sample_code.startswith('SL/') %}selected{% endif %}>Enforcement</option>
+                        <option value="surveillance" {% if inspection.sample_code and inspection.sample_code.startswith('FSO/') %}selected{% endif %}>Surveillance</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sample_code" class="form-label">Sample Code <span class="required">*</span></label>
+                    <input type="text" id="sample_code" name="sample_code" class="form-input" value="{{ inspection.sample_code or '' }}" placeholder="SL/WB/XXXXXX/XXXX/XXXXX or FSO/Br-XX/ABC/INF/XX/YY-YY" required>
+                </div>
+            </div>
+            <div class="form-group form-row--2">
+                <div class="form-group">
+                    <label for="collection_date" class="form-label">Date of Collection <span class="required">*</span></label>
+                    <input type="text" id="collection_date" name="collection_date" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="sample_name" class="form-label">Sample Name <span class="required">*</span></label>
+                    <input type="text" id="sample_name" name="sample_name" class="form-input" required>
+                </div>
+            </div>
+            <div class="form-group form-row--2">
+                <div class="form-group">
+                    <label for="price" class="form-label">Price / Cost <span class="required">*</span></label>
+                    <input type="text" id="price" name="price" class="form-input" required placeholder="e.g. 250">
+                </div>
+                <div class="form-group">
+                    <label for="sample_status" class="form-label">Status <span class="required">*</span></label>
+                    <select id="sample_status" name="sample_status" class="form-select" required>
+                        <option value="">-- Select --</option>
+                        <option value="ok" {% if inspection.sample_code %}selected{% endif %}>OK</option>
+                        <option value="substandard">Substandard</option>
+                        <option value="misbranded">Misbranded</option>
+                        <option value="unsafe">Unsafe</option>
+                    </select>
+                </div>
+            </div>
+            <!-- Optional fields -->
+            <div class="form-group form-row--2">
+                <div class="form-group">
+                    <label for="batch_no" class="form-label">Batch No.</label>
+                    <input type="text" id="batch_no" name="batch_no" class="form-input" placeholder="Optional">
+                </div>
+                <div class="form-group">
+                    <label for="mfd" class="form-label">MFD (Manufacturing Date)</label>
+                    <input type="text" id="mfd" name="mfd" class="form-input" placeholder="Optional">
+                </div>
+            </div>
+            <div class="form-group form-row--2">
+                <div class="form-group">
+                    <label for="exp" class="form-label">EXP (Expiry Date)</label>
+                    <input type="text" id="exp" name="exp" class="form-input" placeholder="Optional">
+                </div>
+                <div class="form-group">
+                    <label for="submission_date" class="form-label">Submission Date</label>
+                    <input type="text" id="submission_date" name="submission_date" class="form-input" placeholder="Optional">
+                </div>
+            </div>
+            <div class="form-group full-width">
+                <label for="manufacturer_details" class="form-label">Manufacturer Details</label>
+                <textarea id="manufacturer_details" name="manufacturer_details" class="form-textarea" placeholder="Optional"></textarea>
             </div>
         </div>
 
@@ -179,6 +243,19 @@
 
         <div class="form-row">
             <div class="form-group full-width">
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="fbo_type" class="form-label">FBO Type (Premises Type)</label>
+                <select id="fbo_type" name="fbo_type" class="form-select">
+                    <option value="">-- Select --</option>
+                    <option value="manufacturer" {% if inspection.fbo_type == "manufacturer" %}selected{% endif %}>Manufacturer</option>
+                    <option value="retailer" {% if inspection.fbo_type == "retailer" %}selected{% endif %}>Retailer</option>
+                    <option value="food vending establishment" {% if inspection.fbo_type == "food vending establishment" %}selected{% endif %}>Food Vending Establishment</option>
+                </select>
+                <small class="form-hint">Whether the FBO is a manufacturer, retailer, or food vending establishment.</small>
+            </div>
+        </div>
                 <label for="fbo_name" class="form-label">FBO Name</label>
                 <input type="text" id="fbo_name" name="fbo_name" class="form-input"
                        value="{{ inspection.fbo_name or '' }}" placeholder="Enter FBO name">
@@ -227,19 +304,29 @@ function updateComplianceDeadline() {
     complianceDeadlineInput.value = deadline;
 }
 
-// Toggle sample code field visibility
-function toggleSampleCodeField() {
+// Toggle sample block visibility
+function toggleSampleBlock() {
     var sampleCollectedCheckbox = document.getElementById('sample_collected');
-    var sampleCodeGroup = document.getElementById('sampleCodeGroup');
-    sampleCodeGroup.style.display = sampleCollectedCheckbox.checked ? 'block' : 'none';
+    var sampleDetailsBlock = document.getElementById('sampleDetailsBlock');
+    sampleDetailsBlock.style.display = sampleCollectedCheckbox.checked ? 'block' : 'none';
     if (!sampleCollectedCheckbox.checked) {
+        document.getElementById('sample_type').value = '';
         document.getElementById('sample_code').value = '';
+        document.getElementById('collection_date').value = '';
+        document.getElementById('sample_name').value = '';
+        document.getElementById('price').value = '';
+        document.getElementById('sample_status').value = '';
+        document.getElementById('batch_no').value = '';
+        document.getElementById('mfd').value = '';
+        document.getElementById('exp').value = '';
+        document.getElementById('submission_date').value = '';
+        document.getElementById('manufacturer_details').value = '';
     }
 }
 
-// Initialize sample code toggle on page load
-document.getElementById('sample_collected').addEventListener('change', toggleSampleCodeField);
-window.addEventListener('load', toggleSampleCodeField);
+// Initialize sample block toggle on page load
+document.getElementById('sample_collected').addEventListener('change', toggleSampleBlock);
+window.addEventListener('load', toggleSampleBlock);
 
 // FSSAI lookup for inspection form (populates fbo_name + fbo_address)
 async function lookupFssaiInspection() {
