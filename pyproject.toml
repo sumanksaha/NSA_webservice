@@ -89,7 +89,7 @@ dependencies = [
   # Observability (issues #71-#75): error tracking + Prometheus metrics.
   # Pinned exactly: the Sentry docs site documents a 3.x line that is alpha-only
   # on PyPI, so an unpinned install would not be reproducible.
-  "sentry-sdk[flask]==2.72.0",
+  "sentry-sdk[flask]==2.73.0",
   "prometheus-client==0.26.0",
   # Security floor (pip-audit gate, 2026-10-25): filelock is transitive
   # (huggingface-hub, torch, transformers) and 3.32.7 is flagged by
