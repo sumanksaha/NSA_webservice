@@ -219,10 +219,10 @@
                         <i class="fa-solid fa-folder-open"></i> Sample-adjudication
                     </a>
                     <a
-                        href="{{ url_for('sample.index') }}"
-                        class="nav-link {% if request.blueprint == 'sample' %}active{% endif %}"
+                        href="{{ url_for('inspection.samples_list') }}"
+                        class="nav-link {% if request.endpoint == 'inspection.samples_list' %}active{% endif %}"
                     >
-                        <i class="fa-solid fa-vial"></i> Sample
+                        <i class="fa-solid fa-vial"></i> Samples
                     </a>
                     <a
                         href="{{ url_for('inspection.index') }}"

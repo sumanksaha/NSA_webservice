@@ -1,6 +1,6 @@
 # Implementation Plan: Schedule-Planning Agent for FSO Daily Duty
 
-**Companion to:** [SCHEDULE_PLANNING_AGENT_RESEARCH.md](./SCHEDULE_PLANNING_AGENT_RESEARCH.md) (the
+**Companion to:** [SCHEDULE_PLANNING_AGENT_RESEARCH.md](SCHEDULE_PLANNING_AGENT_RESEARCH.md) (the
 research that established the current state). This document is the **project report**: scope,
 assumptions, work breakdown, and the exact set of files to create and modify.
 

@@ -23,13 +23,15 @@
 
         <div class="filter-panel mt--md">
             <h4 class="mb--sm"><i class="fa-solid fa-list"></i> Current FSO Names ({{ fso_names|length }})</h4>
-            <div class="fso-grid">
-                {% for fso in fso_names %}
-                <div class="fso-item">
-                    <i class="fa-solid fa-user-tie"></i>
-                    {{ fso }}
+            <div class="fso-grid-wrap">
+                <div class="fso-grid">
+                    {% for fso in fso_names %}
+                    <div class="fso-item">
+                        <i class="fa-solid fa-user-tie"></i>
+                        {{ fso }}
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
         </div>
         </div>

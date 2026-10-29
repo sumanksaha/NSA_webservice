@@ -1,7 +1,7 @@
 # Free-model swap plan — laguna-s-2.1:free retirement (2026-10-31)
 
 **Status:** executed — `minimax/minimax-m3.1-flash:free` is the default answer model since 2026-10-19 · **Created:** 2026-10-18
-**Machine-readable companion:** [`model_swap_free_samples.json`](./model_swap_free_samples.json) (seed `20261018`, exact QID lists)
+**Machine-readable companion:** [`model_swap_free_samples.json`](model_swap_free_samples.json) (seed `20261018`, exact QID lists)
 
 ## 1. Why
 

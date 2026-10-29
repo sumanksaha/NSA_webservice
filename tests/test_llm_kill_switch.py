@@ -52,9 +52,7 @@ class _FakeResp:
 
     def raise_for_status(self):
         if self.status_code >= 400:
-            raise httpx.HTTPStatusError(
-                f"HTTP {self.status_code}", request=self.request, response=self
-            )
+            raise httpx.HTTPStatusError(f"HTTP {self.status_code}", request=self.request, response=self)
 
     def json(self):
         return self._payload
@@ -115,7 +113,6 @@ class TestKillSwitchZeroNetwork:
 
         from app.rag.generation.grounded_service import GroundedGenerationService
         from app.rag.retrieval.result import RetrievedChunk
-
 
         service = GroundedGenerationService()
         chunk = RetrievedChunk(chunk_id="c1", score=1.0, text="Section 2.4.6 [1] of the Act.")
@@ -187,7 +184,6 @@ class TestModelAllowList:
         validate_model("poolside/laguna-s-2.1:free")
 
 
-
 # ---------------------------------------------------------------------------
 # Step 6c — Laguna failure surfaces as an error; NO fallback to DeepSeek
 # ---------------------------------------------------------------------------
@@ -218,11 +214,11 @@ class TestNoFallbackOnFailure:
         # Failure surfaces as an error — no answer text, no silent switch.
         assert resp.error and "failed after" in resp.error
         assert resp.text == ""
-        assert resp.model == "minimax/minimax-m3.1-flash:free"
+        assert resp.model == "minimax/minimax-m3.1-flash"
         # Every attempted request named the default answer model; none mentioned deepseek.
         assert len(_RecordingClient.sent) == 2  # MAX_ATTEMPTS
         for record in _RecordingClient.sent:
-            assert record["body"]["model"] == "minimax/minimax-m3.1-flash:free"
+            assert record["body"]["model"] == "minimax/minimax-m3.1-flash"
             assert "deepseek" not in str(record).lower()
 
     def test_ai_assistant_failure_surfaces_error_no_model_switch(self, monkeypatch):
@@ -247,7 +243,7 @@ class TestNoFallbackOnFailure:
 
         assert _RecordingClient.sent
         for record in _RecordingClient.sent:
-            assert record["body"]["model"] == "minimax/minimax-m3.1-flash:free"
+            assert record["body"]["model"] == "minimax/minimax-m3.1-flash"
             assert "deepseek" not in str(record).lower()
 
     def test_decision_model_deepseek_refused(self, monkeypatch):
@@ -304,4 +300,3 @@ class TestCallBudget:
         # Budget exhausted → stub fallback, second call never hit the wire
         assert second.success and "stub" in second.model
         assert len(_RecordingClient.sent) == 1
-

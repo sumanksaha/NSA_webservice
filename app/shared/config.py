@@ -719,7 +719,7 @@ _TABLE: tuple[Setting, ...] = (
         "RAG_KG_FUSION",
         "kg_fusion",
         bool,
-        False,
+        True,
         help="",
     ),
     Setting(
@@ -727,6 +727,20 @@ _TABLE: tuple[Setting, ...] = (
         "kg_max_provisions",
         int,
         5,
+        help="",
+    ),
+    Setting(
+        "RAG_KG_MIN_BODY_CHARS",
+        "kg_min_body_chars",
+        int,
+        200,
+        help="",
+    ),
+    Setting(
+        "RAG_KG_FAIR_FUSION",
+        "kg_fair_fusion",
+        bool,
+        True,
         help="",
     ),
     Setting(
@@ -910,6 +924,13 @@ _TABLE: tuple[Setting, ...] = (
         str,
         "inception/mercury-decide:free",
         help="",
+    ),
+    Setting(
+        "RAG_REASONER_MODEL",
+        "reasoner_model",
+        str,
+        "",
+        help="Optional override for the structured reasoner model; empty uses RAG_LLM_MODEL.",
     ),
     Setting(
         "PHOTO_SCORING_ENDPOINT",

@@ -151,7 +151,7 @@ def _rag_stub_llm_env(monkeypatch):
     monkeypatch.setenv("MAX_LLM_CALLS", "100000")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("RAG_STUB_RESPONSE", raising=False)
-    # GroundedLLMClient now defaults to minimax/minimax-m3.1-flash:free, so no
+    # GroundedLLMClient now defaults to minimax/minimax-m3.1-flash, so no
     # model-related env cleanup is needed beyond the stub mode above.
     monkeypatch.delenv("RAG_LLM_MODEL", raising=False)
     # Pin full-enrichment off so ingestion tests use the cheap default

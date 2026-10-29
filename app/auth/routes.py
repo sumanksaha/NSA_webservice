@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from urllib.parse import urlparse
 
-from flask import Response, abort, flash, redirect, render_template, request, session, url_for
+from flask import Response, abort, current_app, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -125,6 +125,10 @@ def login():
         login_user(user, remember=False)
         session.permanent = True  # Activate PERMANENT_SESSION_LIFETIME
 
+        # Stamp the session with the current app generation so a server restart
+        # invalidates it (see app/shared/rbac.py require_login).
+        session["auth_generation"] = current_app.config.get("APP_GENERATION")
+
         _log_login_event("login_success", user.id)
 
         # Safe next-page redirect
@@ -191,7 +195,11 @@ def first_setup():
 @auth_bp.route("/logout")
 @login_required
 def logout():
+    from app.services.device_data import purge_device_data
+
+    purge_device_data(current_user.id if current_user.is_authenticated else None)
     logout_user()
+    session.pop("auth_generation", None)
     flash("You have been logged out.", "info")
     return redirect(url_for("auth.login"))
 

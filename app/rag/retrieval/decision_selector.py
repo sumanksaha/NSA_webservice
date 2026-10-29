@@ -26,7 +26,7 @@ httpx call (key ``OPENROUTER_API_KEY`` / ``AI_ASSISTANT_API_KEY``,
 ordinary verifying client).  The chat transport through
 :meth:`AIAssistantService.complete_json_with_model` is retained for
 chat-type models (none sanctioned today).  The answer model
-(``minimax/minimax-m3.1-flash:free`` by default) remains on the
+(``minimax/minimax-m3.1-flash`` by default) remains on the
 untouched ``GroundedLLMClient`` path.
 
 Contract (unchanged from the original design — only the scorer changed):
@@ -257,8 +257,7 @@ class DecisionModelClient:
 
         if not llm_enabled():
             raise RuntimeError(
-                "LLM calls are DISABLED by the hard kill switch "
-                "(LLM_ENABLED=false). Set LLM_ENABLED=true to re-enable."
+                "LLM calls are DISABLED by the hard kill switch (LLM_ENABLED=false). Set LLM_ENABLED=true to re-enable."
             )
         key = os.environ.get("AI_ASSISTANT_API_KEY") or os.environ.get("OPENROUTER_API_KEY") or ""
         if not key:

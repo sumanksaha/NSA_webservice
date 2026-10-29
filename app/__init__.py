@@ -19,6 +19,7 @@ _fso_sync_lock = threading.Lock()
 class App(Flask):
     """Flask app subclass."""
 
+
 def create_app(db_uri: str | None = None):
     """Application factory.
 
@@ -98,6 +99,14 @@ def create_app(db_uri: str | None = None):
     if not os.environ.get("SECRET_KEY"):
         app.logger.warning("SECRET_KEY not set — using ephemeral key; set it in env for persistence.")
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+
+    # App-generation marker: rotated on every process start.  Stored in the
+    # session at login time and checked by the auth gate so that a server
+    # restart (cold start, deploy, crash recovery) invalidates stale sessions
+    # and forces re-login instead of silently serving the cached dashboard.
+    # PWA-friendly: a home-screen launch with a stale session cookie bounces
+    # to /login before any dashboard data is served.
+    app.config["APP_GENERATION"] = secrets.token_hex(16)
 
     # Database configuration - PostgreSQL primary, SQLite fallback
     # An explicit ``db_uri`` argument (tests) wins over the environment.
@@ -226,6 +235,11 @@ def create_app(db_uri: str | None = None):
         session_cookie_http_only=True,
         session_cookie_samesite="Lax",
     )
+    # Session lifetime: a worker returning from a site visit must not find
+    # their session gone. 30 minutes of inactivity expires the session, after
+    # which a re-auth path that preserves unsynced captures is required
+    # (see docs/OFFLINE_CAPTURE_DESIGN.md §5).
+    app.config["PERMANENT_SESSION_LIFETIME"] = 1800
 
     # Initialize CSRF protection (uses SECRET_KEY set above)
     csrf.init_app(app)

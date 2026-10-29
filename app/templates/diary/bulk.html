@@ -11,12 +11,18 @@
                 <i class="fa-solid fa-chevron-right"></i>
             </a>
         </div>
+        <div class="diary-actions">
+            <button type="button" id="copyMonthBtn" class="btn btn-primary btn-sm" aria-label="Copy month to clipboard">
+                <i class="fa-solid fa-copy"></i> Copy Month to Clipboard
+            </button>
+            <span id="copyStatus" class="copy-status"></span>
+        </div>
     </div>
 
     <form method="post" action="{{ url_for('diary.bulk', m=month_param, fso_name=owner) }}" class="diary-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
         <div class="table-container">
-            <table class="diary-table">
+            <table class="diary-table" data-month="{{ month_param }}">
                 <thead>
                     <tr>
                         <th scope="col">Day</th>
@@ -381,6 +387,17 @@
             min-width: 120px;
         }
     }
+    .diary-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    .copy-status {
+        font-size: 0.85rem;
+        color: var(--text-muted, #666);
+        font-style: italic;
+    }
 </style>
 {% endblock %}
 {% block extra_js %}
@@ -422,6 +439,109 @@
     document.querySelectorAll('[data-duty-remove]').forEach(function (btn) {
         btn.addEventListener('click', function () {
             setSecondDay(btn.getAttribute('data-duty-remove'), false, true);
+        });
+    });
+
+    // --- Copy month to clipboard (TSV for Google Sheets) ---
+    function escapeTsv(value) {
+        if (value == null) return '';
+        var s = String(value);
+        if (s.indexOf('\t') >= 0 || s.indexOf('\n') >= 0 || s.indexOf('"') >= 0) {
+            return '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
+    }
+
+    function cellValue(row, namePrefix) {
+        var el = row.querySelector('input[name^="' + namePrefix + '_"], select[name^="' + namePrefix + '_"]');
+        if (!el) return '';
+        if (el.tagName === 'SELECT') {
+            return el.options[el.selectedIndex].text;
+        }
+        return el.value;
+    }
+
+    function buildTsv() {
+        var table = document.querySelector('.diary-table');
+        if (!table) return '';
+        var lines = [];
+        lines.push(['Date', 'Day', 'Weekday', 'Activity', 'Place of Visit', 'Premises', 'Samples', 'Notes', 'Duty Seq'].join('\t'));
+
+        var rows = table.querySelectorAll('tbody > tr');
+        rows.forEach(function (row) {
+            var cells = row.querySelectorAll('td');
+            if (!cells || cells.length === 0) return;
+
+            var dayCell = cells[0];
+            var dayNum = dayCell.querySelector('.diary-day-num');
+            var dayDow = dayCell.querySelector('.diary-day-dow');
+            var day = dayNum ? dayNum.textContent.trim() : '';
+            var dow = dayDow ? dayDow.textContent.trim() : '';
+
+            var monthStr = table.dataset.month || '';
+            var dateStr = monthStr ? monthStr + '-' + (day < 10 ? '0' : '') + day : day;
+
+            var activity = cellValue(row, 'activity');
+            var place = cellValue(row, 'place');
+            var premises = cellValue(row, 'premises');
+            var samples = cellValue(row, 'samples');
+            var notes = cellValue(row, 'notes');
+
+            var dutySeq = row.id && row.id.indexOf('duty2-') === 0 ? '2' : '1';
+
+            lines.push([dateStr, day, dow, activity, place, premises, samples, notes, dutySeq].map(escapeTsv).join('\t'));
+        });
+
+        return lines.join('\n');
+    }
+
+    function copyToClipboard(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text);
+        }
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        ta.style.top = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try {
+            return new Promise(function (resolve, reject) {
+                try {
+                    document.execCommand('copy');
+                    resolve();
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        } finally {
+            document.body.removeChild(ta);
+        }
+    }
+
+    var btn = document.getElementById('copyMonthBtn');
+    var status = document.getElementById('copyStatus');
+    if (btn) {
+        btn.addEventListener('click', function () {
+            var tsv = buildTsv();
+            if (!tsv) {
+                if (status) status.textContent = 'No data to copy.';
+                return;
+            }
+            copyToClipboard(tsv).then(function () {
+                var orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                if (status) status.textContent = 'Paste into Google Sheets';
+                setTimeout(function () {
+                    btn.textContent = orig;
+                    if (status) status.textContent = '';
+                }, 2000);
+            }, function (err) {
+                if (status) status.textContent = 'Copy failed.';
+                console.error('Clipboard copy failed:', err);
+            });
         });
     });
 })();

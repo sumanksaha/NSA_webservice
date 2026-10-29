@@ -1,0 +1,53 @@
+{
+  "name": "knowledge_graph",
+  "description": "Canonical entity/relationship schema for the Legal RAG knowledge graph.",
+  "entity_types": [
+    {
+      "key": "document",
+      "description": "Legal case / adjudication document",
+      "sources": ["case"]
+    },
+    {
+      "key": "authority",
+      "description": "Authority / inspectorate entity (FBO, Food Safety Officer, lab)",
+      "sources": ["fbo", "inspector", "lab"]
+    },
+    {
+      "key": "evidence",
+      "description": "Evidence item (sample, photo/document evidence)",
+      "sources": ["sample", "evidence"]
+    },
+    {
+      "key": "section",
+      "description": "Statutory section / sub-section",
+      "sources": ["section"]
+    },
+    {
+      "key": "reference",
+      "description": "Reference document (bills, annexures)",
+      "sources": ["ancillary"]
+    }
+  ],
+  "relationship_types": [
+    "SUPPORTED_BY",
+    "INSPECTED_BY",
+    "SAMPLED_FROM",
+    "TESTED_AT",
+    "VIOLATED_SECTION",
+    "REFERENCES",
+    "CITES",
+    "AMENDS",
+    "OVERRULES",
+    "APPLIES_TO_JURISDICTION"
+  ],
+  "node_type_map": {
+    "case": "document",
+    "fbo": "authority",
+    "inspector": "authority",
+    "sample": "evidence",
+    "lab": "authority",
+    "evidence": "evidence",
+    "section": "section",
+    "ancillary": "reference"
+  }
+}

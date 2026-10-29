@@ -136,7 +136,7 @@ class GroundedGenerationService:
         # Answer contract (provision-check/abstention-gate)
         contract = None
         contract_check = None
-        resolver = get_answer_contract_resolver() if getattr(cfg, 'answer_contract', False) else None
+        resolver = get_answer_contract_resolver() if getattr(cfg, "answer_contract", False) else None
         if resolver is not None:
             try:
                 # try to pass question_obj if available? we don't have it here; that's fine
@@ -146,7 +146,7 @@ class GroundedGenerationService:
 
         # 2. Render prompt
         system_prompt, user_prompt = self._render_prompt(query, built, reasoning=reasoning, query_type=query_type)
-        if contract is not None and resolver is not None and getattr(cfg, 'answer_contract_repair', False):
+        if contract is not None and resolver is not None and getattr(cfg, "answer_contract_repair", False):
             try:
                 system_prompt, user_prompt = resolver.repair_prompt(contract, system_prompt, user_prompt)
             except Exception as exc:
@@ -159,7 +159,7 @@ class GroundedGenerationService:
         if contract is not None and resolver is not None and llm_response.success:
             try:
                 contract_check = resolver.check_answer(llm_response.text or "", contract, chunks)
-                if not contract_check.passed and getattr(cfg, 'answer_contract_repair', False):
+                if not contract_check.passed and getattr(cfg, "answer_contract_repair", False):
                     try:
                         rs, ru = self._render_prompt(query, built, reasoning=reasoning, query_type=query_type)
                         rs2, ru2 = resolver.repair_prompt(contract, rs, ru)
@@ -189,11 +189,14 @@ class GroundedGenerationService:
         if contract_check is not None:
             try:
                 resp.debug = dict(resp.debug or {})
-                resp.debug['answer_contract'] = {
-                    'passed': contract_check.passed,
-                    'false_abstention': contract_check.false_abstention,
-                    'provision_mismatch': contract_check.provision_mismatch,
-                    'violations': [{'kind': v.kind, 'severity': v.severity, 'message': v.message} for v in contract_check.violations],
+                resp.debug["answer_contract"] = {
+                    "passed": contract_check.passed,
+                    "false_abstention": contract_check.false_abstention,
+                    "provision_mismatch": contract_check.provision_mismatch,
+                    "violations": [
+                        {"kind": v.kind, "severity": v.severity, "message": v.message}
+                        for v in contract_check.violations
+                    ],
                 }
             except Exception:
                 pass
@@ -319,9 +322,24 @@ class GroundedGenerationService:
         try:
             from app.rag.generation.structured_reasoner import StructuredReasoner
 
-            reasoner = StructuredReasoner(llm_client=self.llm_client)
+            reasoner_model = getattr(cfg, "reasoner_model", "") or None
+            if reasoner_model:
+                from app.shared.llm_client import get_llm_client
+
+                reasoner_client = get_llm_client(model=reasoner_model)
+            else:
+                reasoner_client = self.llm_client
+            reasoner = StructuredReasoner(llm_client=reasoner_client)
             directive = query_type_directive(query_type) if cfg.structured_query_type_directives else ""
-            return reasoner.reason(query, built.context, directive=directive)
+            # Truncate the evidence passed to the reasoner to a bounded budget:
+            # the IR only needs the key provisions, and a 40k-char context makes
+            # the reasoning call ~2x slower without improving the IR materially.
+            # The final answer still reasons over the full built.context.
+            reason_context = built.context
+            _REASON_CONTEXT_CAP = 16000
+            if len(reason_context) > _REASON_CONTEXT_CAP:
+                reason_context = reason_context[:_REASON_CONTEXT_CAP] + "\n...[truncated for reasoning]"
+            return reasoner.reason(query, reason_context, directive=directive)
         except Exception as exc:
             logger.warning("StructuredReasoner unavailable: %s", exc)
             return None

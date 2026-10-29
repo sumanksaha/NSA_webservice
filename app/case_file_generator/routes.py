@@ -92,6 +92,8 @@ _DATE_FIELDS: list[str] = [
     "directive_letter_date",
     "retailer_report_receive_date",
     "manufacturer_report_receive_date",
+    "case_submission_date",
+    "hearing_date",
 ]
 
 
@@ -167,9 +169,7 @@ def validate_case_file_form(form_data: dict) -> dict[str, str]:
     # Designated Officer when the permission file is submitted, i.e. after
     # first data entry.  It stays editable and gates petition generation.
     standard_required = tuple(
-        field
-        for field, label in _REQUIRED_FIELDS.items()
-        if field not in ("authorization_date", *_RCM_EXEMPT_FIELDS)
+        field for field, label in _REQUIRED_FIELDS.items() if field not in ("authorization_date", *_RCM_EXEMPT_FIELDS)
     )
     for field, label in _REQUIRED_FIELDS.items():
         if field not in standard_required:
@@ -367,6 +367,8 @@ def case_file_to_dict(case_file):
         "directive_letter_date",
         "retailer_report_receive_date",
         "manufacturer_report_receive_date",
+        "case_submission_date",
+        "hearing_date",
         "archived_at",
         "created_at",
         "synced_at",
@@ -451,6 +453,9 @@ def apply_case_file_update(case_file, form_data: dict) -> None:
     case_file.retailer_report_receive_date = parse_date(form_data.get("retailer_report_receive_date", ""))
     case_file.applicable_regulation = form_data.get("applicable_regulation", "")
     case_file.applicable_clause = form_data.get("applicable_clause", "")
+    case_file.case_submission_date = parse_date(form_data.get("case_submission_date", ""))
+    case_file.hearing_date = parse_date(form_data.get("hearing_date", ""))
+    case_file.penalty = (form_data.get("penalty") or "").strip()
     case_file.applicable_sections = ", ".join(get_applicable_sections(form_data))
 
 
@@ -505,6 +510,9 @@ def _process_case_file_form(form_data):
         manufacturer_report_receive_date=parse_date(form_data.get("manufacturer_report_receive_date", "")),
         applicable_regulation=form_data.get("applicable_regulation", ""),
         applicable_clause=form_data.get("applicable_clause", ""),
+        case_submission_date=parse_date(form_data.get("case_submission_date", "")),
+        hearing_date=parse_date(form_data.get("hearing_date", "")),
+        penalty=(form_data.get("penalty") or "").strip(),
         applicable_sections=", ".join(get_applicable_sections(form_data)),
     )
 
@@ -1088,7 +1096,8 @@ def _unsafe_offender_table_rows(case_data: dict) -> list[dict]:
 
 
 def _compute_per_packet_sample_quantity(
-    sample_quantity: str | None, packet_count: str | int | None,
+    sample_quantity: str | None,
+    packet_count: str | int | None,
 ) -> str:
     """Derive per-packet sample quantity for the (per_packet X packet_count = sample_quantity) equation.
 
@@ -1185,7 +1194,8 @@ def download_prohibition_order_docx(case_id: int):
     # packet_count, formatted for the
     # "(per_packet X packet_count = sample_quantity)" equation in the letter.
     case_data["per_packet_sample_quantity"] = _compute_per_packet_sample_quantity(
-        case_data.get("sample_quantity"), case_data.get("packet_count"),
+        case_data.get("sample_quantity"),
+        case_data.get("packet_count"),
     )
 
     # A prohibition order is issued only to a separate manufacturer. Prepared/
@@ -1233,8 +1243,7 @@ def download_both_docx(case_id: int):
         return (
             jsonify(
                 {
-                    "error": "Petition/permission not available for unsafe cases; "
-                    "download the unsafe file instead",
+                    "error": "Petition/permission not available for unsafe cases; download the unsafe file instead",
                 },
             ),
             403,

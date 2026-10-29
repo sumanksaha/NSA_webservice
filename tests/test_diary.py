@@ -118,7 +118,8 @@ def _row(app, fso_name: str, day: int, duty_seq: int = 1):
 
     with app.app_context():
         return db.session.get(
-            WorkDiaryEntry, {"fso_name": fso_name, "work_date": f"{MONTH}-{day:02d}", "duty_seq": duty_seq},
+            WorkDiaryEntry,
+            {"fso_name": fso_name, "work_date": f"{MONTH}-{day:02d}", "duty_seq": duty_seq},
         )
 
 
@@ -197,10 +198,25 @@ class TestSave:
     def test_zero_counts_hide_the_count_sentence(self, env):
         from app.diary import _summary_line
 
-        assert _summary_line("2026-03-05", "field", 0, 0, "", "Bazaar") == (
-            "On 2026-03-05: Field work at Bazaar."
-        )
+        assert _summary_line("2026-03-05", "field", 0, 0, "", "Bazaar") == ("On 2026-03-05: Field work at Bazaar.")
         assert "Inspected 3 premises" in _summary_line("2026-03-05", "field", 3, 2, "", "")
+
+    def test_zero_samples_hides_collected_sentence(self):
+        # premises > 0 but samples == 0: must NOT print "collected 0 sample(s)".
+        from app.diary import _summary_line, print_activity
+
+        line = _summary_line("2026-03-05", "field", 3, 0, "", "Bazaar")
+        assert "collected 0" not in line, line
+        assert "Inspected 3 premises" in line, line
+
+        line = print_activity("field", 3, 0, "", "Bazaar")
+        assert "collected 0" not in line, line
+        assert "Inspected 3 premises" in line, line
+
+        # samples > 0 but premises == 0: must NOT print "Inspected 0 premises".
+        line = _summary_line("2026-03-05", "field", 0, 2, "", "")
+        assert "Inspected 0" not in line, line
+        assert "collected 2 sample(s)" in line, line
 
     def test_numbers_without_activity_become_field_work(self, env):
         app, clients = env
@@ -554,9 +570,14 @@ class TestSplitDuty:
         # Select "—" on duty 1 with its stored numbers re-submitted.
         form = _blank_form()
         form.update({
-            "activity_5": "", "premises_5": "3", "samples_5": "2",
-            "place_5": "Market", "notes_5": "morning",
-            "activity2_5": "vvip", "place2_5": "Town Hall", "notes2_5": "evening",
+            "activity_5": "",
+            "premises_5": "3",
+            "samples_5": "2",
+            "place_5": "Market",
+            "notes_5": "morning",
+            "activity2_5": "vvip",
+            "place2_5": "Town Hall",
+            "notes2_5": "evening",
         })
         clients["officerA"].post(f"/diary/bulk?m={MONTH}", data=form, follow_redirects=True)
         survivor = _row(app, "Officer A", 5, 1)

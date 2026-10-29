@@ -80,6 +80,44 @@ def test_includes_authorities_and_domain():
     assert "Domain: ANIMAL_SLAUGHTER" in chunks[0].text
 
 
+def test_prefers_long_provision_text_and_keeps_source_ids():
+    """The graph can carry both a short supporting chunk and the full body."""
+    prov = _prov("P1", "16")
+    prov["chunk_text"] = "Section 16"
+    prov["provision_text"] = "Duties of the Authority. " * 20
+    prov["source_chunk_ids"] = ["c16", "qdrant-16"]
+    chunks = provisions_to_retrieved_chunks([prov], limit=5)
+    assert "Duties of the Authority" in chunks[0].text
+    assert chunks[0].body_char_count >= 200
+    assert chunks[0].source_chunk_ids == ["c16", "qdrant-16"]
+
+
+def test_backfill_body_beats_short_graph_header():
+    from kg.hybrid import backfill_key
+
+    prov = _prov("P1", "16", text="Section 16")
+    body = "The Authority shall perform the following duties. " * 8
+    chunks = provisions_to_retrieved_chunks(
+        [prov],
+        limit=5,
+        backfill={backfill_key("Food Safety and Standards Act, 2006", "16"): body},
+    )
+    assert body.strip() in chunks[0].text
+    assert chunks[0].body_char_count == len(body.strip())
+
+
+def test_filter_injectable_kg_chunks_drops_pointer_stubs():
+    from kg.hybrid import filter_injectable_kg_chunks
+
+    short = provisions_to_retrieved_chunks([_prov("P1", "16", text="Section 16")], limit=5)
+    long = provisions_to_retrieved_chunks(
+        [_prov("P2", "17", text="The Authority shall perform its duties. " * 10)],
+        limit=5,
+    )
+    kept = filter_injectable_kg_chunks([*short, *long], min_body_chars=200)
+    assert [c.chunk_id for c in kept] == ["KG:P2"]
+
+
 # --------------------------------------------------------------------------- #
 # provisions_for_query (fast retrieval path)
 # --------------------------------------------------------------------------- #
@@ -144,6 +182,16 @@ def test_provisions_for_query_dedupe_keeps_first_occurrence_order():
     q = _FakeQueries(cross=[_prov("A", "1"), _prov("B", "2")])
     out = provisions_for_query("food business slaughter", q, limit=10)
     assert [p["provision_id"] for p in out][:2] == ["A", "B"]
+
+
+def test_provisions_for_query_dedupe_keeps_richest_body():
+    """First-wins must not throw away a body that arrives in a later row."""
+    short = _prov("FSS:SEC_16", "16", text="Section 16")
+    long = _prov("FSS:SEC_16", "16", text="The Authority shall perform its duties. " * 10)
+    q = _FakeQueries(cross=[short, long])
+    out = provisions_for_query("food business slaughter", q, limit=10)
+    assert len(out) == 1
+    assert out[0]["text"] == long["text"]
 
 
 def test_search_provisions_collects_one_source_uri_per_provision():

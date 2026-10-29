@@ -330,9 +330,16 @@ class TestStatutoryReferenceRule:
         assert results == []
 
     def test_case_file_untracked_section_warns(self):
-        case_data = _base_case_data(case_type="case_file", fields={"applicable_sections": "51"})
+        # A section outside the tracked whitelist still warns.
+        case_data = _base_case_data(case_type="case_file", fields={"applicable_sections": "99"})
         results = StatutoryReferenceRule().evaluate(case_data)
-        assert any(r.severity == "WARNING" and "51" in r.message for r in results)
+        assert any(r.severity == "WARNING" and "99" in r.message for r in results)
+
+    def test_case_file_sections_51_and_52_allowed(self):
+        # Sections 51 (sub-standard) and 52 (mis-branded) are tracked provisions
+        # derived from lab results; citing them must not raise a validation warning.
+        case_data = _base_case_data(case_type="case_file", fields={"applicable_sections": "51, 52"})
+        assert StatutoryReferenceRule().evaluate(case_data) == []
 
     def test_case_file_tracked_section_clean(self):
         case_data = _base_case_data(case_type="case_file", fields={"applicable_sections": "55"})

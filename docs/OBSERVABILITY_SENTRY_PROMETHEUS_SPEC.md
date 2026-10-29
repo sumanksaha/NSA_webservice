@@ -2,7 +2,7 @@
 
 **Status:** specification only — no code, tests, or config changed.
 **Date:** 2026-10-17.
-**Implements:** [OBSERVABILITY_SENTRY_PROMETHEUS_RESEARCH.md](./OBSERVABILITY_SENTRY_PROMETHEUS_RESEARCH.md)
+**Implements:** [OBSERVABILITY_SENTRY_PROMETHEUS_RESEARCH.md](OBSERVABILITY_SENTRY_PROMETHEUS_RESEARCH.md)
 (primary-source research, tool-specific design, five-phase plan).
 **Covers:** [`README.md:827-833`](../README.md) — Level 7 "Observability", the two ⬜ items only:
 *Monitoring (Prometheus + Grafana)* and *Error tracking (Sentry)*. Distributed tracing stays ⬜

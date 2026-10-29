@@ -13,12 +13,19 @@ so it can be queried server-side without re-extraction.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import math
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy import or_
+
 from app.extensions import db
+
+from app.knowledge_graph.errors import GraphBuildError
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +49,11 @@ TESTED_AT = "TESTED_AT"
 VIOLATED_SECTION = "VIOLATED_SECTION"
 SUPPORTED_BY = "SUPPORTED_BY"
 REFERENCES = "REFERENCES"
+AMENDS = "AMENDS"
+OVERRULES = "OVERRULES"
+SUPPORTS = "SUPPORTS"
+CITES = "CITES"
+APPLIES_TO_JURISDICTION = "APPLIES_TO_JURISDICTION"
 
 # Cytoscape.js style defaults per node type
 _NODE_STYLE: dict[str, dict[str, str]] = {
@@ -113,9 +125,7 @@ class KnowledgeGraphEngine:
             in Cytoscape.js element format.
 
         """
-        from app.shared.case_resolver import CaseResolver
-
-        resolved = CaseResolver().resolve(case_id, kind=case_type)
+        resolved, nodes, edges = self._build_graph(case_id, case_type)
         if resolved is None or resolved.record is None:
             return {
                 "case_id": case_id,
@@ -125,6 +135,23 @@ class KnowledgeGraphEngine:
                 "edges": [],
                 "error": "Case not found",
             }
+        table_name = resolved.record.__tablename__
+        source_id = resolved.case_id if resolved.case_type == "case_file" else resolved.adjudication_id
+        if source_id is not None:
+            self._persist(table_name, source_id, nodes, edges, graph_origin=resolved.case_type)
+        return self._serialize(resolved, nodes, edges)
+
+    def _build_graph(self, case_id: int, case_type: str = "case_file"):
+        """Extract nodes + edges for a case without persisting (shared by build/upsert).
+
+        Returns ``(resolved, nodes, edges)`` where ``resolved`` may be ``None``
+        (and ``nodes``/``edges`` empty) when the case is not found.
+        """
+        from app.shared.case_resolver import CaseResolver
+
+        resolved = CaseResolver().resolve(case_id, kind=case_type)
+        if resolved is None or resolved.record is None:
+            return resolved, [], []
 
         record: Any = resolved.record
         table_name = record.__tablename__
@@ -225,15 +252,43 @@ class KnowledgeGraphEngine:
         problem_text = getattr(record, "problem", None) or ""
         section_numbers.extend(_extract_sections(problem_text))
 
+        sec_nodes: list[KGNode] = []
+        section_ids_by_number: dict[str, str] = {}
         for sec_num in _dedupe(section_numbers):
+            section_row = self._get_section_row(sec_num)
+            act = section_row.act if (section_row is not None and section_row.act) else "FSS Act, 2006"
+            meta: dict[str, Any] = {
+                "section_number": sec_num,
+                "act": act,
+                "effective_date": _iso(section_row.effective_date) if section_row is not None else None,
+                "expiry_date": _iso(section_row.expiry_date) if section_row is not None else None,
+                "full_text": section_row.full_text if section_row is not None else None,
+                "jurisdiction": section_row.jurisdiction if section_row is not None else None,
+                "vector_id": None,  # populated lazily via attach_vector_id()
+            }
+            if section_row is not None:
+                meta["source_table"] = "kg_sections"
+                meta["source_id"] = section_row.id
             sec_node = KGNode(
                 id=f"section:{case_node.id}:{sec_num}",
                 label=f"Section {sec_num}",
                 type=SECTION,
-                metadata={"section_number": sec_num, "act": "FSS Act, 2006"},
+                source_table="kg_sections" if section_row is not None else None,
+                source_id=section_row.id if section_row is not None else None,
+                metadata=meta,
             )
-            nodes.append(sec_node)
+            sec_nodes.append(sec_node)
+            section_ids_by_number[sec_num] = sec_node.id
+        nodes.extend(sec_nodes)
+
+        # Case -> each section (violated / applied)
+        for sec_node in sec_nodes:
             edges.append(KGEdge(source=case_node.id, target=sec_node.id, type=VIOLATED_SECTION))
+
+        # --- Legal cross-reference edges (CITES / AMENDS / OVERRULES) ---
+        edges.extend(self._section_reference_edges(record, case_node.id, sec_nodes, section_ids_by_number))
+        # --- Jurisdiction edges (APPLIES_TO_JURISDICTION) ---
+        edges.extend(self._jurisdiction_edges(sec_nodes, case_node.id))
 
         # --- Evidence nodes ---
         ev_nodes, ev_edges = self._extract_evidence(case_id, case_type)
@@ -250,19 +305,157 @@ class KnowledgeGraphEngine:
         nodes.extend(bill_nodes)
         edges.extend(bill_edges)
 
-        # Deduplicate by id (preserve order)
+        # Deduplicate by id (preserve order); the caller persists.
         unique_nodes = _dedupe_nodes(nodes)
         unique_edges = _dedupe_edges(edges)
+        return resolved, unique_nodes, unique_edges
 
-        # Persist to DB if case_file
-        if resolved.case_type == "case_file" and resolved.case_id is not None:
-            self._persist(table_name, resolved.case_id, unique_nodes, unique_edges)
+    def upsert_graph(self, case_id: int, case_type: str = "case_file") -> dict:
+        """Incrementally rebuild the graph for ``case_id`` only when it changed.
 
-        return self._serialize(resolved, unique_nodes, unique_edges)
+        Change detection compares ``record.updated_at`` against the stored
+        ``graph_last_modified`` of the persisted graph.  When nothing changed
+        the method is a no-op.  Otherwise the graph is rebuilt and written
+        with :meth:`_bulk_upsert` (bulk inserts, stale edges removed).
 
-    # ------------------------------------------------------------------ #
-    # Linked-record extraction
-    # ------------------------------------------------------------------ #
+        Returns a status dict; raises :class:`GraphBuildError` when the case
+        does not exist or the database fails.
+        """
+        from app.shared.case_resolver import CaseResolver
+
+        resolved = CaseResolver().resolve(case_id, kind=case_type)
+        if resolved is None or resolved.record is None:
+            raise GraphBuildError(f"Case not found: {case_id} (kind={case_type})")
+
+        record: Any = resolved.record
+        table_name = record.__tablename__
+        source_id = record.id
+        graph_origin = resolved.case_type
+        updated_at = getattr(record, "updated_at", None) or datetime.now(UTC)
+
+        Entity, Relationship = self._models_for(graph_origin)
+        last_modified = (
+            db.session
+            .query(db.func.max(Entity.graph_last_modified))
+            .filter_by(source_table=table_name, source_id=source_id)
+            .scalar()
+        )
+        if last_modified is not None and updated_at <= last_modified:
+            return {
+                "status": "unchanged",
+                "case_id": case_id,
+                "case_type": graph_origin,
+                "graph_last_modified": _iso(last_modified),
+            }
+
+        _, nodes, edges = self._build_graph(case_id, case_type)
+        try:
+            self._bulk_upsert(
+                table_name,
+                source_id,
+                graph_origin,
+                nodes,
+                edges,
+                modified_at=updated_at,
+            )
+        except GraphBuildError:
+            raise
+        except Exception as exc:  # pragma: no cover - defensive
+            db.session.rollback()
+            logger.error("Knowledge graph upsert failed for %s:%s: %s", table_name, source_id, exc)
+            raise GraphBuildError(f"Failed to upsert graph for {graph_origin}:{case_id}: {exc}") from exc
+
+        return {
+            "status": "upserted",
+            "case_id": case_id,
+            "case_type": graph_origin,
+            "nodes": len(nodes),
+            "edges": len(edges),
+            "graph_last_modified": _iso(updated_at),
+        }
+
+    @staticmethod
+    def _models_for(graph_origin: str):
+        if graph_origin == "adjudication":
+            from app.models import AdjudicationEntity as Entity, AdjudicationRelationship as Relationship
+        else:
+            from app.models import Entity, Relationship
+        return Entity, Relationship
+
+    def _bulk_upsert(
+        self,
+        source_table: str,
+        source_id: int,
+        graph_origin: str,
+        nodes: list[KGNode],
+        edges: list[KGEdge],
+        modified_at: datetime | None = None,
+    ) -> None:
+        """Write ``nodes``/``edges`` with bulk ops, removing stale edges.
+
+        Existing entities for ``source_table``/``source_id`` are replaced and
+        relationships that referenced the old entity PKs (source or target no
+        longer present) are deleted, then the new graph is bulk-inserted.
+        """
+        modified_at = modified_at or datetime.now(UTC)
+        Entity, Relationship = self._models_for(graph_origin)
+
+        try:
+            old_entity_ids = [e.id for e in Entity.query.filter_by(source_id=source_id).all()]
+            Entity.query.filter_by(source_id=source_id).delete(synchronize_session=False)
+            db.session.flush()
+
+            entity_objs = []
+            id_map: dict[str, int] = {}
+            for node in nodes:
+                meta = dict(node.metadata or {})
+                meta["graph_last_modified"] = _iso(modified_at)
+                meta["kg_node_id"] = node.id
+                entity = Entity(
+                    entity_type=node.type,
+                    name=node.label,
+                    source_table=node.source_table or source_table,
+                    source_id=node.source_id or source_id,
+                    metadata_json=json.dumps(meta) if meta else None,
+                    graph_last_modified=modified_at,
+                )
+                entity_objs.append(entity)
+                id_map[node.id] = entity  # PK assigned after flush below
+
+            db.session.bulk_save_objects(entity_objs)
+            db.session.flush()
+            for node, entity in zip(nodes, entity_objs):
+                id_map[node.id] = entity.id
+
+            if old_entity_ids:
+                # Remove stale edges: source or target entity no longer exists.
+                Relationship.query.filter(
+                    or_(
+                        Relationship.source_id.in_(old_entity_ids),
+                        Relationship.target_id.in_(old_entity_ids),
+                    )
+                ).delete(synchronize_session=False)
+
+            rel_objs = []
+            for edge in edges:
+                src = id_map.get(edge.source)
+                tgt = id_map.get(edge.target)
+                if src is None or tgt is None:
+                    continue
+                rel_objs.append(
+                    Relationship(
+                        source_id=src,
+                        target_id=tgt,
+                        relationship_type=edge.type,
+                        weight=edge.weight,
+                        graph_last_modified=modified_at,
+                    )
+                )
+            db.session.bulk_save_objects(rel_objs)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
 
     def _extract_evidence(self, case_id: int, case_type: str) -> tuple[list[KGNode], list[KGEdge]]:
         """Extract Evidence nodes linked to the case."""
@@ -359,31 +552,51 @@ class KnowledgeGraphEngine:
     # Persistence (case_file only)
     # ------------------------------------------------------------------ #
 
-    @staticmethod
     def _persist(
+        self,
         source_table: str,
         source_id: int | None,
         nodes: list[KGNode],
         edges: list[KGEdge],
+        graph_origin: str = "case_file",
+        modified_at: datetime | None = None,
     ) -> None:
-        """Persist nodes + edges to the entity/relationship tables (idempotent)."""
-        from app.models import Entity, Relationship
+        """Persist nodes + edges to entity/relationship tables (idempotent).
 
+        ``graph_origin`` selects ``entity``/``relationship`` for ``case_file``
+        or ``adjudication_entity``/``adjudication_relationship`` for
+        ``adjudication`` graphs.  ``modified_at`` stamps ``graph_last_modified``
+        on every row written so incremental upserts can detect stale graphs.
+        """
+        if graph_origin == "adjudication":
+            from app.models import AdjudicationEntity as Entity, AdjudicationRelationship as Relationship
+        else:
+            from app.models import Entity, Relationship
+
+        modified_at = modified_at or datetime.now(UTC)
         try:
-            # Clear previous graph for this case (filter_by is parameterised)
-            Entity.query.filter_by(source_table=source_table, source_id=source_id).delete(synchronize_session=False)
+            # Clear the previous graph for this case.  Every row written for a
+            # graph carries ``source_id == source_id`` (the case/adjudication
+            # primary key) -- including nodes whose ``source_table`` differs
+            # (e.g. the inspector row, sourced from ``fso``) -- so we delete by
+            # source_id and let the FK cascade remove the old edges.
+            Entity.query.filter_by(source_id=source_id).delete(synchronize_session=False)
             db.session.flush()
 
             # Map node ids → new entity PKs
             id_map: dict[str, int] = {}
             for node in nodes:
-                meta_json = json.dumps(node.metadata) if node.metadata else None
+                meta = dict(node.metadata or {})
+                meta["graph_last_modified"] = _iso(modified_at)
+                meta["kg_node_id"] = node.id
+                meta_json = json.dumps(meta) if meta else None
                 entity = Entity(
                     entity_type=node.type,
                     name=node.label,
                     source_table=node.source_table or source_table,
                     source_id=node.source_id or source_id,
                     metadata_json=meta_json,
+                    graph_last_modified=modified_at,
                 )
                 db.session.add(entity)
                 db.session.flush()
@@ -401,6 +614,7 @@ class KnowledgeGraphEngine:
                         target_id=tgt,
                         relationship_type=edge.type,
                         weight=edge.weight,
+                        graph_last_modified=modified_at,
                     ),
                 )
 
@@ -464,10 +678,288 @@ class KnowledgeGraphEngine:
             "edge_count": len(cy_edges),
         }
 
+    def __init__(self) -> None:
+        self._vector_links: dict[str, str] = {}
+        self._kg_cache: Any = None  # Redis cache, set lazily by _cache()
 
-# --------------------------------------------------------------------------- #
-# Helpers
-# --------------------------------------------------------------------------- #
+    # ------------------------------------------------------------------ #
+    # Vector linkage (lazy) + legal cross-reference helpers
+    # ------------------------------------------------------------------ #
+
+    def attach_vector_id(self, node_id: str, text: str) -> str | None:
+        """Lazily compute and cache the vector-store id for a node.
+
+        Returns ``None`` when the embedding model is unavailable (offline /
+        CI).  Callers merge the returned id into node metadata on demand.
+        """
+        if node_id in self._vector_links:
+            return self._vector_links[node_id]
+        try:
+            self._embed_text(text)
+        except Exception as exc:  # pragma: no cover - offline fallback
+            logger.debug("Vector linkage skipped for %s: %s", node_id, exc)
+            return None
+        vector_id = f"vec:{node_id}"
+        self._vector_links[node_id] = vector_id
+        return vector_id
+
+    def _embed_text(self, text: str) -> list[float]:
+        """Embed a single string with ``sentence-transformers/all-mpnet-base-v2``.
+
+        The import is intentionally lazy so the engine imports cleanly without
+        torch installed.
+        """
+        from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
+
+        model = SentenceTransformer("all-mpnet-base-v2")
+        return model.encode([text])[0].tolist()
+
+    def _safe_embed(self, text: str) -> list[float]:
+        try:
+            return self._embed_text(text)
+        except Exception:  # pragma: no cover - offline fallback
+            return _fallback_vector(text)
+
+    def _get_section_row(self, section_number: str):
+        """Fetch the ORM ``Section`` for enrichment (None when not seeded)."""
+        from app.models import Section
+
+        return db.session.query(Section).filter_by(section_number=section_number).order_by(Section.id.asc()).first()
+
+    def _section_reference_edges(
+        self,
+        record: Any,
+        case_node_id: str,
+        sec_nodes: list[KGNode],
+        section_ids_by_number: dict[str, str],
+    ) -> list[KGEdge]:
+        """CITES / AMENDS / OVERRULES edges between sections on this case.
+
+        Target ids use the canonical ``section:{case_id}:<ref id>`` format.
+        Explicit references come from ``record.section_references`` (a list of
+        ``{"id": "<section number>", "type": "cites|amends|overrules"}`` or
+        plain section-number strings); otherwise CITES edges are inferred from
+        section numbers mentioned in ``record.problem``.
+        """
+        refs = getattr(record, "section_references", None)
+        edges: list[KGEdge] = []
+        if refs:
+            for ref in refs:
+                if isinstance(ref, dict):
+                    ref_id = str(ref.get("id") or ref.get("section") or "").strip()
+                    kind = str(ref.get("type", "cites")).strip().lower()
+                else:
+                    ref_id = str(ref).strip()
+                    kind = "cites"
+                if not ref_id or ref_id not in section_ids_by_number:
+                    continue
+                etype = {"amends": AMENDS, "overrules": OVERRULES}.get(kind, CITES)
+                edges.append(KGEdge(source=case_node_id, target=f"section:{case_node_id}:{ref_id}", type=etype))
+            return edges
+
+        # Fallback: infer CITES from section numbers mentioned in the problem text.
+        mentioned = set(_extract_sections(getattr(record, "problem", None) or ""))
+        for sec_node in sec_nodes:
+            sec_num = (sec_node.metadata or {}).get("section_number") if sec_node.metadata else None
+            for mentioned_num in mentioned:
+                if mentioned_num != sec_num and mentioned_num in section_ids_by_number:
+                    edges.append(
+                        KGEdge(
+                            source=sec_node.id,
+                            target=section_ids_by_number[mentioned_num],
+                            type=CITES,
+                        )
+                    )
+        return edges
+
+    def _jurisdiction_edges(self, sec_nodes: list[KGNode], case_node_id: str) -> list[KGEdge]:
+        """APPLIES_TO_JURISDICTION edges from sections to their jurisdiction."""
+        edges: list[KGEdge] = []
+        for sec_node in sec_nodes:
+            jurisdiction = (sec_node.metadata or {}).get("jurisdiction") if sec_node.metadata else None
+            if jurisdiction:
+                edges.append(KGEdge(source=sec_node.id, target=case_node_id, type=APPLIES_TO_JURISDICTION))
+        return edges
+
+    # ------------------------------------------------------------------ #
+    # Hybrid retrieval (vector nearest-neighbor + graph BFS)
+    # ------------------------------------------------------------------ #
+
+    def hybrid_search(
+        self,
+        query: str,
+        max_hops: int = 2,
+        k: int = 5,
+        vector_store: Any | None = None,
+    ) -> dict:
+        """Hybrid retrieval: vector nearest-neighbor search + graph BFS.
+
+        Embeds ``query``, finds the nearest persisted node embeddings (seed
+        nodes with similarity scores) via ``vector_store`` (or the default
+        in-memory store), then traverses the persisted graph up to
+        ``max_hops`` with BFS and returns the subgraph as JSON plus scores.
+
+        Raises :class:`GraphBuildError` on vector-store or DB failure.
+        """
+        max_hops = max(0, int(max_hops))
+        k = max(1, int(k))
+        query = (query or "").strip()
+        if not query:
+            return {
+                "query": "",
+                "max_hops": max_hops,
+                "k": k,
+                "seed_nodes": [],
+                "nodes": [],
+                "edges": [],
+                "scores": {},
+            }
+
+        store = vector_store or self._default_vector_store()
+        try:
+            seeds = store.search(query, k)  # list[(node_id, score)]
+        except GraphBuildError:
+            raise
+        except Exception as exc:
+            raise GraphBuildError(f"Vector search failed: {exc}") from exc
+
+        seed_ids = [node_id for node_id, _ in seeds]
+        scores = {node_id: score for node_id, score in seeds}
+
+        entities = self._all_entities()
+        node_by_id = {row[0]: row for row in entities}
+        pk_to_node = {row[-1]: row[0] for row in entities}
+
+        adjacency: dict[str, list[tuple[str, str, float | None]]] = {}
+        for src_pk, tgt_pk, rel_type, weight in self._all_relationships():
+            src = pk_to_node.get(src_pk)
+            tgt = pk_to_node.get(tgt_pk)
+            if src is None or tgt is None:
+                continue
+            adjacency.setdefault(src, []).append((tgt, rel_type, weight))
+
+        visited: set[str] = set(seed_ids)
+        frontier: list[str] = list(seed_ids)
+        bfs_edges: list[tuple[str, str, str, float | None]] = []
+        for _ in range(max_hops):
+            next_frontier: list[str] = []
+            for src in frontier:
+                for tgt, rel_type, weight in adjacency.get(src, []):
+                    bfs_edges.append((src, tgt, rel_type, weight))
+                    if tgt not in visited:
+                        visited.add(tgt)
+                        next_frontier.append(tgt)
+            if not next_frontier:
+                break
+            frontier = next_frontier
+
+        hy_nodes = []
+        for node_id in sorted(visited):
+            row = node_by_id.get(node_id)
+            if row is None:
+                continue
+            hy_nodes.append({
+                "id": node_id,
+                "label": row[1],
+                "type": row[2],
+                "source_table": row[3],
+                "source_id": row[4],
+                "metadata": row[5] or {},
+                "score": scores.get(node_id),
+            })
+
+        seen_edges: set[tuple[str, str, str]] = set()
+        hy_edges = []
+        for src, tgt, rel_type, weight in bfs_edges:
+            if src not in node_by_id or tgt not in node_by_id:
+                continue
+            key = (src, tgt, rel_type)
+            if key in seen_edges:
+                continue
+            seen_edges.add(key)
+            hy_edges.append({"source": src, "target": tgt, "type": rel_type, "weight": weight})
+
+        return {
+            "query": query,
+            "max_hops": max_hops,
+            "k": k,
+            "seed_nodes": seed_ids,
+            "nodes": hy_nodes,
+            "edges": hy_edges,
+            "scores": scores,
+        }
+
+    def _default_vector_store(self) -> Any:
+        return _DefaultVectorStore(self)
+
+    def _all_entities(self) -> list[tuple]:
+        """All persisted entities (both origins) as (node_id, label, type,
+        source_table, source_id, metadata, pk) tuples."""
+        from app.models import AdjudicationEntity, Entity
+
+        rows: list[tuple] = []
+        for cls in (Entity, AdjudicationEntity):
+            for row in db.session.query(cls).all():
+                meta = _parse_json(row.metadata_json)
+                node_id = meta.get("kg_node_id") or f"{row.entity_type}:{row.id}"
+                rows.append((node_id, row.name, row.entity_type, row.source_table, row.source_id, meta, row.id))
+        return rows
+
+    def _all_relationships(self) -> list[tuple]:
+        """All persisted relationships as (src_pk, tgt_pk, type, weight)."""
+        from app.models import AdjudicationRelationship, Relationship
+
+        rows: list[tuple] = []
+        for cls in (Relationship, AdjudicationRelationship):
+            for row in db.session.query(cls).all():
+                rows.append((row.source_id, row.target_id, row.relationship_type, row.weight))
+        return rows
+
+    def cached_node(self, node_id: str) -> KGNode | None:
+        """Fetch a node, consulting the Redis cache (kg:node:{id}) first."""
+        cache = self._cache()
+        if cache is not None:
+            try:
+                cached = cache.get(node_id)
+                if cached is not None:
+                    return KGNode(**cached)
+            except Exception:  # pragma: no cover - cache is best effort
+                logger.debug("KG cache get failed for %s", node_id, exc_info=True)
+        for row in self._all_entities():
+            if row[0] != node_id:
+                continue
+            _nid, label, ntype, source_table, source_id, meta, _pk = row
+            node = KGNode(
+                id=node_id,
+                label=label,
+                type=ntype,
+                source_table=source_table,
+                source_id=source_id,
+                metadata=meta or {},
+            )
+            if cache is not None:
+                try:
+                    cache.set(node_id, node)
+                except Exception:  # pragma: no cover - cache is best effort
+                    logger.debug("KG cache set failed for %s", node_id, exc_info=True)
+            return node
+        return None
+
+    def _cache(self):
+        """Lazily connect to Redis (best effort; None when unavailable)."""
+        if getattr(self, "_kg_cache_resolved", False):
+            return self._kg_cache
+        try:
+            from flask import current_app
+
+            from app.knowledge_graph.cache import KGCache
+
+            self._kg_cache = KGCache(current_app.config.get("REDIS_URL"))
+        except Exception:  # pragma: no cover - redis not configured/running
+            logger.debug("KG Redis cache unavailable", exc_info=True)
+            self._kg_cache = None
+        self._kg_cache_resolved = True
+        return self._kg_cache
 
 
 def _safe_float(value) -> float:
@@ -519,6 +1011,72 @@ def _dedupe_nodes(nodes: list[KGNode]) -> list[KGNode]:
             seen.add(n.id)
             result.append(n)
     return result
+
+
+def _parse_json(value) -> dict:
+    """Parse a JSON blob defensively, returning ``{}`` on any failure."""
+    if not value:
+        return {}
+    try:
+        return json.loads(value)
+    except (ValueError, TypeError):
+        return {}
+
+
+class _DefaultVectorStore:
+    """In-memory nearest-neighbor store over persisted KG node texts.
+
+    Embeddings are computed lazily via the engine (sentence-transformers
+    ``all-mpnet-base-v2`` when available, otherwise a deterministic
+    hash-based fallback so offline/CI runs never depend on the model).
+    """
+
+    def __init__(self, engine: KnowledgeGraphEngine) -> None:
+        self.engine = engine
+
+    def search(self, query: str, k: int) -> list[tuple[str, float]]:
+        entities = self.engine._all_entities()
+        if not entities:
+            return []
+
+        query_vec = self.engine._safe_embed(query)
+        scored = []
+        for node_id, _label, _ntype, _source_table, _source_id, meta, _pk in entities:
+            text = _node_text(_label, meta)
+            doc_vec = self.engine._safe_embed(text)
+            scored.append((node_id, _cosine(query_vec, doc_vec)))
+
+        scored.sort(key=lambda item: item[1], reverse=True)
+        return scored[:k]
+
+    def _safe_embed(self, text: str) -> list[float]:
+        try:
+            return self.engine._embed_text(text)
+        except Exception:  # pragma: no cover - offline fallback
+            return _fallback_vector(text)
+
+
+def _node_text(label: str | None, meta: dict | None) -> str:
+    parts = [label or ""]
+    if meta:
+        for key in ("full_text", "section_number", "act", "jurisdiction", "name", "sample_name", "evidence_type"):
+            val = meta.get(key)
+            if val:
+                parts.append(str(val))
+    return " ".join(parts)
+
+
+def _fallback_vector(text: str) -> list[float]:
+    """Deterministic pseudo-embedding used when the model is unavailable."""
+    digest = hashlib.sha256(text.encode("utf-8")).digest()
+    return [(byte / 255.0) * 2.0 - 1.0 for byte in digest[:64]]
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a)) or 1.0
+    nb = math.sqrt(sum(x * x for x in b)) or 1.0
+    return dot / (na * nb)
 
 
 def _dedupe_edges(edges: list[KGEdge]) -> list[KGEdge]:

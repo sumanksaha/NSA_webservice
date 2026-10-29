@@ -296,7 +296,7 @@ class AIAssistantService:
         """Return the model identifier for this assistant request.
 
         Provider-appropriate default: ``gpt-4o-mini`` for the OpenAI
-        provider, ``minimax/minimax-m3.1-flash:free`` for OpenRouter (the
+        provider, ``minimax/minimax-m3.1-flash`` for OpenRouter (the
         project's answer model); an explicit ``AI_ASSISTANT_MODEL`` override
         is honoured as-is.
 
@@ -317,7 +317,7 @@ class AIAssistantService:
             model_id = "gpt-4o-mini"
         else:
             # Default to the project's answer model (OpenRouter free tier).
-            model_id = "minimax/minimax-m3.1-flash:free"
+            model_id = "minimax/minimax-m3.1-flash"
         return model_id
 
     def complete_json(
@@ -464,8 +464,7 @@ class AIAssistantService:
 
         if not llm_enabled():
             raise RuntimeError(
-                "LLM calls are DISABLED by the hard kill switch "
-                "(LLM_ENABLED=false). Set LLM_ENABLED=true to re-enable."
+                "LLM calls are DISABLED by the hard kill switch (LLM_ENABLED=false). Set LLM_ENABLED=true to re-enable."
             )
 
         if not self.is_enabled():

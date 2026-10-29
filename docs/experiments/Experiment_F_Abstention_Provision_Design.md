@@ -160,7 +160,7 @@ A D2 answer is flagged for provision re-decision iff the cited provisions in the
 
 ## 11. REPOSITORY ARTIFACTS & IMPLEMENTATION FILES
 
-- **Design Specification:** [`Experiment_F_Abstention_Provision_Design.md`](file:///C:/github/NSA_webservice/Experiment_F_Abstention_Provision_Design.md)
+- **Design Specification:** [`Experiment_F_Abstention_Provision_Design.md`](file:///C:/github/NSA_webservice/docs/experiments/Experiment_F_Abstention_Provision_Design.md)
 - **Ground Truth Tabulations:** [`evaluation/out/ceiling_v5/full_review_tabulation.json`](file:///C:/github/NSA_webservice/evaluation/out/ceiling_v5/full_review_tabulation.json), [`evaluation/out/ceiling_v5/full_review_tabulation.md`](file:///C:/github/NSA_webservice/evaluation/out/ceiling_v5/full_review_tabulation.md)
 - **Evaluator v2 Specification:** [`evaluation/evaluator_v2_overlay.json`](file:///C:/github/NSA_webservice/evaluation/evaluator_v2_overlay.json), [`evaluation/rescore_evaluator_v2.py`](file:///C:/github/NSA_webservice/evaluation/rescore_evaluator_v2.py)
 - **Execution Script & Pipeline:** `evaluation/experiment_f_calibration_eval.py`, `evaluation/run_experiment_f_full.sh`

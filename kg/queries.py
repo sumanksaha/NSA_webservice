@@ -261,7 +261,8 @@ class LegalKGQueries:
         """
         results = self._execute(
             """
-            MATCH (c:LegalConcept {name: $concept})<-[:APPLIES_TO|RELATES_TO|REQUIRES
+            MATCH (c:LegalConcept) WHERE toLower(c.name) = toLower($concept)
+            MATCH (c)<-[:APPLIES_TO|RELATES_TO|REQUIRES
                                              |IMPOSES_DUTY|PRESCRIBES_PENALTY|PROHIBITS
                                              |DEFINES|EXEMPTS|CREATES_OFFENCE|DECLARES
                                              |GRANTS_PERMISSION|PRESCRIBES|COMPLEMENTS
@@ -272,18 +273,29 @@ class LegalKGQueries:
             OPTIONAL MATCH (p)-[:GRANTS_POWER_TO|ENFORCED_BY]->(a:Authority)
             OPTIONAL MATCH (p)-[:SUPPORTED_BY]->(ch:Chunk)
             OPTIONAL MATCH (ch)<-[:HAS_CHUNK]-(doc:Document)
+            WITH p, d, i,
+                 collect(DISTINCT a.name) AS authorities,
+                 collect(DISTINCT ch.chunk_text) AS chunk_texts,
+                 collect(DISTINCT ch.chunk_id) AS source_chunk_ids,
+                 collect(DISTINCT ch.qdrant_point_id) AS source_qdrant_ids,
+                 collect(DISTINCT doc.source_uri) AS uris,
+                 collect(DISTINCT doc.title) AS document_titles
             RETURN
                 p.provision_id AS provision_id,
                 p.provision_number AS provision_number,
                 p.title AS title,
+                p.provision_text AS provision_text,
+                p.status AS status,
                 d.domain_name AS domain,
                 d.priority AS domain_priority,
                 i.title AS instrument_title,
                 i.instrument_id AS instrument_id,
-                collect(DISTINCT a.name) AS authorities,
-                doc.source_uri AS source_uri,
-                ch.chunk_text AS chunk_text,
-                doc.title AS document_title
+                authorities,
+                [t IN chunk_texts WHERE t IS NOT NULL AND t <> ''] AS chunk_texts,
+                [cid IN source_chunk_ids WHERE cid IS NOT NULL] AS source_chunk_ids,
+                [cid IN source_qdrant_ids WHERE cid IS NOT NULL] AS source_qdrant_ids,
+                head([u IN uris WHERE u IS NOT NULL]) AS source_uri,
+                head([t IN document_titles WHERE t IS NOT NULL]) AS document_title
             ORDER BY domain_priority ASC, instrument_id ASC
             """,
             {"concept": concept},
@@ -515,7 +527,8 @@ class LegalKGQueries:
         """Get only current (non-repealed) provisions related to a concept."""
         results = self._execute(
             """
-            MATCH (c:LegalConcept {name: $concept})<-[:APPLIES_TO|RELATES_TO|REQUIRES
+            MATCH (c:LegalConcept) WHERE toLower(c.name) = toLower($concept)
+            MATCH (c)<-[:APPLIES_TO|RELATES_TO|REQUIRES
                                              |IMPOSES_DUTY|PRESCRIBES_PENALTY|PROHIBITS
                                              |DEFINES|EXEMPTS|CREATES_OFFENCE|DECLARES
                                              |GRANTS_PERMISSION|PRESCRIBES|COMPLEMENTS
@@ -720,6 +733,7 @@ class LegalKGQueries:
                 p.provision_number AS provision_number,
                 p.title AS title,
                 p.provision_text AS snippet,
+                p.status AS status,
                 i.title AS instrument_title,
                 i.instrument_id AS instrument_id,
                 d.domain_name AS legal_domain,
@@ -734,6 +748,7 @@ class LegalKGQueries:
                 "provision_number": _unwrap(row["provision_number"]),
                 "title": _unwrap(row["title"]),
                 "snippet": _unwrap(row["snippet"]),
+                "status": _unwrap(row.get("status")),
                 "instrument_title": _unwrap(row["instrument_title"]),
                 "instrument_id": _unwrap(row["instrument_id"]),
                 "legal_domain": _unwrap(row["legal_domain"]),
@@ -852,7 +867,8 @@ def provisions_for_query(
     (ARM D) and any consumer that only needs the provision candidate set.
     """
     provisions: list[dict[str, Any]] = []
-    seen: set[str] = set()
+    by_id: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
     for concept in _extract_concept_mentions(query):
         for row in kg_queries.get_cross_domain_laws(concept):
             # A provision tagged with several of the query's concepts is
@@ -860,11 +876,36 @@ def provisions_for_query(
             # occupied several injected slots (27/40 benchmark questions had
             # duplicate KG chunk_ids), wasting budget on repeated text.
             pid = str(row.get("provision_id") or "")
-            if pid and pid in seen:
+            if not pid:
+                provisions.append(row)
                 continue
-            if pid:
-                seen.add(pid)
-            provisions.append(row)
+            if pid not in by_id:
+                by_id[pid] = dict(row)
+                order.append(pid)
+                continue
+            # Same provision reached through another concept: keep the richest
+            # body instead of whichever row happened to arrive first.  The
+            # supporting-chunk fan-out can return a header row before the body
+            # row, and first-wins silently threw the body away.
+            existing = by_id[pid]
+            for key in ("text", "snippet", "provision_text", "chunk_text",
+                        "title", "status", "instrument_title", "instrument_id",
+                        "domain"):
+                new_value = row.get(key)
+                old_value = existing.get(key)
+                if (
+                    isinstance(new_value, str)
+                    and len(new_value) > len(old_value or "")
+                ) or (new_value and not old_value):
+                    existing[key] = new_value
+            for key in ("source_chunk_ids", "authorities"):
+                merged = list(existing.get(key) or [])
+                for value in row.get(key) or []:
+                    if value not in merged:
+                        merged.append(value)
+                existing[key] = merged
+    if by_id:
+        provisions = [by_id[pid] for pid in order] + provisions
     if not provisions:
         provisions = kg_queries.search_provisions(query, domain=_classify_query_domain(query), limit=limit)
     return provisions[:limit]
@@ -1025,12 +1066,25 @@ def _classify_query_domain(query: str) -> str | None:
     return None
 
 
+def _normalise_query(text: str) -> str:
+    """Lowercase and collapse whitespace so keyword matching is robust to
+    irregular spacing (``food  business``, ``food\tbusiness``, etc.)."""
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
 def _extract_concept_mentions(query: str) -> list[str]:
-    """Extract legal concept names from a query string."""
-    q = query.lower()
+    """Extract legal concept names from a query string.
+
+    Query keywords are matched against the normalised query text; concept
+    names returned here are matched case-insensitively against
+    ``LegalConcept.name`` in :meth:`get_cross_domain_laws` (via ``toLower()``)
+    so casing/spacing differences between the query vocabulary and the graph
+    cannot silently drop the traversal.
+    """
+    q = _normalise_query(query)
     found: list[str] = []
     for concept, keywords in _CONCEPT_KEYWORDS.items():
-        if any(kw in q for kw in keywords):
+        if any(_normalise_query(kw) in q for kw in keywords):
             found.append(concept)
     return found
 
@@ -1073,16 +1127,35 @@ def _row_to_related_provision(row: dict) -> dict[str, Any]:
 
 
 def _row_to_cross_domain_result(row: dict) -> dict[str, Any]:
+    chunk_texts = [
+        str(t) for t in (_unwrap(row.get("chunk_texts")) or []) if t
+    ]
+    # Prefer the fullest supporting body.  ``provision_body_text`` also picks
+    # the longest alias, but keeping ``chunk_text`` meaningful here makes the
+    # provision dict useful to callers that do not go through that helper.
+    chunk_text = max(chunk_texts, key=len) if chunk_texts else ""
     return {
         "provision_id": _unwrap(row.get("provision_id")),
         "provision_number": _unwrap(row.get("provision_number")),
         "title": _unwrap(row.get("title")),
+        "provision_text": _unwrap(row.get("provision_text")),
+        "status": _unwrap(row.get("status")),
         "domain": _unwrap(row.get("domain")),
         "instrument_id": _unwrap(row.get("instrument_id")),
         "instrument_title": _unwrap(row.get("instrument_title")),
         "authorities": [a for a in (_unwrap(row.get("authorities")) or []) if a],
         "source_uri": _unwrap(row.get("source_uri")),
-        "chunk_text": _unwrap(row.get("chunk_text")),
+        "chunk_text": chunk_text,
+        "source_chunk_ids": list(
+            dict.fromkeys(
+                str(cid)
+                for cid in (
+                    list(_unwrap(row.get("source_chunk_ids")) or [])
+                    + list(_unwrap(row.get("source_qdrant_ids")) or [])
+                )
+                if cid
+            )
+        ),
         "document_title": _unwrap(row.get("document_title")),
     }
 

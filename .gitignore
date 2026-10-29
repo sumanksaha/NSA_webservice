@@ -229,7 +229,9 @@ instance/temp_uploads/
 # ---------------------------------------------------------------------------
 # Generated Reports & Documents
 # ---------------------------------------------------------------------------
-reports/
+# Root-anchored: `docs/reports/` is tracked documentation, so a bare
+# `reports/` pattern would silently swallow any new file added there.
+/reports/
 output/
 generated/
 downloads/
@@ -492,3 +494,11 @@ _tmp_*.py
 
 # Trained model artifacts (scripts/train_provision_boundaries.py)
 models/
+
+# ---------------------------------------------------------------------------
+# Scratch workspace
+# ---------------------------------------------------------------------------
+# One dumping ground for one-off scripts, run logs and data dumps so they never
+# land in the repository root. Archived root clutter lives in
+# scratch/archive/{logs,scripts,data,misc}/.
+/scratch/

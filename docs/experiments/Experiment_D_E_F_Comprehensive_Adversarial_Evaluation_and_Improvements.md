@@ -3,7 +3,7 @@
 **Date:** 2026-09-23  
 **Scope:** Deep Architectural Evaluation, Failure Mode Analysis, and Unified Improvement Roadmap across **Experiment D (D2/D3)**, **Experiment E (E1/E2)**, and **Experiment F (F1/F2)**.  
 **Primary Repository Reference Files:**
-- [`Experiment_F_Abstention_Provision_Design.md`](file:///C:/github/NSA_webservice/Experiment_F_Abstention_Provision_Design.md)
+- [`Experiment_F_Abstention_Provision_Design.md`](file:///C:/github/NSA_webservice/docs/experiments/Experiment_F_Abstention_Provision_Design.md)
 - [`evaluation/out/ceiling_v5/experiment_F_summary.md`](file:///C:/github/NSA_webservice/evaluation/out/ceiling_v5/experiment_F_summary.md)
 - [`evaluation/experiment_f_calibration_eval.py`](file:///C:/github/NSA_webservice/evaluation/experiment_f_calibration_eval.py)
 - [`evaluation/out/ceiling_v5/experiment_E_summary.md`](file:///C:/github/NSA_webservice/evaluation/out/ceiling_v5/experiment_E_summary.md)

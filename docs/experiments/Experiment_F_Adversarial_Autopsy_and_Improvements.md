@@ -1,7 +1,7 @@
 # Forensic & Adversarial Analysis: Why Experiment F Failed and How to Improve F1 & F2 Logic
 
 **Date:** 2026-09-23  
-**Target:** Experiment F Evaluation & Architecture ([`experiment_F_summary.md`](file:///C:/github/NSA_webservice/evaluation/out/ceiling_v5/experiment_F_summary.md), [`Experiment_F_Abstention_Provision_Design.md`](file:///C:/github/NSA_webservice/Experiment_F_Abstention_Provision_Design.md), [`evaluation/experiment_f_calibration_eval.py`](file:///C:/github/NSA_webservice/evaluation/experiment_f_calibration_eval.py))
+**Target:** Experiment F Evaluation & Architecture ([`experiment_F_summary.md`](file:///C:/github/NSA_webservice/evaluation/out/ceiling_v5/experiment_F_summary.md), [`Experiment_F_Abstention_Provision_Design.md`](file:///C:/github/NSA_webservice/docs/experiments/Experiment_F_Abstention_Provision_Design.md), [`evaluation/experiment_f_calibration_eval.py`](file:///C:/github/NSA_webservice/evaluation/experiment_f_calibration_eval.py))
 
 ---
 
@@ -125,7 +125,7 @@ Replace the regex proximity heuristic with an explicit statutory schema:
 
 ## 4. Summary Recommendation & Next Steps
 
-As established in Section 10 of [`Experiment_F_Abstention_Provision_Design.md`](file:///C:/github/NSA_webservice/Experiment_F_Abstention_Provision_Design.md#L153-L158), surface-level single-turn re-prompting on identical static context failed completely.
+As established in Section 10 of [`Experiment_F_Abstention_Provision_Design.md`](file:///C:/github/NSA_webservice/docs/experiments/Experiment_F_Abstention_Provision_Design.md#L153-L158), surface-level single-turn re-prompting on identical static context failed completely.
 
 1. **Short-Term Architecture Fix:** Implement **Unshackled Contrastive Re-Decision** for F2 and **Sub-Statute Dynamic Retrieval** for F1.
 2. **Strategic Pivot (Experiment G):** Transition from surface calibration to deep chain-of-statute synthesis (handling multi-hop statutory hierarchies, conflict-of-law reconciliation, and nested exceptions) paired with **Evaluator v3 widening** to properly score valid alternative statutory remedy paths.
