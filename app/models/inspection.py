@@ -34,12 +34,14 @@ class Inspection(db.Model):
     __mapper_args__: ClassVar[dict] = {
         "version_id_col": version_id,
     }
-    inspection_code = db.Column(db.String(50), nullable=False, unique=True)
+    inspection_code = db.Column(db.String(50), nullable=True, unique=True)
     fso_name = db.Column(db.String(100), db.ForeignKey("fso.fso_name"), nullable=False)
     fssai_license = db.Column(db.String(50), nullable=True)
     ce_license_no = db.Column(db.String(100), nullable=True)
     fbo_name = db.Column(db.String(200), nullable=True)
     fbo_address = db.Column(db.Text, nullable=True)
+    # Premises type: manufacturer / retailer / food vending establishment
+    fbo_type = db.Column(db.String(50), nullable=True)
     concerned_food = db.Column(db.String(200), nullable=True)
     problem = db.Column(db.Text, nullable=True)
     # Explicit diary purpose picked by the FSO at entry time:
@@ -55,18 +57,44 @@ class Inspection(db.Model):
     is_dismissed = db.Column(db.Boolean, default=False)
     dismissed_by = db.Column(db.String(100), nullable=True)
     dismissed_at = db.Column(db.DateTime, nullable=True)
-    adjudication_id = db.Column(db.Integer, db.ForeignKey("adjudications.id", ondelete="SET NULL"), nullable=True)
+    adjudication_id = db.Column(
+        db.Integer, db.ForeignKey("adjudications.id", ondelete="SET NULL", use_alter=True), nullable=True
+    )
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     synced_at = db.Column(db.DateTime, nullable=True)
+    # Device-issued provisional id used while a capture is offline. The
+    # server-issued ``inspection_code`` (``INSP-YYYY-####``) remains NULL
+    # until sync reconciles the provisional id into a real id and allocates
+    # the code.
+    provisional_id = db.Column(db.String(120), nullable=True)
+    # Time the photo/evidence was captured on the device, distinct from
+    # ``created_at`` (server insert) and ``synced_at`` (server sync). Never
+    # overwritten on push/pull so the evidence chain is preserved.
+    captured_at = db.Column(db.DateTime, nullable=True)
     # New fields for sample collection
     sample_collected = db.Column(db.Boolean, nullable=True)
     sample_code = db.Column(db.String(100), nullable=True)
+
+    # Relationship to the linked Sample record (set when sample_collected=True).
+    # Populated via Inspection.sample_id -> Sample.inspection_id in the Sample model.
+    is_reinspection = db.Column(db.Boolean, nullable=True, default=False)
+    days_allowed_for_errors = db.Column(db.Integer, nullable=True)
+    errors_in_second_inspection = db.Column(db.Integer, nullable=True)
+
+    # Improvement notice service tracking
+    improvement_notice_served_at = db.Column(db.DateTime, nullable=True)
+    reinspection_due_at = db.Column(db.DateTime, nullable=True)
+    reinspection_of_id = db.Column(db.Integer, db.ForeignKey("inspection.id", ondelete="SET NULL"), nullable=True)
+    shortcomings_persist = db.Column(db.Boolean, nullable=True)
+    reinspection_seq = db.Column(db.Integer, nullable=True, default=1)
+    shortcomings_json = db.Column(db.Text, nullable=True)
 
     __table_args__ = (
         db.Index("idx_inspection_code", "inspection_code"),
         db.Index("idx_inspection_date", "inspection_date"),
         db.Index("idx_inspection_compliance_deadline", "compliance_deadline"),
         db.Index("idx_inspection_fso_name", "fso_name"),
+        db.Index("idx_inspection_provisional_id", "provisional_id"),
     )
 
 

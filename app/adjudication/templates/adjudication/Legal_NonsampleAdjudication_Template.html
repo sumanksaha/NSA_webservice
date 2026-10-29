@@ -111,6 +111,11 @@
             prescribed under the Food Safety and Standards Act, 2006 and allied Regulations were
             observed:
         </div>
+{% if is_reinspection %}
+        <div class="paragraph">
+            This is a reinspection of the premises. Days allowed for errors to be corrected: {{ days_allowed_for_errors or 'N/A' }}. Errors found in second inspection: {{ errors_in_second_inspection or 'N/A' }}.
+        </div>
+{% endif %}
 
         <div class="page-break"></div>
 

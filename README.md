@@ -46,8 +46,8 @@ NSA Webservice digitizes and automates the complete lifecycle of food safety leg
 
 | Module                            | Purpose                                                                                                                                                                                                                                                                       |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Inspection Management**         | Record food business inspections, capture geo-tagged photo evidence, calculate compliance deadlines                                                                                                                                                                           |
-| **Sample Management**             | Track food sample collection, lab submission, analyst reports with unique code generation                                                                                                                                                                                     |
+| **Inspection Management**         | Record food business inspections, capture geo-tagged photo evidence, calculate compliance deadlines, and score premises photos probabilistically against the 12-field inspection checklist (per-field violation probabilities, gate-filtered, advisory-only with FSO confirmation) |
+| **Sample Management**             | Track food sample collection, lab submission, analyst reports with unique code generation. Samples are now captured via the Inspection UI (conditional block with required/optional fields) and audited via `/inspection/samples`. The standalone `/sample` blueprint is deprecated. |
 | **Case File Generation**          | Generate legal case files for sample-based violations (misbranded, substandard food)                                                                                                                                                                                          |
 | **Adjudication**                  | Manage non-sample adjudication cases, section selection, legal document generation                                                                                                                                                                                            |
 | **FBO Issue Tracking**            | Unified state machine for Food Business Operator issues with audit trail                                                                                                                                                                                                      |
@@ -250,9 +250,11 @@ classify ──► retrieve ──► generate ──► verify ──► finali
 
 ## Project Status & Capabilities
 
-**Version:** 0.9.1 (Pre‑Production)
+**Version:** November/26/1
 
-The platform provides an end‑to‑end solution for food safety inspections, sample management, adjudication, and reporting. The current release is documented in [CHANGELOG.md](CHANGELOG.md); integration activity recorded since the 0.9.1 publication of 2026‑09‑30 — the Schedule and Notepad blueprints, the RAG answer‑feedback and autoresearch loop, and the section/act‑scoped structural retrieval arm — is summarised under Unreleased pending versioned release. The most recent pass (2026‑10‑20) deepened seven RAG seams: shared model runtime, Qdrant construction/filter, point → chunk conversion, chunk field access, orphan codegen cleanup, the benchmark/metrics type boundary, and the query-type registry migration. Subsequent work (2026‑10‑22) added an opt-in Progressive Web App, Sentry/Prometheus observability, probabilistic photo-evidence assessment, the unsafe-verdict/prohibition-order workflow, unified FBO improvement notices, tiered provision extraction, query-understanding and form retrieval, the LLM kill switch and call budget, and TLS enforcement on LLM lookups. Key capabilities include:
+Release nomenclature: base releases use month/year (`Mon/YYYY`, e.g. `Oct/2026`); minor/patch releases append `.N` (e.g. `Oct/2026.1`, `Oct/2026.2`). The next base release rolls to the calendar month (`November/26`). This nomenclature is effective from this release forward.
+
+The platform provides an end‑to‑end solution for food safety inspections, sample management, adjudication, and reporting. The current release is documented in [CHANGELOG.md](CHANGELOG.md); integration activity recorded since the `Oct/2026` publication — the Schedule and Notepad blueprints, the RAG answer‑feedback and autoresearch loop, the Knowledge Graph Legal RAG roadmap (schema adapter, legal edges, adjudication persistence, hybrid search API, incremental upsert), and the section/act‑scoped structural retrieval arm — is summarised under Unreleased pending versioned release. The most recent pass (2026‑10‑20) deepened seven RAG seams: shared model runtime, Qdrant construction/filter, point → chunk conversion, chunk field access, orphan codegen cleanup, the benchmark/metrics type boundary, and the query-type registry migration. Subsequent work (2026‑10‑22) added an opt-in Progressive Web App, Sentry/Prometheus observability, probabilistic photo-evidence assessment, the unsafe-verdict/prohibition-order workflow, unified FBO improvement notices, tiered provision extraction, query-understanding and form retrieval, the LLM kill switch and call budget, and TLS enforcement on LLM lookups. Key capabilities include:
 
 - **Inspection Management** with photo verification and geo‑tagging.
 - **Sample Tracking** with unique code generation, lab submission, and analyst reporting.
@@ -284,7 +286,7 @@ The platform provides an end‑to‑end solution for food safety inspections, sa
 
 | Area                      | Status         | Notes                                                                                                                                                                                                                                                                              |
 | ------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Inspection CRUD           | ✅ Complete    | With photo verification pipeline                                                                                                                                                                                                                                                   |
+| Inspection CRUD           | ✅ Complete    | With photo verification pipeline; probabilistic per-field photo violation scoring against the 12-field checklist (advisory, FSO confirms) |
 | Sample Management         | ✅ Complete    | Code generation, lab tracking                                                                                                                                                                                                                                                      |
 | Case File Generation      | ✅ Complete    | PDF generation, QStash async                                                                                                                                                                                                                                                       |
 | Adjudication              | ✅ Complete    | Section suggestion, document generation                                                                                                                                                                                                                                            |
@@ -599,7 +601,7 @@ git push origin main
 # Render Dashboard → New → Blueprint → Select repository
 ```
 
-See [POSTGRES_MIGRATION.md](POSTGRES_MIGRATION.md) for detailed deployment instructions.
+See [POSTGRES_MIGRATION.md](docs/ops/POSTGRES_MIGRATION.md) for detailed deployment instructions.
 
 ### Manual Deployment
 
@@ -723,8 +725,8 @@ positives. SARIF results upload to GitHub Code Scanning but remain
 | Blueprint           | Prefix                 | Description                                                                                                                                |
 | ------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Auth                | `/auth`                | Login/logout, first-setup admin bootstrap, admin user management (create/toggle-admin/reset-password/delete), self-service password change |
-| Inspection          | `/inspection`          | Inspection CRUD + photo evidence                                                                                                           |
-| Sample              | `/sample`              | Sample management                                                                                                                          |
+| Inspection          | `/inspection`          | Inspection CRUD + photo evidence + samples audit (`/inspection/samples`) + adjudication launch |
+| Sample              | `/sample` *(deprecated)* | Sample management (deprecated — use `/inspection/samples` for audit view) |
 | Case File           | `/case_file_generator` | Case file generation                                                                                                                       |
 | Adjudication        | `/adjudication`        | Adjudication management                                                                                                                    |
 | Billing             | `/billing`             | Billing summary + export                                                                                                                   |

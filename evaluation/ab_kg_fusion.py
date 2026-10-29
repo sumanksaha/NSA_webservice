@@ -58,30 +58,77 @@ ARM = "C_hybrid"
 MAX_WORKERS = 5
 
 
-def _kg_chunks(query: str, limit: int) -> tuple[list, dict[str, Any]]:
-    """KG provisions as RetrievedChunks, mirroring ``_generate_apply_kg_context``."""
-    from kg.hybrid import provisions_to_retrieved_chunks
+def _kg_chunks(
+    query: str,
+    limit: int,
+    *,
+    backfill: dict[tuple[str, str], str] | None = None,
+    min_body_chars: int = 200,
+) -> tuple[list, dict[str, Any]]:
+    """KG provisions as RetrievedChunks, mirroring ``_generate_apply_kg_context``.
+
+    The evaluation must use the same corpus-wide backfill and body-length gate
+    as production, otherwise the A/B measures a payload path that no longer
+    exists.
+    """
+    from kg.hybrid import filter_injectable_kg_chunks, provisions_to_retrieved_chunks
     from kg.queries import LegalKGQueries, provisions_for_query
 
     provisions = provisions_for_query(query, LegalKGQueries(), limit=limit)
-    return provisions_to_retrieved_chunks(provisions, limit=limit), {
+    chunks = provisions_to_retrieved_chunks(
+        provisions,
+        limit=limit,
+        backfill=backfill,
+    )
+    before = len(chunks)
+    chunks = filter_injectable_kg_chunks(chunks, min_body_chars)
+    return chunks, {
         "provisions": len(provisions),
-        "injected": 0,
+        "injected": len(chunks),
+        "stub_filtered": before - len(chunks),
     }
 
 
-def _fuse(vector_chunks: list, kg_chunks: list, top_k: int) -> list:
+def _cited_ids(tracked: list) -> set[str]:
+    """Expand KG citation ids through their source-chunk bridge.
+
+    A fused KG chunk is cited as ``KG:<provision_id>``; its gold identity is
+    the vector chunk(s) in ``source_chunk_ids``.  Without this expansion the
+    citation-recall comparison is structurally biased against the KG arm.
+    """
+    ids: set[str] = set()
+    for chunk in tracked:
+        ids.add(str(chunk.chunk_id))
+        ids.update(str(cid) for cid in (getattr(chunk, "source_chunk_ids", None) or []) if cid)
+    return ids
+
+
+def _fuse(vector_chunks: list, kg_chunks: list, top_k: int, *, fair: bool = True) -> list:
     if not kg_chunks:
         return vector_chunks
     from kg.hybrid import rrf_fuse_chunks
 
-    return rrf_fuse_chunks([vector_chunks, kg_chunks], rrf_k=60.0, top_k=top_k)
+    return rrf_fuse_chunks(
+        [vector_chunks, kg_chunks],
+        rrf_k=60.0,
+        top_k=top_k,
+        preserve_vector_top_k=fair,
+    )
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--start", type=int, default=0, help="shard offset")
+    ap.add_argument(
+        "--fusion",
+        choices=("fair", "rrf"),
+        default="fair",
+        help=(
+            "fair (default): protect the vector list's own top-k; KG only fills "
+            "unused slots. rrf: original unbounded interleave (reproducibility)."
+        ),
+    )
     ap.add_argument("--shard-out", type=str, default="", help="write paired rows here instead of the summary")
     ap.add_argument(
         "--merge-shards",
@@ -132,6 +179,15 @@ def main() -> int:
         return _report(*_load_shards(args.merge_shards), shard_out="")
 
     payload_index = _load_payload_index()
+    # Build the same corpus-wide backfill index production uses.  The payload
+    # cache is the authoritative source here; the production loader falls back
+    # to ``LegalChunk`` when that file is absent.
+    from kg.backfill import build_index_from_payloads
+
+    backfill_index = build_index_from_payloads(payload_index.values())
+    from app.shared.config import cfg
+
+    min_body_chars = cfg.kg_min_body_chars
     questions = {q.question_id: q for q in load_questions()}
     family_map = FamilyMap()
     arms = {
@@ -175,11 +231,21 @@ def main() -> int:
             pool, kg_meta = list(chunks), {"provisions": 0, "injected": 0}
             with sem:
                 if use_kg:
-                    kg_chunks, kg_meta = _kg_chunks(q.question, limit=5)
+                    kg_chunks, kg_meta = _kg_chunks(
+                        q.question,
+                        limit=5,
+                        backfill=backfill_index,
+                        min_body_chars=min_body_chars,
+                    )
                     if kg_chunks:
                         top_k = ContextBuilder(query_type=qt).max_context_chunks
-                        pool = _fuse(pool, kg_chunks, top_k)
-                        kg_meta["injected"] = len(kg_chunks)
+                        pool = _fuse(pool, kg_chunks, top_k, fair=(args.fusion == "fair"))
+                        kg_meta["injected"] = sum(
+                            1
+                            for c in pool
+                            if str(getattr(c, "document_type", "")) == "KG-Provision"
+                            or str(getattr(c, "chunk_id", "")).startswith("KG:")
+                        )
                 built = ContextBuilder(query_type=qt).build(q.question, pool, qt)
                 svc = GroundedGenerationService()
                 svc.llm_client = SSLBypassLLMClient(model=os.environ["RAG_LLM_MODEL"])
@@ -188,7 +254,7 @@ def main() -> int:
                 answer = getattr(llm, "text", "") or ""
                 tracked = svc._extract_citations(llm, pool, built)
                 san = svc.sanitizer.sanitize(answer, tracked, pool)
-                cited = {c.chunk_id for c in tracked}
+                cited = _cited_ids(tracked)
                 m = score_answer(answer, q.acceptable_conclusion or "", q.insufficient_evidence)
                 m["citation_recall"] = round(len(cited & gold) / max(len(gold), 1), 4) if gold else 0.0
                 m["groundedness_score"] = san.groundedness_score
@@ -213,6 +279,11 @@ def main() -> int:
                     "cited_chunk_ids": sorted(cited),
                     "gold_chunk_ids": sorted(gold),
                     "pool_chunk_ids": [c.chunk_id for c in pool],
+                    "pool_source_chunk_ids": {
+                        c.chunk_id: list(getattr(c, "source_chunk_ids", None) or [])
+                        for c in pool
+                        if getattr(c, "source_chunk_ids", None)
+                    },
                     "invalid_citations": len(san.invalid_citations),
                     "sanitizer_groundedness": san.groundedness_score,
                     "sanitizer_hallucination": int(san.hallucination_detected),
@@ -309,7 +380,11 @@ def _cited_ids_from_answer(answer: str, row: dict[str, Any]) -> set[str]:
     from app.rag.retrieval.result import RetrievedChunk
 
     chunks = [RetrievedChunk(chunk_id=cid, score=0.0, text="", document_title="") for cid in pool]
-    return {c.chunk_id for c in CitationTracker().extract(answer, chunks)}
+    cited = {c.chunk_id for c in CitationTracker().extract(answer, chunks)}
+    aliases = row.get("pool_source_chunk_ids") or {}
+    for chunk_id in list(cited):
+        cited.update(str(alias) for alias in aliases.get(chunk_id, []) if alias)
+    return cited
 
 
 def _report(
@@ -392,6 +467,9 @@ def _report(
         "kg_injected_qids": injected,
         "n_kg_injected": len(injected),
         "kg_provisions_mean": round(statistics.fmean((B[q].get("kg") or {}).get("provisions", 0) for q in common), 2),
+        "kg_stub_filtered_total": sum(
+            int((B[q].get("kg") or {}).get("stub_filtered", 0)) for q in common
+        ),
         "gold_gained_qids": changed,
         "gold_lost_qids": lost,
         "aggregate_all": {"kg_off": ao, "kg_on": bo},
@@ -425,7 +503,8 @@ def _report(
     print("=" * 76)
     print(
         f"mean KG provisions/query: {out['kg_provisions_mean']}  "
-        f"questions with KG injected: {len(injected)}/{len(common)}",
+        f"questions with KG injected: {len(injected)}/{len(common)}  "
+        f"stub-filtered: {out['kg_stub_filtered_total']}",
     )
     print(f"gold newly in prompt: {len(changed)}  gold lost: {len(lost)}")
     print()

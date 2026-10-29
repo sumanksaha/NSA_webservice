@@ -339,6 +339,14 @@ def generate():
     if not isinstance(top_k, int) or top_k < 1:
         return jsonify({"error": "top_k must be a positive integer."}), 400
 
+    model = payload.get("model")
+    if model is not None and not isinstance(model, str):
+        return jsonify({"error": "model must be a string."}), 400
+
+    model = payload.get("model")
+    if model is not None and not isinstance(model, str):
+        return jsonify({"error": "model must be a string."}), 400
+
     try:
         from app.rag.tasks import run_generation_pipeline
 
@@ -349,6 +357,7 @@ def generate():
             top_k=top_k,
             collection_name=payload.get("collection_name"),
             filters=payload.get("filters"),
+            model=model,
         )
     except Exception as exc:
         logger.error("RAG generate failed: %s", exc)
@@ -384,6 +393,10 @@ def query():
     if not isinstance(top_k, int) or top_k < 1:
         return jsonify({"error": "top_k must be a positive integer."}), 400
 
+    model = payload.get("model")
+    if model is not None and not isinstance(model, str):
+        return jsonify({"error": "model must be a string."}), 400
+
     try:
         # Routed through the ResilientRAGPipeline circuit breaker (2026-08-23):
         # repeated pipeline failures open the circuit and requests degrade to
@@ -395,6 +408,7 @@ def query():
             top_k=top_k,
             collection_name=payload.get("collection_name"),
             filters=payload.get("filters"),
+            model=model,
         )
     except Exception as exc:
         logger.error("RAG query failed: %s", exc)

@@ -395,7 +395,11 @@
         var domain = document.getElementById("ragDomain").value;
         var topK = parseInt(document.getElementById("ragTopK").value, 10) || 10;
         var useAgent = document.getElementById("ragUseAgent");
+        var modelEl = document.getElementById("ragModel");
         var payload = { query: query, top_k: topK };
+        if (modelEl && modelEl.value) {
+            payload.model = modelEl.value;
+        }
         if (domain) {
             payload.collection_name = domain + "_legal_768";
         }

@@ -11,8 +11,8 @@ beyond `admin` / `fso`.
 
 from __future__ import annotations
 
-from flask import current_app, flash, redirect, request, url_for
-from flask_login import current_user
+from flask import current_app, flash, redirect, request, session, url_for
+from flask_login import current_user, logout_user
 
 ADMIN_ROLE = "admin"
 FSO_ROLE = "fso"
@@ -56,6 +56,31 @@ def register_auth_gates(app, public_endpoints: set[str]) -> None:
 
     @app.before_request
     def require_login():
+        # Invalidate stale sessions left over from a previous process start
+        # (e.g. after a long-delay restart / redeploy).  The generation marker
+        # is stamped into the session at login time; a mismatch means the
+        # session predates the current app instance.
+        if current_user.is_authenticated and request.endpoint not in public_endpoints:
+            stored = session.get("auth_generation")
+            current = current_app.config.get("APP_GENERATION")
+            if stored is None:
+                # Legacy session (created before this feature): upgrade it in
+                # place so existing users are not forced out on first deploy.
+                session["auth_generation"] = current
+            elif stored != current:
+                # Session predates the current app instance (restart/redeploy).
+                # Purge device-local data so a stale session cannot leave
+                # queued offline captures addressable after redeploy. Capture
+                # the user id before logout_user() clears current_user.
+                from app.services.device_data import purge_device_data
+
+                uid = current_user.id
+                purge_device_data(uid)
+                logout_user()
+                session.clear()
+                flash("Your session expired after a server restart. Please log in again.", "info")
+                return redirect(url_for("auth.login", next=request.url))
+
         if request.endpoint and request.endpoint not in public_endpoints and not current_user.is_authenticated:
             return redirect(url_for("auth.login", next=request.url))
 

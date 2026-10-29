@@ -303,7 +303,7 @@ class StatutoryReferenceRule(BaseRule):
                             self.rule_id,
                             WARNING,
                             f"Section {section} is cited but is not among the tracked FSS Act "
-                            "sections (55, 56, 58, 63, 64).",
+                            f"sections ({', '.join(sorted(VALID_SECTION_IDS))}).",
                             field_name="applicable_sections",
                             suggestion="Verify the section citation against the FSS Act, 2006.",
                         ),

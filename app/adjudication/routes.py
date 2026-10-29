@@ -100,6 +100,8 @@ def adjudication_to_dict(adj):
         "Complaint_date",
         "inspection_date",
         "authorization_date",
+        "case_submission_date",
+        "hearing_date",
         "created_at",
         "synced_at",
         "archived_at",
@@ -167,6 +169,16 @@ def _process_adjudication_form(form_data):
         section_58=form_data.get("section_58", "no"),
         section_63=form_data.get("section_63", "no"),
         section_64=form_data.get("section_64", "no"),
+        case_submission_date=parse_date(form_data.get("case_submission_date", "")),
+        hearing_date=parse_date(form_data.get("hearing_date", "")),
+        penalty=form_data.get("penalty", ""),
+        is_reinspection=form_data.get("is_reinspection", "no") in ("on", "true", "1", "yes", "Yes"),
+        days_allowed_for_errors=int(form_data.get("days_allowed_for_errors"))
+        if form_data.get("days_allowed_for_errors")
+        else None,
+        errors_in_second_inspection=int(form_data.get("errors_in_second_inspection"))
+        if form_data.get("errors_in_second_inspection")
+        else None,
     )
 
 
@@ -186,6 +198,8 @@ def _format_adjudication_dates(context: dict) -> dict:
         # The follow-up date is stored on the model as ``inspection_date``.
         ("followup_inspection_date", "inspection_date"),
         ("authorization_date", "authorization_date"),
+        ("case_submission_date", "case_submission_date"),
+        ("hearing_date", "hearing_date"),
     ]
     for template_key, model_key in pairs:
         raw = context.get(template_key)
@@ -258,6 +272,8 @@ _ADJUDICATION_DATE_FIELDS: list[str] = [
     "complaint_date",
     "followup_inspection_date",
     "authorization_date",
+    "case_submission_date",
+    "hearing_date",
 ]
 
 
@@ -303,6 +319,7 @@ _ADJUDICATION_FORM_FIELDS: tuple[str, ...] = (
     "fssai_license",
     "concerned_food",
     "problem",
+    "notes",
     "clean_premise",
     "refrigerator_clean",
     "proper_attire",
@@ -320,6 +337,9 @@ _ADJUDICATION_FORM_FIELDS: tuple[str, ...] = (
     "section_58",
     "section_63",
     "section_64",
+    "case_submission_date",
+    "hearing_date",
+    "penalty",
 )
 
 # Form field -> model column for date fields with mismatched names.
@@ -329,6 +349,8 @@ _ADJUDICATION_DATE_MAP: dict[str, str] = {
     "complaint_date": "Complaint_date",
     "followup_inspection_date": "inspection_date",
     "authorization_date": "authorization_date",
+    "case_submission_date": "case_submission_date",
+    "hearing_date": "hearing_date",
 }
 
 
@@ -341,6 +363,10 @@ def adjudication_form_dict(adj) -> dict:
     }
     for field in _ADJUDICATION_FORM_FIELDS:
         form[field] = record.get(field) or ""
+    # Reinspection fields
+    form["is_reinspection"] = record.get("is_reinspection") or False
+    form["days_allowed_for_errors"] = record.get("days_allowed_for_errors") or ""
+    form["errors_in_second_inspection"] = record.get("errors_in_second_inspection") or ""
     for form_field, model_col in _ADJUDICATION_DATE_MAP.items():
         form[form_field] = form_date(record.get(model_col))
     return form
@@ -363,6 +389,32 @@ def apply_adjudication_update(adj, form_data: dict) -> None:
             else form_data.get(form_field)
         )
         setattr(adj, model_col, parse_date(raw) if raw else None)
+
+    # Post-processing placeholder fields (optional)
+    if "case_submission_date" in form_data:
+        raw = (form_data.get("case_submission_date") or "").strip()
+        adj.case_submission_date = parse_date(raw) if raw else None
+    if "hearing_date" in form_data:
+        raw = (form_data.get("hearing_date") or "").strip()
+        adj.hearing_date = parse_date(raw) if raw else None
+    if "penalty" in form_data:
+        adj.penalty = (form_data.get("penalty") or "").strip()
+
+    # Reinspection fields (type-converted)
+    if "is_reinspection" in form_data:
+        adj.is_reinspection = str(form_data.get("is_reinspection", "")).strip().lower() in (
+            "on",
+            "true",
+            "1",
+            "yes",
+            "Yes",
+        )
+    if "days_allowed_for_errors" in form_data:
+        raw = str(form_data.get("days_allowed_for_errors", "")).strip()
+        adj.days_allowed_for_errors = int(raw) if raw else None
+    if "errors_in_second_inspection" in form_data:
+        raw = str(form_data.get("errors_in_second_inspection", "")).strip()
+        adj.errors_in_second_inspection = int(raw) if raw else None
 
 
 # --------------------------------------------------------------------------- #
@@ -562,7 +614,9 @@ def regenerate_adjudication_documents(case_id):  # type: ignore[return-value]
         templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
     else:
         access = check_generation_allowed(
-            case_type="adjudication", doc_type="petition", authorization_date=form_data.get("authorization_date"),
+            case_type="adjudication",
+            doc_type="petition",
+            authorization_date=form_data.get("authorization_date"),
         )
         if not access.allowed:
             return jsonify(access.payload()), access.status
@@ -706,7 +760,8 @@ def _create_adjudication_with_sync(form_data: dict) -> Adjudication:
         db.session.rollback()
         abort(
             make_response(
-                jsonify({"error": "This adjudication was modified by another user. Please reload and try again."}), 409,
+                jsonify({"error": "This adjudication was modified by another user. Please reload and try again."}),
+                409,
             ),
         )
     except Exception as exc:
@@ -778,6 +833,9 @@ def _create_adjudication_with_sync(form_data: dict) -> Adjudication:
         "section_58",
         "section_63",
         "section_64",
+        "case_submission_date",
+        "hearing_date",
+        "penalty",
     }
     try:
         row_dict = {k: v for k, v in form_data.items() if k in allowed_sheets_columns}
@@ -792,7 +850,10 @@ def _create_adjudication_with_sync(form_data: dict) -> Adjudication:
 
 
 def _select_adjudication_photos(
-    adj: Adjudication, include_flagged: bool, flag_override_reason: str, form_data: dict,
+    adj: Adjudication,
+    include_flagged: bool,
+    flag_override_reason: str,
+    form_data: dict,
 ) -> list:
     """Select photo evidence for the documents, auditing flagged inclusions.
 
@@ -834,7 +895,9 @@ def _render_adjudication_zip(adj: Adjudication, context: dict, is_pre_authorizat
         templates_to_generate = [("adjudication/Legal_NonsampleAdjudication_Template.html", "Permission_Letter")]
     else:
         access = check_generation_allowed(
-            case_type="adjudication", doc_type="petition", authorization_date=form_data.get("authorization_date"),
+            case_type="adjudication",
+            doc_type="petition",
+            authorization_date=form_data.get("authorization_date"),
         )
         if not access.allowed:
             abort(make_response(jsonify(access.payload()), access.status))
@@ -918,11 +981,15 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
     if doc_type == "petition":
         if str(adj.pre_authorization or "no").strip().lower() == "yes":
             return (
-                jsonify({"error": "Pre-authorization cases have no petition — download the permission letter instead."}),
+                jsonify({
+                    "error": "Pre-authorization cases have no petition — download the permission letter instead."
+                }),
                 400,
             )
         access = check_generation_allowed(
-            case_type="adjudication", doc_type="petition", authorization_date=adj.authorization_date,
+            case_type="adjudication",
+            doc_type="petition",
+            authorization_date=adj.authorization_date,
         )
         if not access.allowed:
             return jsonify(access.payload()), access.status
@@ -946,11 +1013,15 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
     if doc_type == "zip":
         if str(adj.pre_authorization or "no").strip().lower() == "yes":
             return (
-                jsonify({"error": "Pre-authorization cases have no petition — download the permission letter instead."}),
+                jsonify({
+                    "error": "Pre-authorization cases have no petition — download the permission letter instead."
+                }),
                 400,
             )
         access = check_generation_allowed(
-            case_type="adjudication", doc_type="both", authorization_date=adj.authorization_date,
+            case_type="adjudication",
+            doc_type="both",
+            authorization_date=adj.authorization_date,
         )
         if not access.allowed:
             return jsonify(access.payload()), access.status
@@ -1008,7 +1079,9 @@ def download_petition_pdf(case_id: int):  # type: ignore[return-value]
         )
 
     access = check_generation_allowed(
-        case_type="adjudication", doc_type="petition", authorization_date=adj.authorization_date,
+        case_type="adjudication",
+        doc_type="petition",
+        authorization_date=adj.authorization_date,
     )
     if not access.allowed:
         return jsonify(access.payload()), access.status
@@ -1089,11 +1162,15 @@ def copy_letter(case_id: int, doc_type: str):
     if doc_type == "petition":
         if str(adj.pre_authorization or "no").strip().lower() == "yes":
             return (
-                jsonify({"error": "Pre-authorization cases have no petition — download the permission letter instead."}),
+                jsonify({
+                    "error": "Pre-authorization cases have no petition — download the permission letter instead."
+                }),
                 400,
             )
         access = check_generation_allowed(
-            case_type="adjudication", doc_type="petition", authorization_date=adj.authorization_date,
+            case_type="adjudication",
+            doc_type="petition",
+            authorization_date=adj.authorization_date,
         )
         if not access.allowed:
             return jsonify(access.payload()), access.status

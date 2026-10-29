@@ -3,7 +3,53 @@
 Utilities for the Sample module, including sample_code generation.
 """
 
+import re
 from typing import Any
+
+
+# Sample code validation patterns (FSO-entered, not auto-generated)
+# Enforcement: SL/WB/BRANCHCODE/YEAR/SEQUENTIAL (e.g. SL/WB/110223/2026/25275)
+ENFORCEMENT_CODE_PATTERN = re.compile(r"^SL/WB/\d{6}/\d{4}/\d{5}$")
+# Surveillance: FSO/Br-XX/ABC/INF/XX/YY-YY (e.g. FSO/Br-02/SS/INF/05/26-27)
+SURVEILLANCE_CODE_PATTERN = re.compile(r"^FSO/Br-\d{2}/[A-Z]{2,4}/INF/\d{1,2}/\d{2}-\d{2}$")
+
+# Allowed sample status values captured at inspection time
+SAMPLE_STATUS_VALUES = ("ok", "substandard", "misbranded", "unsafe")
+
+
+def validate_sample_code(code: str | None, sample_type: str | None = None) -> str | None:
+    """Validate a sample code against the format for its sample_type.
+
+    Args:
+        code: The sample code string, or None/empty.
+        sample_type: ``"enforcement"`` or ``"surveillance"``.  When None the
+            code is accepted if it matches *either* pattern.
+
+    Returns:
+        None on success, or an error message on failure.
+    """
+    if not code:
+        return "sample_code is required"
+    if sample_type == "enforcement" and not ENFORCEMENT_CODE_PATTERN.match(code):
+        return "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL (e.g. SL/WB/110223/2026/25275)"
+    if sample_type == "surveillance" and not SURVEILLANCE_CODE_PATTERN.match(code):
+        return "sample_code must match format FSO/Br-XX/ABC/INF/XX/YY-YY (e.g. FSO/Br-02/SS/INF/05/26-27)"
+    if sample_type is None:
+        if not ENFORCEMENT_CODE_PATTERN.match(code) and not SURVEILLANCE_CODE_PATTERN.match(code):
+            return "sample_code must match enforcement (SL/WB/XXXXXX/XXXX/XXXXX) or surveillance (FSO/Br-XX/ABC/INF/XX/YY-YY) format"
+    return None
+
+
+def validate_sample_status(status: str | None) -> str | None:
+    """Validate a sample_status value.
+
+    Returns None on success, or an error message on failure.
+    """
+    if not status:
+        return "sample_status is required"
+    if status not in SAMPLE_STATUS_VALUES:
+        return f"sample_status must be one of {', '.join(SAMPLE_STATUS_VALUES)}"
+    return None
 
 
 def generate_sample_code() -> str:

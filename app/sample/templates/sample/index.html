@@ -8,6 +8,15 @@
         <h2><i class="fa-solid fa-vial"></i> Sample Entry Form</h2>
     </div>
 
+    <div class="info-box info-box--warning" style="margin: 1rem 0;">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <strong>Note:</strong> Samples are now primarily created via the
+        <a href="{{ url_for('inspection.index') }}">Inspection UI</a>.
+        This page is retained for editing and auditing existing samples.
+        Use the <a href="{{ url_for('sample.list_samples') }}">Samples (audit)</a> view
+        to browse all samples.
+    </div>
+
     <form id="sampleForm" action="{{ url_for('sample.create_sample') }}" method="post" class="sample-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <!-- Sample Information -->

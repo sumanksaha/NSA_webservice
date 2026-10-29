@@ -261,6 +261,19 @@ block extra_css %}
             </div>
         </div>
 
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="notes" class="form-label">Inspection Notes</label>
+                <textarea
+                    id="notes"
+                    name="notes"
+                    class="form-textarea"
+                    placeholder="e.g., 1 kg of dal was discarded"
+                >{{ prefill.notes if prefill and prefill.notes else '' }}</textarea>
+                <small class="form-hint">Capture any notes about discarded items or other observations during inspection.</small>
+            </div>
+        </div>
+
         <!-- Dates Section -->
         <div class="section-header">
             <h3>Dates</h3>
@@ -309,16 +322,92 @@ block extra_css %}
                     required
                 />
             </div>
-            <div class="form-group" id="authorization_date_field">
-                <label for="authorization_date" class="form-label">Authorization Date <span class="form-hint">(issued on permission submission — may be added later)</span></label>
+<div class="form-group" id="authorization_date_field">
+                    <label for="authorization_date" class="form-label">Authorization Date <span class="form-hint">(issued on permission submission — may be added later)</span></label>
+                    <input
+                        type="date"
+                        name="authorization_date"
+                        id="authorization_date"
+                        class="form-input"
+                    />
+                </div>
+            </div>
+
+        <!-- Post-processing placeholder data (not rendered into petition) -->
+        <div class="section-header">
+            <h3>Post-Processing Data</h3>
+        </div>
+        <div class="form-row form-row--3">
+            <div class="form-group">
+                <label for="case_submission_date" class="form-label">Date of Submission of Case</label>
                 <input
                     type="date"
-                    name="authorization_date"
-                    id="authorization_date"
+                    name="case_submission_date"
+                    id="case_submission_date"
                     class="form-input"
+                    value="{{ prefill.case_submission_date if prefill and prefill.case_submission_date else '' }}"
+                />
+            </div>
+            <div class="form-group">
+                <label for="hearing_date" class="form-label">Date of Hearing</label>
+                <input
+                    type="date"
+                    name="hearing_date"
+                    id="hearing_date"
+                    class="form-input"
+                    value="{{ prefill.hearing_date if prefill and prefill.hearing_date else '' }}"
+                />
+            </div>
+            <div class="form-group">
+                <label for="penalty" class="form-label">Penalty</label>
+                <input
+                    type="text"
+                    name="penalty"
+                    id="penalty"
+                    class="form-input"
+                    value="{{ prefill.penalty if prefill and prefill.penalty else '' }}"
+                    placeholder="e.g., Rs 50,000"
                 />
             </div>
         </div>
+
+            <div class="form-row form-row--3">
+                <div class="form-group">
+                    <label for="is_reinspection" class="form-label">Is Reinspection</label>
+                    <input
+                        type="checkbox"
+                        name="is_reinspection"
+                        id="is_reinspection"
+                        class="form-check-input"
+                        {% if prefill and prefill.is_reinspection %}checked{% endif %}
+                    />
+                    <small class="form-hint">Check if this is a reinspection of the premises</small>
+                </div>
+                <div class="form-group">
+                    <label for="days_allowed_for_errors" class="form-label">Days Allowed for Errors to be Corrected</label>
+                    <input
+                        type="number"
+                        name="days_allowed_for_errors"
+                        id="days_allowed_for_errors"
+                        class="form-input"
+                        min="0"
+                        value="{{ prefill.days_allowed_for_errors if prefill and prefill.days_allowed_for_errors else '' }}"
+                        placeholder="e.g., 30"
+                    />
+                </div>
+                <div class="form-group">
+                    <label for="errors_in_second_inspection" class="form-label">Errors in Second Inspection</label>
+                    <input
+                        type="number"
+                        name="errors_in_second_inspection"
+                        id="errors_in_second_inspection"
+                        class="form-input"
+                        min="0"
+                        value="{{ prefill.errors_in_second_inspection if prefill and prefill.errors_in_second_inspection else '' }}"
+                        placeholder="e.g., 5"
+                    />
+                </div>
+            </div>
 
         <!-- Inspection Checklist -->
         <div class="section-header">

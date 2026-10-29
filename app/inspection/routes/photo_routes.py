@@ -18,6 +18,7 @@ from app.inspection.photo_scoring import (
     form_value_for_violation,
 )
 from app.inspection.photo_service import InspectionPhotoService
+from app.shared.config import cfg
 
 _photo_service = InspectionPhotoService()
 
@@ -97,6 +98,7 @@ def upload_photo_evidence():
             "verification_status": result.verification.get("verification_status"),
             "ocr_task_id": result.ocr_task_id,
             "ocr_result": result.ocr_result,
+            "scoring": _result_to_dict(result.scoring, float(cfg.photo_scoring_threshold)) if result.scoring is not None else None,
         }),
         201,
     )
@@ -348,3 +350,57 @@ def list_photo_assessments(evidence_id):
         .all()
     )
     return jsonify([_assessment_to_dict(r) for r in rows])
+
+
+@inspection_bp.route("/<int:inspection_id>/checklist/apply-suggestion", methods=["POST"])
+def apply_scoring_suggestion(inspection_id):
+    """Apply photo-scoring suggestions to the inspection checklist.
+
+    Body: JSON {"fields": ["clean_premise", "date_tag", ...]} — field names
+    cleared by the model. Values are set to the correct form polarity:
+    checklist fields -> "no" (violation present), special fields
+    (artificial_colour, Expired_item) -> "yes".
+    Advisory only — the FSO confirms; this just pre-fills the checklist.
+    """
+    from app.models import Inspection
+
+    inspection = db.session.get(Inspection, inspection_id)
+    if not inspection:
+        return jsonify({"error": f"Inspection with id {inspection_id} not found"}), 404
+
+    if inspection.notice_issued_at is not None:
+        return jsonify({"error": "Inspection is frozen: an Improvement Notice has already been issued."}), 409
+
+    body = request.get_json(silent=True) or {}
+    fields = body.get("fields", [])
+    if not isinstance(fields, list):
+        return jsonify({"error": "Body must be {\"fields\": [\"field1\", \"field2\"]}"}), 400
+
+    from app.shared.context_derivers import CHECKLIST_RULES, SPECIAL_VIOLATION_RULES
+
+    checklist = {}
+    if inspection.checklist_json:
+        try:
+            checklist = json.loads(inspection.checklist_json) or {}
+        except (ValueError, TypeError):
+            checklist = {}
+
+    applied = []
+    for field in fields:
+        if field in SPECIAL_VIOLATION_RULES:
+            checklist[field] = "yes"  # violation present = "yes" for special fields
+            applied.append(field)
+        elif field in CHECKLIST_RULES:
+            checklist[field] = "no"   # violation present = "no" for checklist fields
+            applied.append(field)
+        # unknown fields are silently skipped
+
+    inspection.checklist_json = json.dumps(checklist) if checklist else None
+
+    try:
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to save checklist: {exc!s}"}), 500
+
+    return jsonify({"message": "Checklist updated", "applied": applied, "checklist": checklist}), 200

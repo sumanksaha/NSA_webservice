@@ -84,13 +84,55 @@ class TestReserveKgSlots:
         ]
         return vector, kg
 
-    def test_default_zero_preserves_rank_fusion(self):
+    def test_default_preserves_vector_top_k(self):
         from kg.hybrid import rrf_fuse_chunks
 
         vector, kg = self._pool()
         fused = rrf_fuse_chunks([vector, kg], rrf_k=60.0, top_k=20)
         ids = [c.chunk_id for c in fused]
+        # P1 fairness: a 100-wide vector pool truncated to 20 keeps every
+        # vector candidate; KG cannot displace one that would have survived.
+        assert ids == [f"v{i}" for i in range(20)]
+        assert not any(i.startswith("KG:") for i in ids)
+
+    def test_unbounded_interleave_is_opt_in(self):
+        from kg.hybrid import rrf_fuse_chunks
+
+        vector, kg = self._pool()
+        fused = rrf_fuse_chunks(
+            [vector, kg],
+            rrf_k=60.0,
+            top_k=20,
+            preserve_vector_top_k=False,
+        )
+        ids = [c.chunk_id for c in fused]
         assert [i for i in ids if i.startswith("KG:")] == [f"KG:k{i}" for i in range(5)]
+
+    def test_fair_fusion_fills_spare_slots_with_kg(self):
+        from kg.hybrid import rrf_fuse_chunks
+
+        vector = [_chunk(f"v{i}") for i in range(5)]
+        kg = [
+            RetrievedChunk(
+                chunk_id=f"KG:k{i}",
+                score=0.0,
+                text="",
+                document_title=f"Act {i}, 2006",
+                section_number=str(i),
+                document_type="KG-Provision",
+            )
+            for i in range(3)
+        ]
+        fused = rrf_fuse_chunks([vector, kg], rrf_k=60.0, top_k=10)
+        ids = [c.chunk_id for c in fused]
+        # Vector top-5 is protected; the three spare slots go to KG.
+        assert ids[:5] == [f"v{i}" for i in range(5)]
+        assert ids[5:] == [f"KG:k{i}" for i in range(3)]
+        # Scores must be monotonic: ContextBuilder re-sorts by score, so a
+        # raw rank-1 KG RRF score would jump back above the vector head.
+        scores = [c.score for c in fused]
+        assert scores == sorted(scores, reverse=True)
+        assert fused[0].score > fused[-1].score
 
     def test_reserve_caps_kg_footprint_and_keeps_vector_head(self):
         from kg.hybrid import rrf_fuse_chunks
@@ -233,9 +275,49 @@ class TestReserveKgSlots:
         fused = rrf_fuse_chunks([[vec], [kg]], rrf_k=60.0, top_k=10)
         assert "KG:prov1" not in [c.chunk_id for c in fused]
 
-    def test_kg_interleaves_by_rrf_rank_not_tail(self):
-        """A rank-1 KG chunk ties the rank-1 vector chunk and outranks ranks 2+ —
-        it is interleaved by merit, never tail-appended after all chunks.
+    def test_dedupe_kg_normalises_graph_section_prefix(self):
+        """The graph names sections ``fssai:s57`` while the corpus stamps ``57``."""
+        from kg.hybrid import rrf_fuse_chunks
+
+        vec = RetrievedChunk(
+            chunk_id="v57",
+            score=0.9,
+            text="",
+            act_name="Food Safety and Standards Act, 2006",
+            section_number="57",
+        )
+        kg = RetrievedChunk(
+            chunk_id="KG:prov57",
+            score=0.0,
+            text="",
+            document_title="Food Safety and Standards Act, 2006",
+            section_number="fssai:s57",
+            document_type="KG-Provision",
+        )
+        fused = rrf_fuse_chunks([[vec], [kg]], rrf_k=60.0, top_k=10)
+        assert "KG:prov57" not in [c.chunk_id for c in fused]
+
+    def test_dedupe_kg_uses_source_chunk_ids(self):
+        """A KG chunk whose source chunk is already in the pool is redundant."""
+        from kg.hybrid import rrf_fuse_chunks
+
+        vec = RetrievedChunk(chunk_id="c57", score=0.9, text="")
+        kg = RetrievedChunk(
+            chunk_id="KG:prov57",
+            score=0.0,
+            text="",
+            document_title="Some Act, 2006",
+            section_number="57",
+            document_type="KG-Provision",
+            source_chunk_ids=["c57"],
+        )
+        fused = rrf_fuse_chunks([[vec], [kg]], rrf_k=60.0, top_k=10)
+        assert "KG:prov57" not in [c.chunk_id for c in fused]
+
+    def test_kg_does_not_displace_vector_top_k(self):
+        """P1 fairness: with a full vector window, a rank-1 KG chunk cannot
+        evict the vector candidate that vector-only retrieval would have
+        served.  The unbounded interleave remains available by opt-in.
         """
         from kg.hybrid import rrf_fuse_chunks
 
@@ -243,9 +325,18 @@ class TestReserveKgSlots:
         kg = [_chunk("KG:provision", 0.0)]
         fused = rrf_fuse_chunks([dense, kg], rrf_k=60.0, top_k=20)
         ids = [c.chunk_id for c in fused]
-        # 1/61 (kg@rank1) > 1/63 (chunk@rank3): KG must sit inside the top 3.
-        assert ids.index("KG:provision") <= 2
-        assert fused[-1].chunk_id != "KG:provision"
+        assert ids == [f"v{i}" for i in range(20)]
+        assert "KG:provision" not in ids
+
+        # The old interleave is still reproducible for offline experiments.
+        raw = rrf_fuse_chunks(
+            [dense, kg],
+            rrf_k=60.0,
+            top_k=20,
+            preserve_vector_top_k=False,
+        )
+        raw_ids = [c.chunk_id for c in raw]
+        assert raw_ids.index("KG:provision") <= 2
 
     def test_equal_rrf_tie_breaks_by_input_list_order(self):
         """Tie policy: equal RRF scores keep first-appearance order (vector

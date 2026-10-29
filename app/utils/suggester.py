@@ -1,7 +1,7 @@
 """suggester.py
 
 Rule-based suggester that recommends applicable FSS Act sections
-(55, 56, 58, 63, 64) based on inspection checklist results and case flags.
+(51, 52, 55, 56, 58, 63, 64) based on inspection checklist results and case flags.
 No external LLM dependencies — all logic is deterministic and runs locally.
 
 The set of valid section IDs and the statutory section text are sourced from

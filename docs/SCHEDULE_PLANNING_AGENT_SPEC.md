@@ -2,9 +2,9 @@
 
 **Status:** specification only — no code, tests, or config changed.
 **Date:** 2026-10-11.
-**Implements:** [SCHEDULE_PLANNING_AGENT_IMPLEMENTATION_PLAN.md](./SCHEDULE_PLANNING_AGENT_IMPLEMENTATION_PLAN.md)
+**Implements:** [SCHEDULE_PLANNING_AGENT_IMPLEMENTATION_PLAN.md](SCHEDULE_PLANNING_AGENT_IMPLEMENTATION_PLAN.md)
 (phases, file lists, risks).
-**Evidence base:** [SCHEDULE_PLANNING_AGENT_RESEARCH.md](./SCHEDULE_PLANNING_AGENT_RESEARCH.md)
+**Evidence base:** [SCHEDULE_PLANNING_AGENT_RESEARCH.md](SCHEDULE_PLANNING_AGENT_RESEARCH.md)
 (current-state verification).
 
 **How to read this document.** Sections 3–5 are **normative**: `MUST`, `MUST NOT`, `SHOULD`, and

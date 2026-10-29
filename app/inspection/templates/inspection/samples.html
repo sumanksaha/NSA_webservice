@@ -1,0 +1,130 @@
+{% extends "inspection/base_inspection.html" %}
+
+{% block title %}Samples (Audit View){% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header flex-between--wrap">
+        <h2><i class="fa-solid fa-vial"></i> Samples (Audit View)</h2>
+        <span class="text--primary" style="font-size: 0.875rem; color: var(--color-text-muted);">
+            All samples collected via inspections. Samples are now created through the
+            <a href="{{ url_for('inspection.index') }}">Inspection UI</a>.
+        </span>
+    </div>
+    <div class="filter-panel">
+        <form method="get" action="{{ url_for('inspection.samples_list') }}" class="filter-form">
+            <div class="filter-row filter-row--4">
+                <div class="filter-group">
+                    <label for="fso_name" class="form-label">FSO Name</label>
+                    <select id="fso_name" name="fso_name" class="form-select">
+                        <option value="">All FSOs</option>
+                        {% for fso in fso_names %}
+                        <option value="{{ fso }}" {% if filter_fso == fso %}selected{% endif %}>{{ fso }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="collection_date_from" class="form-label">From Date</label>
+                    <input type="date" id="collection_date_from" name="collection_date_from" class="form-input"
+                           value="{{ filter_date_from or '' }}">
+                </div>
+                <div class="filter-group">
+                    <label for="collection_date_to" class="form-label">To Date</label>
+                    <input type="date" id="collection_date_to" name="collection_date_to" class="form-input"
+                           value="{{ filter_date_to or '' }}">
+                </div>
+                <div class="filter-group">
+                    <label for="sample_status" class="form-label">Status</label>
+                    <select id="sample_status" name="sample_status" class="form-select">
+                        <option value="">All Statuses</option>
+                        <option value="ok" {% if filter_status == 'ok' %}selected{% endif %}>OK</option>
+                        <option value="substandard" {% if filter_status == 'substandard' %}selected{% endif %}>Substandard</option>
+                        <option value="misbranded" {% if filter_status == 'misbranded' %}selected{% endif %}>Misbranded</option>
+                        <option value="unsafe" {% if filter_status == 'unsafe' %}selected{% endif %}>Unsafe</option>
+                    </select>
+                </div>
+            </div>
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-filter"></i> Apply Filters
+                </button>
+                <a href="{{ url_for('inspection.samples_list') }}" class="btn btn-secondary btn-sm">
+                    <i class="fa-solid fa-undo"></i> Reset
+                </a>
+            </div>
+        </form>
+    </div>
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Sample Code</th>
+                    <th>Sample Name</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>FSO Name</th>
+                    <th>Collection Date</th>
+                    <th>Price</th>
+                    <th>Inspection</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sample in samples %}
+                <tr>
+                    <td>{{ sample.sample_code or '---' }}</td>
+                    <td>{{ sample.sample_name or '---' }}</td>
+                    <td>{{ sample.sample_type or '---' }}</td>
+                    <td>
+                        {% if sample.sample_status == 'ok' %}
+                        <span class="status-badge status-badge--success">OK</span>
+                        {% elif sample.sample_status == 'substandard' %}
+                        <span class="status-badge status-badge--warning">Substandard</span>
+                        {% elif sample.sample_status == 'misbranded' %}
+                        <span class="status-badge status-badge--warning">Misbranded</span>
+                        {% elif sample.sample_status == 'unsafe' %}
+                        <span class="status-badge status-badge--error">Unsafe</span>
+                        {% else %}
+                        <span class="text-muted">---</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ sample.fso_name or '---' }}</td>
+                    <td>{{ sample.collection_date or '---' }}</td>
+                    <td>{{ sample.price or '---' }}</td>
+                    <td>
+                        {% if sample.inspection_id %}
+                        <a href="{{ url_for('inspection.inspection_detail', inspection_id=sample.inspection_id) }}">
+                            #{{ sample.inspection_id }}
+                        </a>
+                        {% else %}
+                        <span class="text-muted">---</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted">No samples found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if pagination and pagination.pages > 1 %}
+    <div class="pagination">
+        {% if pagination.has_prev %}
+        <a href="{{ url_for('inspection.samples_list', page=pagination.prev_num, fso_name=filter_fso, collection_date_from=filter_date_from, collection_date_to=filter_date_to, sample_status=filter_status) }}"
+           class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-chevron-left"></i> Previous
+        </a>
+        {% endif %}
+        <span class="pagination-info">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+        {% if pagination.has_next %}
+        <a href="{{ url_for('inspection.samples_list', page=pagination.next_num, fso_name=filter_fso, collection_date_from=filter_date_from, collection_date_to=filter_date_to, sample_status=filter_status) }}"
+           class="btn btn-primary btn-sm">
+            Next <i class="fa-solid fa-chevron-right"></i>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

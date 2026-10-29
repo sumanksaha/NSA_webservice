@@ -2,7 +2,7 @@
 
 **Status:** specification only — no code, tests, or config changed.
 **Date:** 2026-10-11.
-**Implements:** [NOTEPAD_LEGAL_RAG_PLAN.md](./NOTEPAD_LEGAL_RAG_PLAN.md) (evaluation, design decisions D1–D10, phases, file list).
+**Implements:** [NOTEPAD_LEGAL_RAG_PLAN.md](NOTEPAD_LEGAL_RAG_PLAN.md) (evaluation, design decisions D1–D10, phases, file list).
 **User requirement (verbatim intent, 2026-10-11):** *add a problem or query or note → press an AI button → get an explanation or answer → the answer is produced by the legal RAG module, not generic AI → afterwards update the statement, add further questions, fragment the query, and the RAG updates the answer.*
 
 **How to read this document.** Sections 3–6 are **normative**: `MUST`, `MUST NOT`, `SHOULD`, `MAY` carry their usual force. Section 7 onward is explanatory. Every requirement has an ID (`FR-n`, `NFR-n`, `INV-n`, `V-n`, `SEC-n`) and appears in the traceability matrix (§12). Line citations are to the current working tree.

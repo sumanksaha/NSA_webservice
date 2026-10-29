@@ -14,12 +14,15 @@ from app.models.config import Settings
 from app.models.diary import WorkDiaryEntry
 from app.models.document import (
     Adjudication,
+    AdjudicationEntity,
+    AdjudicationRelationship,
     Annexure,
     CaseFile,
     Entity,
     Evidence,
     EvidenceAssessment,
     Relationship,
+    Section,
     TimelineEvent,
     Version,
 )

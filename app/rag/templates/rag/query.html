@@ -483,6 +483,16 @@
                 />
             </div>
 
+            <div class="rag-row">
+                <label for="ragModel">LLM model</label>
+                <select id="ragModel" name="model" class="form-select" style="min-width: 200px">
+                    <option value="">Default (Minimax 3.1 Flash)</option>
+                    <option value="minimax/minimax-m3.1-flash">Minimax 3.1 Flash</option>
+                    <option value="z-ai/glm-5.3-flash">GLM 5.3 Flash</option>
+                    <option value="nvidia/nemotron-3.5-super-vl:free">Nemotron 3.5 VL</option>
+                </select>
+            </div>
+
             <div class="rag-toggle-group">
                 <input type="checkbox" id="ragUseAgent" name="use_agent" />
                 <label for="ragUseAgent">Use agent pipeline</label>

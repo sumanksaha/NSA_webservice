@@ -168,6 +168,12 @@ ALTER TABLE case_files ADD COLUMN IF NOT EXISTS is_unsafe BOOLEAN NOT NULL DEFAU
 ALTER TABLE adjudications ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE adjudications ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITHOUT TIME ZONE;
 CREATE INDEX IF NOT EXISTS idx_adjudications_is_archived ON adjudications (is_archived);
+ALTER TABLE case_files ADD COLUMN IF NOT EXISTS case_submission_date TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE case_files ADD COLUMN IF NOT EXISTS hearing_date TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE case_files ADD COLUMN IF NOT EXISTS penalty VARCHAR(200);
+ALTER TABLE adjudications ADD COLUMN IF NOT EXISTS case_submission_date TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE adjudications ADD COLUMN IF NOT EXISTS hearing_date TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE adjudications ADD COLUMN IF NOT EXISTS penalty VARCHAR(200);
 ALTER TABLE inspection ADD COLUMN IF NOT EXISTS auditor_plan_json TEXT;
 ALTER TABLE inspection ADD COLUMN IF NOT EXISTS dossier_verified BOOLEAN NOT NULL DEFAULT FALSE;"""
 
@@ -180,6 +186,12 @@ ALTER TABLE case_files ADD COLUMN retailer_cum_manufacturer BOOLEAN NOT NULL DEF
 ALTER TABLE case_files ADD COLUMN is_unsafe BOOLEAN NOT NULL DEFAULT 0;
 ALTER TABLE adjudications ADD COLUMN is_archived BOOLEAN NOT NULL DEFAULT 0;
 ALTER TABLE adjudications ADD COLUMN archived_at DATETIME;
+ALTER TABLE case_files ADD COLUMN case_submission_date DATETIME;
+ALTER TABLE case_files ADD COLUMN hearing_date DATETIME;
+ALTER TABLE case_files ADD COLUMN penalty VARCHAR(200);
+ALTER TABLE adjudications ADD COLUMN case_submission_date DATETIME;
+ALTER TABLE adjudications ADD COLUMN hearing_date DATETIME;
+ALTER TABLE adjudications ADD COLUMN penalty VARCHAR(200);
 ALTER TABLE inspection ADD COLUMN auditor_plan_json TEXT;
 ALTER TABLE inspection ADD COLUMN dossier_verified BOOLEAN NOT NULL DEFAULT 0;"""
 
@@ -376,9 +388,10 @@ def _bootstrap_locked(app: Flask, engine) -> None:
                 # for a genuinely broken database.
                 db.session.rollback()
                 app.logger.warning(
-                    "Admin seed collided (%s) — continuing boot; the account "
-                    "exists if a concurrent boot committed it.",
+                    "Admin seed collided (%s) — continuing boot; the account exists if a concurrent boot committed it.",
                     type(exc).__name__,
                 )
             else:
-                app.logger.info("Default admin account created (username=admin). Change the password after first login.")
+                app.logger.info(
+                    "Default admin account created (username=admin). Change the password after first login."
+                )
