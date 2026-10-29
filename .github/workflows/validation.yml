@@ -176,9 +176,19 @@ jobs:
     # Job 4: Fast Tests — Unit Tests (no Qdrant/network/heavy inference)
     # ---------------------------------------------------------------------------
     test-fast:
-        name: Fast Tests (Pytest, no slow)
+        name: Fast Tests (Pytest, no slow, shard ${{ matrix.shard }}/3)
         runs-on: ubuntu-24.04
-        timeout-minutes: 10
+        # The whole suite takes ~10-16 min and accumulates enough memory that a
+        # single job gets the runner shut down mid-run ("The runner has received
+        # a shutdown signal", reproducible at ~68% while the DOCX/PDF modules
+        # load). Three independent jobs keep each shard short and small.
+        # pytest-xdist is not an option: tests/conftest.py pins one SQLite
+        # database and modules call drop_all()/create_all().
+        timeout-minutes: 15
+        strategy:
+            fail-fast: false
+            matrix:
+                shard: [1, 2, 3]
         steps:
             - name: Checkout repository
               uses: actions/checkout@v7
@@ -210,8 +220,10 @@ jobs:
 
             - name: Run fast (non-slow) tests
               run: |
-                  pytest -m "not slow" --tb=short -q \
-                    legal_paragraph_detection_engine/tests/ tests/ 2>&1
+                  # ci_shard.py splits the file list deterministically so each
+                  # matrix job runs a third of the suite in its own process.
+                  shard_paths=$(python scripts/ci_shard.py --shard ${{ matrix.shard }}/3)
+                  pytest -m "not slow" --tb=short -q $shard_paths 2>&1
               continue-on-error: false
               env:
                   PYTHONPATH: ${{ github.workspace }}

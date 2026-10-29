@@ -36,6 +36,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Casefile validation: sections 51 and 52 now allowed** (`app/utils/sections_data.py`, `app/utils/suggester.py`, `app/validation/rules.py`): FSS Act sections 51 (sub-standard) and 52 (mis-branded) were added to `VALID_SECTION_IDS`, so casefiles citing them no longer fail the `StatutoryReferenceRule` warning. The validator message now lists the tracked sections dynamically instead of a stale hardcoded list.
 - **Work Diary note: only mention samples when count > 0** (`app/diary.py`): the premises/samples count sentence now reports each count only when it is non-zero, instead of the combined `(premises or samples)` guard that wrote "collected 0 sample(s)" on days with premises but no samples.
 
+### Fixed (2026-10-25 – 2026-10-27) — CI RAG test isolation, fast-test timeout, pandoc hang
+
+- **Reranker can no longer turn a good pool into "no evidence"**
+  (`app/rag/retrieval/reranker.py`): a cross-encoder that returns fewer scores
+  than it was given chunks — a stub, a mocked module, a broken wrapper — is now
+  treated as a reranker failure and falls back to the deterministic
+  text-overlap reranker. It used to return `[]` silently.
+- **`HybridRetriever` keeps the fused pool when the reranker returns nothing**
+  (`app/rag/retrieval/hybrid_retriever.py`): reranking is a re-ordering stage,
+  never a filter. Previously an empty rerank result propagated as
+  `total=0`, which read downstream as "this query has no evidence".
+- **`tests/test_experiment_d_helpers.py` no longer leaks process-global stubs**:
+  the `matplotlib` / `torch` / `sentence_transformers` stubs were installed into
+  `sys.modules` at import time and never removed, which poisoned every later
+  module in the CI slow-test job — `model_runtime` resolved `CrossEncoder` to a
+  `_AnyStub` whose `predict()` iterates as empty. The stubs are now installed by
+  the module's fixture and uninstalled (plus `model_runtime.clear_model_cache()`)
+  when the module finishes.
+- **`tests/test_rag_agent_nodes.py` patches the live expand-query seam**: the
+  node resolves its client via `app.shared.llm_client.get_llm_client`, so the
+  failure-path test patches that instead of the retired
+  `app.rag.generation.llm_client.GroundedLLMClient`.
+- **`Fast Tests` now runs as three shards** (`.github/workflows/validation.yml`,
+  `scripts/ci_shard.py`): the unsplit suite needs ~10–16 minutes and accumulates
+  enough memory that the runner is shut down mid-run — reproducibly at ~68%,
+  while the DOCX/PDF modules load, logged as `The runner has received a shutdown
+  signal` (a genuine timeout says `The operation was canceled.`). Three
+  independent jobs take a deterministic third each (round-robin over the sorted
+  file list) with a 15-minute limit. `pytest-xdist` is not safe here: `tests/conftest.py`
+  pins one SQLite database, and modules call `drop_all()`/`create_all()`.
+- **`Prohibition_order.adoc` closes its AsciiDoc comment block**
+  (`app/case_file_generator/templates/case_file_generator/Prohibition_order.adoc`):
+  the block opened with `////` on line 1 but was terminated with `//`, so the
+  whole template stayed inside a comment. Pandoc's `asciidoc` reader does not
+  reject that — it loops forever while allocating, which is what shut the runner
+  down (`exit code 143`) with no pytest output at all. Reproduced with pandoc
+  3.11: `////\nfoo\n` never returns, `////\nfoo\n////\n` converts in 0.2s.
+- **`_pandoc_asciidoc_to_docx` is now bounded** (`app/shared/adoc_renderer.py`):
+  a 30-second `PANDOC_TIMEOUT_SECONDS` cap makes a hung converter fall back to the
+  python-docx renderer instead of stalling the request (and the CI job) forever.
+  `tests/test_adoc_renderer.py` covers the timeout, the missing-binary path, and
+  asserts every `.adoc` template has balanced `////` fences.
+
 ### Security (2026-10-25) — filelock CVE floor, retire `safety` dev pin
 
 - Pinned `filelock>=4.2.1` in `[project.dependencies]`. The package arrives

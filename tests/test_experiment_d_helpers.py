@@ -16,6 +16,11 @@ import types
 import pytest
 
 
+#: Modules this file put into ``sys.modules`` as stubs.  Popped again when the
+#: module finishes — see ``_uninstall_stubs_after_module``.
+_STUBBED_MODULES: list[str] = []
+
+
 def _ensure_matplotlib_stub() -> None:
     try:
         import matplotlib  # noqa: F401
@@ -51,6 +56,7 @@ def _ensure_matplotlib_stub() -> None:
         mpl.pyplot = pyplot
         sys.modules["matplotlib"] = mpl
         sys.modules["matplotlib.pyplot"] = pyplot
+        _STUBBED_MODULES.extend(("matplotlib", "matplotlib.pyplot"))
 
 
 def _ensure_torch_stubs() -> None:
@@ -60,6 +66,14 @@ def _ensure_torch_stubs() -> None:
     has ``__spec__ = None``, so installing it over a real install
     poisons ``importlib.util.find_spec`` for every later importer
     (``ValueError: torch.__spec__ is None`` during test collection).
+
+    The stubs are process-global (``sys.modules``), so they are installed only
+    while this module's tests need them and removed afterwards.  Installing
+    them at import time poisoned every later module in the CI slow-test job:
+    ``model_runtime.get_cross_encoder`` then resolved ``CrossEncoder`` to a
+    ``_AnyStub`` whose ``predict()`` iterates as empty, so ``Reranker`` quietly
+    returned no chunks and ``HybridRetriever.retrieve`` reported ``total=0``
+    (the CI-only ``test_rag_e2e`` failures of 2026-10-25).
     """
     for _mod in ("torch", "sentence_transformers"):
         if _mod in sys.modules:
@@ -82,10 +96,21 @@ def _ensure_torch_stubs() -> None:
         _stub = types.ModuleType(_mod)
         _stub.__getattr__ = lambda name: _AnyStub()  # type: ignore[attr-defined]
         sys.modules[_mod] = _stub
+        _STUBBED_MODULES.append(_mod)
 
 
-_ensure_matplotlib_stub()
-_ensure_torch_stubs()
+@pytest.fixture(scope="module", autouse=True)
+def _uninstall_stubs_after_module():
+    """Undo the ``sys.modules`` stubs this file installs (no cross-file leaks)."""
+    yield
+    for name in _STUBBED_MODULES:
+        sys.modules.pop(name, None)
+    _STUBBED_MODULES.clear()
+    # ``model_runtime`` caches built models; drop anything it cached while the
+    # stubs were live so later modules get a real (or absent) cross-encoder.
+    from app.rag import model_runtime
+
+    model_runtime.clear_model_cache()
 
 
 @pytest.fixture(scope="module")
