@@ -245,7 +245,7 @@ classify ──► retrieve ──► generate ──► verify ──► finali
 
 ## Project Status & Capabilities
 
-**Version:** Oct/2026
+**Version:** November/26/1
 
 Release nomenclature: base releases use month/year (`Mon/YYYY`, e.g. `Oct/2026`); minor/patch releases append `.N` (e.g. `Oct/2026.1`, `Oct/2026.2`). The next base release rolls to the calendar month (`Nov/2026`). This nomenclature is effective from this release forward.
 

@@ -36,6 +36,7 @@ def register_blueprints(app: Flask) -> None:
     from app.knowledge_graph.api import graph_search_bp as _graph_search_bp
     from app.legal_analysis import legal_analysis_bp as _legal_analysis_bp
     from app.notepad import notepad_bp as _notepad_bp
+
     # Phase 4: sample blueprint deprecated — samples accessed via inspection module
     # from app.sample.routes import sample_bp as _sample_bp
     from app.search import search_bp as _search_bp

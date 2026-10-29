@@ -314,7 +314,9 @@ class Evidence(db.Model):
     id = db.Column(db.String(36), primary_key=True)
     case_id = db.Column(db.Integer, db.ForeignKey("case_files.id", ondelete="SET NULL"), nullable=True)
     adjudication_id = db.Column(db.Integer, db.ForeignKey("adjudications.id", ondelete="SET NULL"), nullable=True)
-    inspection_id = db.Column(db.Integer, db.ForeignKey("inspection.id", ondelete="SET NULL", use_alter=True), nullable=True)
+    inspection_id = db.Column(
+        db.Integer, db.ForeignKey("inspection.id", ondelete="SET NULL", use_alter=True), nullable=True
+    )
 
     evidence_type = db.Column(db.String(20), nullable=False)
 

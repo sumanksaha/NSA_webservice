@@ -275,12 +275,18 @@ class TestValidateSampleCode:
 
         assert validate_sample_code("", "enforcement") == "sample_code is required"
         assert validate_sample_code(None, "enforcement") == "sample_code is required"
-        assert validate_sample_code("INVALID", "enforcement") == \
-            "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL (e.g. SL/WB/110223/2026/25275)"
-        assert validate_sample_code("SL/WB/123/45/678", "enforcement") == \
-            "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL (e.g. SL/WB/110223/2026/25275)"
-        assert validate_sample_code("SL/WB/123456/7890/1234", "enforcement") == \
-            "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL (e.g. SL/WB/110223/2026/25275)"
+        assert (
+            validate_sample_code("INVALID", "enforcement")
+            == "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL (e.g. SL/WB/110223/2026/25275)"
+        )
+        assert (
+            validate_sample_code("SL/WB/123/45/678", "enforcement")
+            == "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL (e.g. SL/WB/110223/2026/25275)"
+        )
+        assert (
+            validate_sample_code("SL/WB/123456/7890/1234", "enforcement")
+            == "sample_code must match format SL/WB/BRANCHCODE/YEAR/SEQUENTIAL (e.g. SL/WB/110223/2026/25275)"
+        )
 
 
 class TestWorkDiarySampleFields:

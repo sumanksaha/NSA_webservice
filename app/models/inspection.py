@@ -57,7 +57,9 @@ class Inspection(db.Model):
     is_dismissed = db.Column(db.Boolean, default=False)
     dismissed_by = db.Column(db.String(100), nullable=True)
     dismissed_at = db.Column(db.DateTime, nullable=True)
-    adjudication_id = db.Column(db.Integer, db.ForeignKey("adjudications.id", ondelete="SET NULL", use_alter=True), nullable=True)
+    adjudication_id = db.Column(
+        db.Integer, db.ForeignKey("adjudications.id", ondelete="SET NULL", use_alter=True), nullable=True
+    )
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     synced_at = db.Column(db.DateTime, nullable=True)
     # Device-issued provisional id used while a capture is offline. The

@@ -296,9 +296,7 @@ def create_inspection():
             existing_sample = Sample.query.filter_by(sample_code=sample_code).first()
             if existing_sample and existing_sample.inspection_id and existing_sample.inspection_id != inspection.id:
                 db.session.rollback()
-                return jsonify({
-                    "error": f"Sample code '{sample_code}' already linked to another inspection"
-                }), 400
+                return jsonify({"error": f"Sample code '{sample_code}' already linked to another inspection"}), 400
             if existing_sample:
                 existing_sample.inspection_id = inspection.id
                 existing_sample.sample_name = sample_name
@@ -465,7 +463,9 @@ def update_inspection(inspection_id):
     if "fbo_type" in form_data:
         fbo_type_val = (form_data["fbo_type"] or "").strip().lower()
         if fbo_type_val and fbo_type_val not in ("manufacturer", "retailer", "food vending establishment"):
-            return jsonify({"error": "fbo_type must be 'manufacturer', 'retailer', or 'food vending establishment'"}), 400
+            return jsonify({
+                "error": "fbo_type must be 'manufacturer', 'retailer', or 'food vending establishment'"
+            }), 400
         inspection.fbo_type = fbo_type_val or None
     if "concerned_food" in form_data:
         inspection.concerned_food = form_data["concerned_food"].strip() or None
@@ -581,9 +581,7 @@ def update_inspection(inspection_id):
             existing_sample = Sample.query.filter_by(sample_code=new_sample_code).first()
             if existing_sample and existing_sample.inspection_id and existing_sample.inspection_id != inspection.id:
                 db.session.rollback()
-                return jsonify({
-                    "error": f"Sample code '{new_sample_code}' already linked to another inspection"
-                }), 400
+                return jsonify({"error": f"Sample code '{new_sample_code}' already linked to another inspection"}), 400
             if existing_sample:
                 existing_sample.inspection_id = inspection.id
                 existing_sample.sample_name = new_sample_name
@@ -636,7 +634,6 @@ def update_inspection(inspection_id):
                 linked.version_id = (linked.version_id or 1) + 1
                 db.session.add(linked)
                 db.session.commit()
-
 
         try:
             row_dict = {
@@ -913,13 +910,9 @@ def launch_sample_adjudication(inspection_id):
 
     # Cross-FBO guard: sample must belong to this inspection or same FBO
     if sample.inspection_id and sample.inspection_id != inspection.id:
-        return jsonify({
-            "error": "Sample is linked to a different inspection"
-        }), 400
+        return jsonify({"error": "Sample is linked to a different inspection"}), 400
     if sample.fso_name != inspection.fso_name:
-        return jsonify({
-            "error": "Sample FSO does not match inspection FSO"
-        }), 400
+        return jsonify({"error": "Sample FSO does not match inspection FSO"}), 400
 
     from app.models import Adjudication
 
@@ -954,6 +947,7 @@ def launch_sample_adjudication(inspection_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
 
 @inspection_bp.route("/<int:inspection_id>/update-sample-details", methods=["POST"])
 def update_sample_details(inspection_id):
@@ -1067,4 +1061,3 @@ def samples_list():
         sort_by=sort_by,
         sort_order=sort_order,
     )
-

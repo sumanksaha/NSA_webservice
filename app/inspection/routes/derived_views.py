@@ -263,7 +263,9 @@ def inspection_detail(inspection_id):
         rows = (
             EvidenceAssessment.query
             .filter(EvidenceAssessment.evidence_id.in_(photo_ids))
-            .order_by(EvidenceAssessment.evidence_id, EvidenceAssessment.created_at.desc(), EvidenceAssessment.id.desc())
+            .order_by(
+                EvidenceAssessment.evidence_id, EvidenceAssessment.created_at.desc(), EvidenceAssessment.id.desc()
+            )
             .all()
         )
         seen = set()
@@ -305,12 +307,7 @@ def inspection_detail(inspection_id):
     # Samples for the same FBO (for the sample-adjudication picker)
     fbo_samples = []
     if inspection.fbo_name:
-        fbo_samples = (
-            Sample.query
-            .filter_by(fso_name=inspection.fso_name)
-            .order_by(Sample.collection_date.desc())
-            .all()
-        )
+        fbo_samples = Sample.query.filter_by(fso_name=inspection.fso_name).order_by(Sample.collection_date.desc()).all()
 
     return render_template(
         "inspection/detail.html",
