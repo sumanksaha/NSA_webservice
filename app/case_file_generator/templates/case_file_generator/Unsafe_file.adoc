@@ -105,6 +105,7 @@
 //   fso_name           → food_safety_officer_name / food_safety_officer_name (aliased)
 //   packet_count       → packet_count           / packet_count
 //   sample_quantity    → sample_quantity        / sample_quantity
+//   per_packet_sample_quantity → computed in routes.py (sample_quantity / packet_count)
 //   batch_no           → batch_no               / batch_no
 //   mfg_date           → mfg_date               / mfg_date
 //   expiry_date        → expiry_date            / expiry_date
@@ -144,7 +145,7 @@ Kolkata Municipal Corporation,
 . Prayer to the Designated Officer
 
 [.justify]
-Whereas, a sample namely **{{ sample_name }}** of {{ packet_count }} sealed packets/bottles (X {{ packet_count }} = {{ sample_quantity }} ) bearing Batch No - {{ batch_no }}, Date of Manufacture - {{ mfg_date }}, Date of Expiry - {{ expiry_date }} collected by {{ fso_name }} (Food Safety Officer, Br. XVI) under Section 38(1)(a) and Section 47 of the Food Safety &amp; Standards Act, 2006 vide Sample Code {{ sample_code }} dated {{ inspection_date }} (date of sampling) from {{ retailer_name }} ({{ retailer_fbo_name }}), {{ retailer_address }}, License No - {{ retailer_fssai }}, and submitted to the Food Analyst for analysis according to Section 47 of the Food Safety &amp; Standards Act, 2006 read with Section 2.4 of the Food Safety &amp; Standards Rules, 2011.
+Whereas, a sample namely **{{ sample_name }}** of {{ packet_count }} sealed packets/bottles **({{ per_packet_sample_quantity }} X {{ packet_count }} = {{ sample_quantity }} )** {% if not retailer_cum_manufacturer %} bearing Batch No - {{ batch_no }}, Date of Manufacture - {{ mfg_date }}, Date of Expiry - {{ expiry_date }}{% endif %} collected by **{{ fso_name }}** (Food Safety Officer, Br.    ) under Section 38(1)(a) and Section 47 of the Food Safety &amp; Standards Act, 2006 vide Sample Code {{ sample_code }} dated {{ inspection_date }} (date of sampling) from {{ retailer_name }} ({{ retailer_fbo_name }}), {{ retailer_address }}, License No - {{ retailer_fssai }}, and submitted to the Food Analyst for analysis according to Section 47 of the Food Safety &amp; Standards Act, 2006 read with Section 2.4 of the Food Safety &amp; Standards Rules, 2011.
 
 {% if not retailer_cum_manufacturer %}Upon further inquiry, {{ retailer_name }} disclosed the name of {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, FSSAI License No - {{ manufacturer_fssai }} as the manufacturer of the said product **{{ sample_name }}** (scaled packet).{% endif %}
 

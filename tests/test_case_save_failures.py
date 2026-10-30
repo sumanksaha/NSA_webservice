@@ -145,6 +145,48 @@ class TestCaseFileEditPersistsAllFields:
             assert case.packet_count == 8
 
 
+class TestCaseFileWitnessName:
+    """``witness_name`` is optional, captured on both forms, and printed in
+    the petition ("FSO called a local witness namely ..."). Existing cases
+    keep it blank without failing validation."""
+
+    def test_create_persists_witness_name(self, client, monkeypatch):
+        _login(client)
+        _stub_case_file_pdf(monkeypatch)
+        form = dict(CASE_VALID_FORM, witness_name="A. K. Witness")
+        resp = client.post("/case_file_generator/generate_case_file", data=form)
+        assert resp.status_code == 200, resp.get_data(as_text=True)
+
+        with client.application.app_context():
+            assert CaseFile.query.one().witness_name == "A. K. Witness"
+
+    def test_create_without_witness_name_is_allowed(self, client, monkeypatch):
+        """Optional: a case saved without a witness must still persist."""
+        _login(client)
+        _stub_case_file_pdf(monkeypatch)
+        form = dict(CASE_VALID_FORM)
+        form.pop("witness_name", None)
+        resp = client.post("/case_file_generator/generate_case_file", data=form)
+        assert resp.status_code == 200, resp.get_data(as_text=True)
+
+        with client.application.app_context():
+            assert not (CaseFile.query.one().witness_name or "")
+
+    def test_put_updates_witness_name(self, client, monkeypatch):
+        _login(client)
+        _stub_case_file_pdf(monkeypatch)
+        client.post("/case_file_generator/generate_case_file", data=dict(CASE_VALID_FORM))
+        with client.application.app_context():
+            case_id = CaseFile.query.one().id
+
+        updated = dict(CASE_VALID_FORM, witness_name="Late Added Witness")
+        resp = client.put(f"/case_file_generator/case/{case_id}", data=updated)
+        assert resp.status_code == 200, resp.get_data(as_text=True)
+
+        with client.application.app_context():
+            assert db.session.get(CaseFile, case_id).witness_name == "Late Added Witness"
+
+
 class TestAdjudicationCreatePersistsCeFields:
     def test_generate_all_persists_trade_license_details(self, client, monkeypatch):
         """KMC trade-license details entered on the create form must reach

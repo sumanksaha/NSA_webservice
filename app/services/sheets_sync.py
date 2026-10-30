@@ -101,6 +101,11 @@ SHEET_COLUMNS = {
         "sample_name",
         "sample_id",
         "created_at",
+        # Appended (never inserted): ``append_row`` writes by position, so a
+        # column added mid-list would shift every later value out from under
+        # the live worksheet's existing header row. Extend the header cell in
+        # the Sample_CaseFile sheet when adding columns here.
+        "witness_name",
     ],
     "billing": [
         "Name",

@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scoring at upload**: inspection photo uploads (`POST /inspection/photo-upload`) now run the scorer between storage and the Evidence insert; the photo and its assessment land in one transaction, and a scoring failure never blocks the upload.
 - **Apply-suggestion endpoint**: `POST /inspection/<id>/checklist/apply-suggestion` accepts `{"fields": [...]}` and writes the correct form polarity (checklist fields → `"no"`, `artificial_colour`/`Expired_item` → `"yes"`).
 
+### Added (2026-10-30) — Shortcomings field in case-file generator (Unsafe File only)
+
+- **Shortcomings field** (`app/case_file_generator/routes.py`, `app/case_file_generator/templates/case_file_generator/index.html`, `app/case_file_generator/templates/case_file_generator/edit.html`): the sample-adjudication create and edit forms now expose a "Shortcomings observed" textarea that is revealed only when the sample is judged **Unsafe** (`is_unsafe`). The value is persisted on `CaseFile.shortcomings` on both create (`POST /case_file_generator/generate_case_file`) and edit (`PUT /case_file_generator/case/<id>`), and is rendered as bullets under "Specific shortcomings observed" in `Unsafe_file.adoc` — the prohibition-order / Unsafe File document only. It is never printed in the Petition, Permission Letter, or Prohibition Order.
+
 ### Added (2026-10-28) — Inspection-Sample merge + FBO type
 
 - **Sample capture moved into Inspection UI**: Samples are now created via the Inspection entry form (conditional "Sample Collection" block). When `sample_collected` is ticked, five fields become required: `sample_code`, `collection_date`, `sample_name`, `price`, and `sample_status` (dropdown: ok/substandard/misbranded/unsafe). Five optional fields are also captured: `batch_no`, `mfd`, `exp`, `submission_date`, `manufacturer_details`. The standalone Sample create form is deprecated (Phase 4); samples are now created, edited, and audited through the Inspection module.

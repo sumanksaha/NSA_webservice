@@ -177,6 +177,13 @@
             </div>
         </div>
 
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="witness_name" class="form-label">Sample Witness Name (optional)</label>
+                <input type="text" id="witness_name" name="witness_name" class="form-input" placeholder="Local witness called by the FSO at the time of sampling" value="{{ form.witness_name or '' }}" />
+            </div>
+        </div>
+
         <div class="section-header"><h3>Analysis Result &amp; Regulatory Action</h3></div>
         <div class="form-group">
             <div class="analysis-result-group">
@@ -197,7 +204,7 @@
                 {% if config.get('CASE_FILE_UNSAFE_OPTION_ENABLED', True) %}
                 <label class="toggle-card">
                     <input
-                        type="checkbox" name="is_unsafe" value="unsafe" data-off=""
+                        type="checkbox" id="is_unsafe" name="is_unsafe" value="unsafe" data-off=""
                         {% if form.is_unsafe == 'unsafe' %}checked{% endif %}
                     />
                     Unsafe
@@ -205,6 +212,18 @@
                 {% endif %}
             </div>
         </div>
+
+        <!-- Shortcomings feed the Unsafe File only (Unsafe_file.adoc). -->
+        <div class="form-row" id="shortcomings_wrap"{% if form.is_unsafe != 'unsafe' %} style="display: none"{% endif %}>
+            <div class="form-group full-width">
+                <label for="shortcomings" class="form-label">
+                    Shortcomings observed
+                    <span class="form-hint">(printed in the Unsafe File — one per line)</span>
+                </label>
+                <textarea id="shortcomings" name="shortcomings" class="form-input" rows="4">{{ form.shortcomings or '' }}</textarea>
+            </div>
+        </div>
+
         <div class="form-row form-row--4">
             <div class="form-group">
                 <label for="analyst_report_no" class="form-label">Analyst Report Number</label>
@@ -424,6 +443,19 @@
                     if (batchEl) batchEl.placeholder = rcm ? "N/A for loose food" : "e.g., IFF";
                 });
                 if (rcmCb.checked) rcmCb.dispatchEvent(new Event("change"));
+            })();
+
+            // Shortcomings are printed only in the Unsafe File — reveal the
+            // field when the sample is judged "Unsafe".
+            (function () {
+                var unsafeCb = document.getElementById("is_unsafe");
+                var wrap = document.getElementById("shortcomings_wrap");
+                if (!unsafeCb || !wrap) return;
+                var sync = function () {
+                    wrap.style.display = unsafeCb.checked ? "" : "none";
+                };
+                unsafeCb.addEventListener("change", sync);
+                sync();
             })();
 </script>
 {% endblock %}

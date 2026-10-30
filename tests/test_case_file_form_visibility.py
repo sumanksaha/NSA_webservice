@@ -104,3 +104,67 @@ class TestEditSavePresent:
         html = client.get(f"/case_file_generator/case/{_case_id(client)}/edit").get_data(as_text=True)
         assert "\\</script" not in html
         assert 'type="submit"' in html
+
+
+class TestShortcomingsUnsafeOnly:
+    """Shortcomings are a case-file field scoped to the Unsafe File.
+
+    They are persisted on ``CaseFile.shortcomings`` and rendered only by
+    ``Unsafe_file.adoc``; the field is revealed when the sample is judged
+    unsafe (create + edit forms).
+    """
+
+    def test_create_form_has_shortcomings_field(self, client):
+        _login(client)
+        html = client.get("/case_file_generator/").get_data(as_text=True)
+        assert 'name="shortcomings"' in html
+        assert 'id="shortcomings_wrap" style="display: none"' in html
+        assert "printed in the Unsafe File" in html
+
+    def test_edit_form_has_shortcomings_hidden_for_normal_case(self, client):
+        _login(client)
+        html = client.get(f"/case_file_generator/case/{_case_id(client)}/edit").get_data(as_text=True)
+        assert 'name="shortcomings"' in html
+        assert 'id="shortcomings_wrap" style="display: none"' in html
+
+    def test_edit_form_reveals_shortcomings_for_unsafe_case(self, client):
+        _login(client)
+        with client.application.app_context():
+            case = db.session.get(CaseFile, _case_id(client))
+            case.is_unsafe = True
+            db.session.commit()
+        html = client.get(f"/case_file_generator/case/{_case_id(client)}/edit").get_data(as_text=True)
+        assert 'id="shortcomings_wrap" style="display: none"' not in html
+
+    def test_create_path_persists_shortcomings(self, client):
+        from app.case_file_generator.routes import _process_case_file_form
+
+        with client.application.app_context():
+            record = _process_case_file_form(
+                {"sample_code": "SC-9", "shortcomings": "Pest control records missing\n"},
+            )
+            assert record.shortcomings == "Pest control records missing"
+
+
+class TestWitnessNameField:
+    """The sample witness named in the petition is captured on both forms.
+
+    Optional: no ``required`` attribute, so pre-existing cases (and cases
+    where no independent witness was called) save without it.
+    """
+
+    def test_create_form_has_optional_witness_field(self, client):
+        _login(client)
+        html = client.get("/case_file_generator/").get_data(as_text=True)
+        assert 'name="witness_name"' in html
+        assert "Sample Witness Name (optional)" in html
+
+    def test_edit_form_renders_stored_witness_value(self, client):
+        _login(client)
+        with client.application.app_context():
+            case = db.session.get(CaseFile, _case_id(client))
+            case.witness_name = "A. K. Witness"
+            db.session.commit()
+        html = client.get(f"/case_file_generator/case/{_case_id(client)}/edit").get_data(as_text=True)
+        assert 'name="witness_name"' in html
+        assert 'value="A. K. Witness"' in html

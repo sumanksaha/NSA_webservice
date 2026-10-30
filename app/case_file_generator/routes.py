@@ -447,7 +447,11 @@ def apply_case_file_update(case_file, form_data: dict) -> None:
     case_file.total_cost = form_data.get("total_cost", "")
     case_file.cost_in_words = form_data.get("cost_in_words", "")
     case_file.sample_code = form_data.get("sample_code", "")
+    # Optional: the local witness named in the petition (blank on old cases).
+    case_file.witness_name = form_data.get("witness_name", "")
     case_file.Lab_Registration_No = _lookup_field(form_data, "lab_registration_no")
+    # Shortcomings are only printed in the Unsafe File (Unsafe_file.adoc).
+    case_file.shortcomings = (form_data.get("shortcomings") or "").strip()
     case_file.sample_submission_date = parse_date(form_data.get("do_receipt_date", ""))
     case_file.do_receipt_date = parse_date(form_data.get("do_receipt_date", ""))
     case_file.is_misbranded = form_data.get("is_misbranded") == "misbranded"
@@ -503,6 +507,9 @@ def _process_case_file_form(form_data):
         total_cost=form_data.get("total_cost", ""),
         cost_in_words=form_data.get("cost_in_words", ""),
         sample_code=form_data.get("sample_code", ""),
+        witness_name=form_data.get("witness_name", ""),
+        # Shortcomings are only printed in the Unsafe File (Unsafe_file.adoc).
+        shortcomings=(form_data.get("shortcomings") or "").strip(),
         Lab_Registration_No=_lookup_field(form_data, "lab_registration_no"),
         sample_submission_date=parse_date(form_data.get("do_receipt_date", "")),  # merged into do_receipt_date
         do_receipt_date=parse_date(form_data.get("do_receipt_date", "")),

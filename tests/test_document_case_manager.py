@@ -172,3 +172,23 @@ def test_sheets_columns_match_lookup_sets(manager):
 
     assert manager._sheets_columns() == sheets_columns("case_file")
     assert "case_number" in manager._sheets_columns()
+
+
+def test_witness_name_is_exported_to_sheets():
+    """``witness_name`` must reach the Sheets export in both places that
+    gate it: the lookup allowlist (filters the row dict) and the ordered
+    column list (writes the cells)."""
+    from app.services.sheets_sync import SHEET_COLUMNS
+    from app.shared.document_lookup import sheets_columns
+
+    assert "witness_name" in sheets_columns("case_file")
+    assert "witness_name" in SHEET_COLUMNS["sample"]
+
+
+def test_witness_name_column_is_appended_last():
+    """``append_row`` writes by position, so new columns must never be
+    inserted mid-list or every later value lands under the wrong header."""
+    from app.services.sheets_sync import SHEET_COLUMNS
+
+    assert SHEET_COLUMNS["sample"][-1] == "witness_name"
+    assert SHEET_COLUMNS["sample"].index("created_at") == len(SHEET_COLUMNS["sample"]) - 2

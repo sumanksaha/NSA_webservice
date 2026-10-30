@@ -60,6 +60,10 @@ class CaseFile(db.Model):
     shortcomings = db.Column(db.Text, nullable=True)
 
     # Sample details
+    # Local witness called by the FSO at the time of sample taking (named in
+    # the petition). Optional: pre-existing cases carry NULL and the petition
+    # prints a blank line to be filled in by hand.
+    witness_name = db.Column(db.String(200), nullable=True)
     sample_code = db.Column(db.String(100), nullable=False)
     sample_submission_date = db.Column(db.DateTime, nullable=False)
     Lab_Registration_No = db.Column(db.String(100), nullable=False)

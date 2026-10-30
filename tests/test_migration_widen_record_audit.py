@@ -84,13 +84,21 @@ class TestWidenRecordAuditRecordIdMigration:
         assert mig.revision == "widen_record_audit_record_id"
         assert mig.down_revision == "add_note_answer_table"
 
-    def test_migration_is_the_sole_head(self):
-        """``flask db upgrade`` on deploy only applies a migration when it is
-        the single head; a second head would silently skip this one."""
+    def test_migration_is_in_the_single_head_chain(self):
+        """``flask db upgrade`` on deploy only applies the chain when exactly
+        one head exists; this migration must not be orphaned off it.
+
+        (Was pinned to ``add_evidence_assessment`` as the literal head — that
+        went stale as later migrations chained on. The durable invariant is a
+        single head that descends from this revision.)
+        """
         from pathlib import Path
 
         repo_root = Path(__file__).resolve().parent.parent
         cfg = Config()
         cfg.set_main_option("script_location", str(repo_root / "migrations"))
         script = ScriptDirectory.from_config(cfg)
-        assert script.get_heads() == ["add_evidence_assessment"]
+        heads = script.get_heads()
+        assert len(heads) == 1, f"expected a single alembic head, got {heads}"
+        ancestors = {rev.revision for rev in script.iterate_revisions(heads[0], "base")}
+        assert "widen_record_audit_record_id" in ancestors

@@ -339,11 +339,6 @@
 
         <div class="form-row">
             <div class="form-group full-width">
-                <label for="shortcomings" class="form-label">Shortcomings (one per line)</label>
-                <textarea id="shortcomings" name="shortcomings" class="form-input" rows="4"></textarea>
-            </div>
-        </div>
-                <div class="form-group full-width">
                 <label for="other_food_articles" class="form-label"
                     >Other Food Articles Found</label
                 >
@@ -393,6 +388,21 @@
             </div>
         </div>
 
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label for="witness_name" class="form-label"
+                    >Sample Witness Name (optional)</label
+                >
+                <input
+                    type="text"
+                    id="witness_name"
+                    name="witness_name"
+                    class="form-input"
+                    placeholder="Local witness called by the FSO at the time of sampling"
+                />
+            </div>
+        </div>
+
         <!-- Analysis Result -->
         <div class="section-header">
             <h3><i class="fa-solid fa-flask"></i> Analysis Result & Regulatory Action</h3>
@@ -432,6 +442,17 @@
                     Unsafe
                 </label>
                 {% endif %}
+            </div>
+        </div>
+
+        <!-- Shortcomings feed the Unsafe File only (Unsafe_file.adoc). -->
+        <div class="form-row" id="shortcomings_wrap" style="display: none">
+            <div class="form-group full-width">
+                <label for="shortcomings" class="form-label">
+                    Shortcomings observed
+                    <span class="form-hint">(printed in the Unsafe File — one per line)</span>
+                </label>
+                <textarea id="shortcomings" name="shortcomings" class="form-input" rows="4"></textarea>
             </div>
         </div>
 
@@ -916,6 +937,19 @@
             if (mfgInfo) mfgInfo.style.display = "none";
         });
         if (rcmCb.checked) rcmCb.dispatchEvent(new Event("change"));
+    })();
+
+    // Shortcomings are printed only in the Unsafe File — reveal the field
+    // when the sample is judged "Unsafe".
+    (function () {
+        var unsafeCb = document.getElementById("is_unsafe");
+        var wrap = document.getElementById("shortcomings_wrap");
+        if (!unsafeCb || !wrap) return;
+        var sync = function () {
+            wrap.style.display = unsafeCb.checked ? "" : "none";
+        };
+        unsafeCb.addEventListener("change", sync);
+        sync();
     })();
 
     // Load sample codes on page load

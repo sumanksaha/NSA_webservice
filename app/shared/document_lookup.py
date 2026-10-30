@@ -157,6 +157,7 @@ def sheets_columns(case_type: str) -> set[str]:
             "applicable_clause",
             "sample_name",
             "applicable_sections",
+            "witness_name",
         }
     return {
         "case_number",

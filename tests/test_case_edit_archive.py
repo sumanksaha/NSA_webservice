@@ -175,6 +175,22 @@ class TestCaseFileEditArchive:
             assert case.manufacturer_name == "Mfr Updated"
             assert case.synced_at is None  # marked Supabase-dirty
 
+    def test_put_persists_shortcomings(self, client):
+        """Shortcomings typed on the case file are persisted (Unsafe File only)."""
+        _login(client)
+        with client.application.app_context():
+            case_id = _seed_case_file()
+        data = dict(
+            CASE_FILE_FORM,
+            shortcomings="Pest control records missing\nWater storage uncovered",
+            is_unsafe="unsafe",
+        )
+        resp = client.put(f"/case_file_generator/case/{case_id}", data=data)
+        assert resp.status_code == 200, resp.get_data(as_text=True)
+        with client.application.app_context():
+            case = db.session.get(CaseFile, case_id)
+            assert case.shortcomings == "Pest control records missing\nWater storage uncovered"
+
     def test_put_rejects_case_number_change(self, client):
         _login(client)
         with client.application.app_context():

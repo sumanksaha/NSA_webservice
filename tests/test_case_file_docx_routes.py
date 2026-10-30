@@ -72,6 +72,7 @@ def case_file(client):
         total_cost="250",
         cost_in_words="Two Hundred Fifty Rupees Only",
         sample_code="TDD-SL-001",
+        witness_name="TDD Witness",
         sample_submission_date=date(2023, 3, 2),
         Lab_Registration_No="WB/FOOD/2023/001",
         do_receipt_date=date(2023, 3, 4),
@@ -156,6 +157,26 @@ class TestPetitionDocxDownload:
         assert "GROUNDS" in text, "Petition DOCX must contain the GROUNDS section"
         assert "PRAYER" in text, "Petition DOCX must contain the PRAYER section"
 
+    def test_docx_contains_witness_name(self, client, case_file):
+        """witness_name is captured per case and printed in the petition."""
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/petition")
+        text = _extract_docx_text(response.data)
+        assert "TDD Witness" in text, "Petition DOCX must contain the witness_name value"
+
+    def test_docx_witness_name_blank_prints_fill_in_line(self, client, case_file):
+        """Pre-existing cases carry no witness: the petition must leave a line
+        to fill in by hand rather than a bare 'namely and in his presence'."""
+        from app.extensions import db
+
+        case_file.witness_name = None
+        db.session.commit()
+
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/petition")
+        text = _extract_docx_text(response.data)
+        assert "TDD Witness" not in text
+        assert "local witness namely" in text
+        assert "____" in text, "Blank witness must render a fill-in line"
+
     def test_docx_no_literal_brace_placeholders(self, client, case_file):
         """REGRESSION: docx must not contain unsubstituted {field_name} tokens."""
         response = client.get(f"/case_file_generator/case/{case_file.id}/docx/petition")
@@ -190,10 +211,15 @@ class TestPermissionDocxDownload:
             names = zf.namelist()
         assert "word/document.xml" in names, f"Missing word/document.xml in DOCX. Contents: {names}"
 
-    def test_docx_contains_case_number(self, client, case_file):
+    def test_docx_contains_directive_letter_no(self, client, case_file):
+        """The Sub line carries directive_letter_no — the letter's own identifier.
+
+        The "F.S. & S Case No." header was removed from the template, so
+        case_number is intentionally no longer printed in this document.
+        """
         response = client.get(f"/case_file_generator/case/{case_file.id}/docx/permission")
         text = _extract_docx_text(response.data)
-        assert "TDD-SAMPLE-001" in text, "Permission DOCX must contain the case_number value"
+        assert "TDD/DL/1" in text, "Permission DOCX must contain the directive_letter_no value"
 
     def test_docx_contains_officer_name(self, client, case_file):
         response = client.get(f"/case_file_generator/case/{case_file.id}/docx/permission")
@@ -359,7 +385,9 @@ class TestUnsafeFileDocxDownload:
         assert "Remarks" in text, "14-column table Remarks must render"
         # Verify no letterhead table on page 1
         assert "OFFICE OF THE DESIGNATED OFFICER" not in text, "letterhead table must not be on page 1"
-        assert "PROHIBITION ORDER UNDER SEC 36(3)(b)" not in text, "prohibition order subject must not be on page 1 (moved to body)"
+        assert "PROHIBITION ORDER UNDER SEC 36(3)(b)" not in text, (
+            "prohibition order subject must not be on page 1 (moved to body)"
+        )
 
     def test_docx_14_column_table_fill_rules(self, client, case_file):
         """Fill rules: Packed state (separate FBOs), report dates, Sec 46(4)
@@ -378,9 +406,7 @@ class TestUnsafeFileDocxDownload:
         assert "TDD Manufacturer" in text, "manufacturer row must render"
         # Report-communication column carries only the receive dates from
         # case data (retailer_report_receive_date, manufacturer_report_receive_date)
-        assert "14-03-2023; 15-03-2023" in text, (
-            "report-communication cell must list only the two receive dates"
-        )
+        assert "14-03-2023; 15-03-2023" in text, "report-communication cell must list only the two receive dates"
         # No hardcoded Yes prefix
         assert "Yes (Retailer" not in text, "no hardcoded Yes/Retailer labels"
         # Sec 46(4) preference always No, referral columns blank → No is
@@ -411,6 +437,30 @@ class TestUnsafeFileDocxDownload:
         response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
         text = _extract_docx_text(response.data)
         assert "TDD-SAMPLE-001" in text, "case_number must render in the unsafe file"
+
+    def test_docx_renders_shortcomings_as_bullets(self, client, case_file):
+        """Shortcomings saved on the case file appear in the Unsafe File only."""
+        from app.extensions import db
+
+        case_file.shortcomings = "Pest control records missing\nWater storage uncovered"
+        db.session.commit()
+
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        text = _extract_docx_text(response.data)
+        assert "Specific shortcomings observed" in text
+        assert "Pest control records missing" in text
+        assert "Water storage uncovered" in text
+
+    def test_petition_does_not_render_shortcomings(self, client, case_file):
+        """Shortcomings are scoped to the Unsafe File, not the petition."""
+        from app.extensions import db
+
+        case_file.shortcomings = "Pest control records missing"
+        db.session.commit()
+
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/petition")
+        text = _extract_docx_text(response.data)
+        assert "Pest control records missing" not in text
 
     def test_no_framepage_leak(self, client, case_file):
         """The old <framepage> passthrough must not leak as visible text.
@@ -529,18 +579,16 @@ class TestUnsafeFileButtonGating:
         response = client.get("/case_file_generator/")
         assert response.status_code == 200
         html = response.data.decode("utf-8", errors="replace")
-        assert 'name="is_unsafe"' in html, (
-            "Unsafe checkbox must render by default (opt-out setting)"
-        )
+        assert 'name="is_unsafe"' in html, "Unsafe checkbox must render by default (opt-out setting)"
 
         monkeypatch.setitem(
-            client.application.config, "CASE_FILE_UNSAFE_OPTION_ENABLED", False,
+            client.application.config,
+            "CASE_FILE_UNSAFE_OPTION_ENABLED",
+            False,
         )
         response = client.get("/case_file_generator/")
         html = response.data.decode("utf-8", errors="replace")
-        assert 'name="is_unsafe"' not in html, (
-            "Unsafe checkbox must hide once the setting is explicitly false"
-        )
+        assert 'name="is_unsafe"' not in html, "Unsafe checkbox must hide once the setting is explicitly false"
 
     def test_unsafe_file_button_hidden_until_toggled(self, client, case_file):
         """No Unsafe-File button until the case is marked unsafe.
@@ -553,9 +601,7 @@ class TestUnsafeFileButtonGating:
         assert "TDD-SAMPLE-001" in html, "case row must be listed"
         # The per-case Unsafe File button is gated on the case's own is_unsafe
         # flag, not on the settings-page toggle.
-        assert "/docx/unsafe_file" not in html, (
-            "Prayer button must be hidden until the case is marked unsafe"
-        )
+        assert "/docx/unsafe_file" not in html, "Prayer button must be hidden until the case is marked unsafe"
 
     def test_unsafe_file_button_shown_when_unsafe(self, client, case_file):
         """Toggling the Unsafe option makes the Unsafe-File button appear.
@@ -572,9 +618,7 @@ class TestUnsafeFileButtonGating:
         assert response.status_code == 200
         html = response.data.decode("utf-8", errors="replace")
         assert "TDD-SAMPLE-001" in html, "case row must be listed"
-        assert "/docx/unsafe_file" in html, (
-            "Prayer button must appear once is_unsafe is toggled on"
-        )
+        assert "/docx/unsafe_file" in html, "Prayer button must appear once is_unsafe is toggled on"
 
     def test_edit_form_gates_unsafe_checkbox(self, client, case_file, monkeypatch):
         """The edit form shows the Unsafe checkbox unless the setting is false."""
@@ -582,18 +626,14 @@ class TestUnsafeFileButtonGating:
         response = client.get(url)
         assert response.status_code == 200
         html = response.data.decode("utf-8", errors="replace")
-        assert 'name="is_unsafe"' in html, (
-            "edit form must show the Unsafe checkbox by default (opt-out setting)"
-        )
+        assert 'name="is_unsafe"' in html, "edit form must show the Unsafe checkbox by default (opt-out setting)"
 
         monkeypatch.setitem(
-            client.application.config, "CASE_FILE_UNSAFE_OPTION_ENABLED", False,
+            client.application.config,
+            "CASE_FILE_UNSAFE_OPTION_ENABLED",
+            False,
         )
         response = client.get(url)
         assert response.status_code == 200
         html = response.data.decode("utf-8", errors="replace")
-        assert 'name="is_unsafe"' not in html, (
-            "edit form must hide the Unsafe checkbox once set to false"
-        )
-
-
+        assert 'name="is_unsafe"' not in html, "edit form must hide the Unsafe checkbox once set to false"
