@@ -14,7 +14,7 @@ keep NULL and the UI allows them to be left blank.
 Idempotent: skips columns that are already present so fresh ``create_all``
 databases and hand-repaired databases do not fail on deploy.
 
-Revision ID: add_post_processing_fields_to_adjudication
+Revision ID: 20261028_adj_post_fields
 Revises: 20261026_kg_graph_upsert_support
 Create Date: 2026-10-28
 """
@@ -23,7 +23,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = "add_post_processing_fields_to_adjudication"
+revision = "20261028_adj_post_fields"
 down_revision = "20261026_kg_graph_upsert_support"
 branch_labels = None
 depends_on = None
