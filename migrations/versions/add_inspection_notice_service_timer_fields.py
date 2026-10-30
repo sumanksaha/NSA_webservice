@@ -8,7 +8,7 @@ Create Date: 2026-10-25
 from alembic import op
 import sqlalchemy as sa
 
-revision = "add_inspection_notice_service_timer_fields"
+revision = "20261028_insp_notice_timer"
 down_revision = "unify_photo_evidence"
 branch_labels = None
 depends_on = None

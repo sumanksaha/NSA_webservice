@@ -17,7 +17,7 @@ Create Date: 2026-08-02
 from alembic import op
 import sqlalchemy as sa
 
-revision = "add_settings_annexure_evidence_version_models"
+revision = "20261028_settings_evidence"
 down_revision = "add_is_admin_to_user"
 branch_labels = None
 depends_on = None

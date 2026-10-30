@@ -17,7 +17,7 @@ tables via db.create_all() fallback; this migration matters mainly for Postgres.
 import sqlalchemy as sa
 from alembic import op
 
-revision = "add_inspection_sample_link_and_status"
+revision = "20261028_insp_sample_link"
 down_revision = "add_inspection_sample_collection"
 branch_labels = None
 depends_on = None

@@ -14,7 +14,7 @@ import logging
 
 # revision identifiers, used by Alembic.
 revision = "create_search_index_fts5_table"
-down_revision = "add_settings_annexure_evidence_version_models"
+down_revision = "20261028_settings_evidence"
 branch_labels = None
 depends_on = None
 
