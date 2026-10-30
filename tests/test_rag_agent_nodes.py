@@ -305,7 +305,7 @@ def test_expand_query_node_keeps_query_on_llm_failure(monkeypatch):
         def call(self, *args, **kwargs):
             return type("R", (), {"success": False, "text": ""})()
 
-    monkeypatch.setattr(llm_mod, "GroundedLLMClient", lambda *a, **k: FailingClient())
+    monkeypatch.setattr(__import__("app.rag.generation.grounded_service", fromlist=["GroundedLLMClient"]), "GroundedLLMClient", lambda *a, **k: FailingClient())
     out = expand_query_node(_make_state())
     assert out["expanded_query"] == "penalty for selling substandard food"
     assert out["retry_count"] == 1

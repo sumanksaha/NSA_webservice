@@ -10,6 +10,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![pip-audit](https://github.com/sumanksaha/NSA_webservice/actions/workflows/pip-audit.yml/badge.svg)](https://github.com/sumanksaha/NSA_webservice/actions/workflows/pip-audit.yml)
 [![Code style: black](https://img.shields.io/badge/Code%20Style-Black-000000)](https://github.com/psf/black)
+[![Coverage](https://img.shields.io/badge/coverage-48.94%25-brightgreen)](https://github.com/sumanksaha/NSA_webservice/actions/workflows/pip-audit.yml)
 
 **A government-grade workflow automation system for Food Safety Officer adjudication, inspection tracking, sample management, and legal document generation.**
 

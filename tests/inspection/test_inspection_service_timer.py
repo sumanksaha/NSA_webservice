@@ -16,7 +16,7 @@ def _make_app():
     return app
 
 
-def _login(client, username="inspector", password="password123"):
+def _login(client, username="inspector", *, password):
     with client.application.app_context():
         user = User(username=username, password_hash=generate_password_hash(password))
         db.session.add(user)
@@ -48,7 +48,7 @@ def test_serve_notice_sets_timer():
     app = _make_app()
     insp_id = _seed(app, "timer")
     client = app.test_client()
-    _login(client, username="inspector-timer")
+    _login(client, username="inspector-timer", password="timer_pass")
     served = "2026-11-02"
     resp = client.post(
         f"/inspection/{insp_id}/serve-notice",
@@ -69,7 +69,7 @@ def test_mark_shortcomings_and_escalate():
     app = _make_app()
     insp_id = _seed(app, "escalate")
     client = app.test_client()
-    _login(client, username="inspector-escalate")
+    _login(client, username="inspector-escalate", password="escalate_pass")
 
     # escalation must be blocked before shortcomings persist
     resp = client.post(f"/inspection/{insp_id}/escalate-adjudication")
