@@ -77,10 +77,8 @@ _GATE_INSTRUCTIONS = (
 #: sits in a wide empty band rather than near either cluster.
 GATE_THRESHOLD = 0.50
 
-#: Checklist fields a photograph cannot establish. ``Pest_report`` and
-#: ``Water_report`` ask whether a *document* was produced; a photo of premises
-#: cannot answer that, and scoring them would manufacture violations.
-PHOTO_UNOBSERVABLE_FIELDS: frozenset[str] = frozenset({"Pest_report", "Water_report"})
+from app.shared.checklist import PHOTO_UNOBSERVABLE_FIELDS as _PHOTO_UNOBSERVABLE
+PHOTO_UNOBSERVABLE_FIELDS: frozenset[str] = _PHOTO_UNOBSERVABLE
 
 #: Every candidate answer, in one order, derived rather than re-declared.
 SCORABLE_FIELDS: tuple[str, ...] = tuple(

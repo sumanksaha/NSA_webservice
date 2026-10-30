@@ -17,6 +17,7 @@ import io
 import json
 import zipfile
 from datetime import UTC, datetime
+from pathlib import Path
 
 from flask import Blueprint, abort, current_app, jsonify, make_response, render_template, request, send_file
 from flask_login import login_required
@@ -26,6 +27,7 @@ from app.extensions import csrf, db
 from app.models import Adjudication, FboIssue
 from app.plugins.registry import PluginRegistry
 from app.services.audit_context import audit_logger
+from app.shared.adoc_renderer import render_adoc_to_docx
 from app.services.sync_orchestrator import sync_row
 from app.shared.case_keys import (
     DERIVED_APPLICABLE_SECTIONS,
@@ -56,34 +58,15 @@ from app.utils.pdf_utils import embed_photos_as_base64, generate_pdf_from_html, 
 
 adjudication_bp = Blueprint("adjudication", __name__, template_folder="templates", static_folder="static")
 
-CHECKLIST = [
-    "clean_premise",
-    "refrigerator_clean",
-    "proper_attire",
-    "proper_covered_utensil",
-    "date_tag",
-    "veg_nonveg_separation",
-    "food_segregation",
-    "license_display",
-    "artificial_colour",
-    "Expired_item",
-    "Pest_report",
-    "Water_report",
-]
+from app.shared.checklist import CHECKLIST_FIELDS as _CHECKLIST_FIELDS
+CHECKLIST = list(_CHECKLIST_FIELDS)
+from app.shared.context_derivers import CHECKLIST_RULES as _CR, SPECIAL_VIOLATION_RULES as _SVR
+RULES = {f: (t, o) for f, (t, o) in _CR.items()}
+RULES.update({f: (t, o) for f, (t, o) in _SVR.items()})
 
-RULES = {
-    "clean_premise": ("Unclean Premises", "The premises were found inadequately maintained and unhygienic."),
-    "refrigerator_clean": ("Improper Refrigerator Maintenance", "Refrigeration facilities were found unclean."),
-    "proper_attire": ("Improper Protective Attire", "Food handlers lacked prescribed attire."),
-    "proper_covered_utensil": ("Improper Covering of Food", "Food and utensils were uncovered."),
-    "date_tag": ("Absence of Date Tagging", "Stored food items lacked traceability."),
-    "veg_nonveg_separation": ("Improper Veg/Non-Veg Separation", "Segregation not maintained."),
-    "food_segregation": ("Improper Food Segregation", "Risk of cross contamination."),
-    "license_display": ("Improper License Display", "License not prominently displayed."),
-    "Expired_item": ("Expired Items", "Expired items present."),
-    "Pest_report": ("Pest Control Report Missing", "Routine pest control not documented."),
-    "Water_report": ("Water Test Report Missing", "Potable water testing unavailable."),
-}
+# Shared .adoc renderer (ADR-001). Adjudication binds its own template dir,
+# mirroring app/case_file_generator/adoc_renderer.py's thin-wrapper pattern.
+TEMPLATE_DIR = Path(__file__).resolve().parent / "templates" / "adjudication"
 
 
 def adjudication_to_dict(adj):
@@ -421,8 +404,7 @@ def apply_adjudication_update(adj, form_data: dict) -> None:
 # DocumentCaseManager — common routes delegation
 # --------------------------------------------------------------------------- #
 
-_manager = DocumentCaseManager(
-    model=Adjudication,
+
     template_dir="adjudication",
     bp_name="adjudication",
     case_type="adjudication",
@@ -433,12 +415,23 @@ _manager = DocumentCaseManager(
     form_dict_fn=adjudication_form_dict,
     sheets_module="non_sample",
     prepare_context_fn=_prepare_adjudication_context,
-    templates={
-        "permission": "adjudication/Legal_NonsampleAdjudication_Template.html",
-        "petition": "adjudication/template_nonsample_petition.html",
-    },
+from app.shared.document_routes import register_document_routes
+
+# DocumentCaseManager facade deleted — routes register directly.
+register_document_routes(
+    adjudication_bp,
+    model=Adjudication,
+    case_type="adjudication",
+    bp_name="adjudication",
+    template_dir="adjudication",
+    model_to_dict_fn=adjudication_to_dict,
+    validate_form_fn=validate_adjudication_form,
+    apply_update_fn=apply_adjudication_update,
+    form_dict_fn=adjudication_form_dict,
+    sheets_module="non_sample",
 )
-_manager.register_routes(adjudication_bp)
+
+# Model-specific routes (not covered by DocumentCaseManager)
 
 
 # --------------------------------------------------------------------------- #
@@ -962,8 +955,6 @@ def _rbac_check(case_id: int):
 @login_required
 def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
     """Download Adjudication DOCX — adapter picks format."""
-    from app.adjudication.adoc_renderer import render_adoc_to_docx
-
     adj, error_resp = _rbac_check(case_id)
     if error_resp:
         return error_resp
@@ -993,7 +984,7 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
         )
         if not access.allowed:
             return jsonify(access.payload()), access.status
-        docx_bytes = render_adoc_to_docx("template_nonsample_petition.adoc", context)
+        docx_bytes = render_adoc_to_docx(TEMPLATE_DIR, "template_nonsample_petition.adoc", context)
         download_name = f"Adjudication_Petition_{adj.case_number or case_id}.docx"
         return send_file(
             io.BytesIO(docx_bytes),
@@ -1002,7 +993,7 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     if doc_type == "permission":
-        docx_bytes = render_adoc_to_docx("Legal_NonsampleAdjudication_Template.adoc", context)
+        docx_bytes = render_adoc_to_docx(TEMPLATE_DIR, "Legal_NonsampleAdjudication_Template.adoc", context)
         download_name = f"Permission_Letter_{adj.case_number or case_id}.docx"
         return send_file(
             io.BytesIO(docx_bytes),
@@ -1025,8 +1016,8 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
         )
         if not access.allowed:
             return jsonify(access.payload()), access.status
-        petition_docx = render_adoc_to_docx("template_nonsample_petition.adoc", context)
-        permission_docx = render_adoc_to_docx("Legal_NonsampleAdjudication_Template.adoc", context)
+        petition_docx = render_adoc_to_docx(TEMPLATE_DIR, "template_nonsample_petition.adoc", context)
+        permission_docx = render_adoc_to_docx(TEMPLATE_DIR, "Legal_NonsampleAdjudication_Template.adoc", context)
         label = adj.case_number or str(case_id)
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:

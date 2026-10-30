@@ -583,23 +583,26 @@ def _regenerate_case_file(case_id):
 # DocumentCaseManager — common routes delegation
 # --------------------------------------------------------------------------- #
 
-_manager = DocumentCaseManager(
+
+from app.shared.document_routes import register_document_routes
+
+# DocumentCaseManager facade deleted — routes register directly.
+register_document_routes(
+    case_file_generator_bp,
     model=CaseFile,
-    template_dir="case_file_generator",
-    bp_name="case_file_generator",
     case_type="case_file",
+    bp_name="case_file_generator",
+    template_dir="case_file_generator",
     model_to_dict_fn=case_file_to_dict,
-    process_form_fn=_process_case_file_form,
     validate_form_fn=validate_case_file_form,
     apply_update_fn=apply_case_file_update,
     form_dict_fn=case_file_form_dict,
     sheets_module="sample",
-    templates={
-        "petition": "case_file_generator/petition.html",
-        "permission": "case_file_generator/permission_letter.html",
-    },
 )
-_manager.register_routes(case_file_generator_bp)
+
+# --------------------------------------------------------------------------- #
+# Model-specific routes (not covered by DocumentCaseManager)
+# --------------------------------------------------------------------------- #
 
 
 # --------------------------------------------------------------------------- #

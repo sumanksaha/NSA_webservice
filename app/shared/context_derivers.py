@@ -14,125 +14,13 @@ All functions are pure (no side effects, same input -> same output).
 # VIOLATION DEFINITION (from adjudication RULES)
 # =============================================================================
 
-# Checklist violation rules - these map checkbox field names to (title, observation) tuples
-# Used by adjudication to build the violations list
-CHECKLIST_RULES: dict[str, tuple[str, str]] = {
-    "clean_premise": (
-        "Unclean Premises",
-        "The food premises, including floors, walls, ceilings and food-contact surfaces, "
-        "were not maintained in a clean and hygienic condition at the time of inspection.",
-    ),
-    "refrigerator_clean": (
-        "Improper Refrigerator Maintenance",
-        "The refrigeration facilities were not maintained in a clean condition and in proper "
-        "working order, risking contamination of the food stored therein.",
-    ),
-    "proper_attire": (
-        "Improper Protective Attire",
-        "Food handlers on duty were not wearing clean protective clothing, headgear and "
-        "footwear as required for the hygienic handling of food.",
-    ),
-    "proper_covered_utensil": (
-        "Improper Covering of Food",
-        "Food articles and utensils were found uncovered and exposed to dust, pests and other contaminants.",
-    ),
-    "date_tag": (
-        "Absence of Date Tagging",
-        "Stored food articles did not bear legible date tags or traceability markings, "
-        "so batch identity and stock rotation could not be established.",
-    ),
-    "veg_nonveg_separation": (
-        "Improper Veg/Non-Veg Separation",
-        "Vegetarian and non-vegetarian food articles were not stored, handled and "
-        "displayed separately from each other.",
-    ),
-    "food_segregation": (
-        "Improper Food Segregation",
-        "Raw, cooked and ready-to-eat food articles were not segregated at each stage "
-        "of handling, creating a risk of cross-contamination.",
-    ),
-    "license_display": (
-        "Improper License Display",
-        "The FSSAI license/registration was not displayed at a prominent place in the food business premises.",
-    ),
-    "Pest_report": (
-        "Pest Control Report Missing",
-        "No valid pest-control record was produced at the time of inspection; routine "
-        "pest management of the premises is undocumented.",
-    ),
-    "Water_report": (
-        "Water Test Report Missing",
-        "No potable-water test report was produced; the safety of water used in food "
-        "preparation and cleaning is unverified.",
-    ),
-}
-
-CHECKLIST_FIELDS: tuple[str, ...] = (
-    "clean_premise",
-    "refrigerator_clean",
-    "proper_attire",
-    "proper_covered_utensil",
-    "date_tag",
-    "veg_nonveg_separation",
-    "food_segregation",
-    "license_display",
-    "artificial_colour",
-    "Expired_item",
-    "Pest_report",
-    "Water_report",
+from app.shared.checklist import (
+    CHECKLIST_FIELDS,
+    CHECKLIST_RULES,
+    PHOTO_UNOBSERVABLE_FIELDS,
+    REMEDIATION_ACTIONS,
+    SPECIAL_VIOLATION_RULES,
 )
-
-
-# Remediation directives per checklist field, rendered as the numbered
-# corrective actions (Part 2) of the Improvement Notice. Unlike the
-# observations above — which record what was *found* — these instruct
-# what the FBO must *do*.
-REMEDIATION_ACTIONS: dict[str, str] = {
-    "clean_premise": (
-        "Maintain the entire food premises, including all food-contact surfaces, "
-        "in a clean and hygienic condition at all times."
-    ),
-    "refrigerator_clean": (
-        "Clean and sanitise all refrigeration facilities and keep them in proper working condition."
-    ),
-    "proper_attire": (
-        "Ensure all food handlers wear clean protective attire, including headgear and footwear, while on duty."
-    ),
-    "proper_covered_utensil": (
-        "Keep all food articles and utensils covered and protected from dust, pests "
-        "and other contaminants at all times."
-    ),
-    "date_tag": (
-        "Affix legible date tags to all stored food articles and maintain "
-        "batch-wise traceability and stock-rotation records."
-    ),
-    "veg_nonveg_separation": (
-        "Store, handle and display vegetarian and non-vegetarian food articles strictly separately from each other."
-    ),
-    "food_segregation": (
-        "Segregate raw, cooked and ready-to-eat food articles at every stage of "
-        "handling so as to eliminate cross-contamination."
-    ),
-    "license_display": (
-        "Display the FSSAI license/registration prominently at the entry of the food business premises."
-    ),
-    "artificial_colour": (
-        "Discontinue the use of artificial colours except as permitted under the "
-        "Food Safety and Standards (Food Products Standards and Food Additives) "
-        "Regulations, and declare permitted colours on the label."
-    ),
-    "Expired_item": (
-        "Remove all expired food articles from the premises immediately and "
-        "institute first-expiry-first-out stock rotation."
-    ),
-    "Pest_report": (
-        "Engage licensed pest control, eliminate pest harbourage in the premises, "
-        "and preserve pest-management records for verification."
-    ),
-    "Water_report": (
-        "Use only potable water in food operations and preserve periodic water-test reports for verification."
-    ),
-}
 
 
 def derive_actions(violations: list[dict[str, str]]) -> list[str]:
@@ -155,17 +43,7 @@ def derive_actions(violations: list[dict[str, str]]) -> list[str]:
     return actions
 
 
-# Special violation rules that are not in the checklist but need to be checked
-SPECIAL_VIOLATION_RULES: dict[str, tuple[str, str]] = {
-    "artificial_colour": (
-        "Use of Artificial Colours",
-        "Artificial colours were reportedly used in the preparation of food articles.",
-    ),
-    "Expired_item": (
-        "Expired Items Present",
-        "Food articles past their expiry/best-before date were found stored on the premises.",
-    ),
-}
+# Special violation rules are now sourced from app.shared.checklist.
 
 
 # =============================================================================
