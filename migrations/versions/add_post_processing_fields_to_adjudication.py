@@ -23,7 +23,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = "20261028_adj_post_fields"
+revision = "add_post_processing_fields_to_adjudication"
 down_revision = "20261026_kg_graph_upsert_support"
 branch_labels = None
 depends_on = None
