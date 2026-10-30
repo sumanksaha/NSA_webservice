@@ -59,38 +59,37 @@ def _bootstrap_lock(db_uri: str):
         path = db_uri.split("sqlite:///", 1)[1] if "sqlite:///" in db_uri else ""
         path = path.split("?", 1)[0]
         if not path or path == ":memory:":
-            yield False
-            return
-        lock_path = Path(path).with_suffix(Path(path).suffix + ".bootstrap.lock")
-        lock_path.parent.mkdir(parents=True, exist_ok=True)
-        fh = open(lock_path, "a+b")  # noqa: PTH123 — lockfile, not data
-        deadline = time.monotonic() + _LOCK_TIMEOUT_S
-        while True:
-            try:
-                if os.name == "nt":
-                    import msvcrt
+            locked = False
+        else:
+            lock_path = Path(path).with_suffix(Path(path).suffix + ".bootstrap.lock")
+            lock_path.parent.mkdir(parents=True, exist_ok=True)
+            fh = open(lock_path, "a+b")  # noqa: PTH123 — lockfile, not data
+            deadline = time.monotonic() + _LOCK_TIMEOUT_S
+            while True:
+                try:
+                    if os.name == "nt":
+                        import msvcrt
 
-                    fh.seek(0)
-                    msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
-                else:
-                    import fcntl
+                        fh.seek(0)
+                        msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+                    else:
+                        import fcntl
 
-                    fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                locked = True
-                break
-            except OSError:
-                if time.monotonic() >= deadline:
+                        fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    locked = True
                     break
-                time.sleep(0.2)
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        break
+                    time.sleep(0.2)
     except Exception as exc:  # pragma: no cover — lock infra failure
         logger.warning("Bootstrap lock unavailable (%s) — proceeding unlocked.", exc)
+        locked = False
         if fh is not None:
             try:
                 fh.close()
             except Exception:
                 pass
-        yield False
-        return
     # NOTE: no `except` around this yield — an exception from the bootstrap
     # body must propagate (fail-loud schema checks depend on it). Catching it
     # here and yielding again raises "generator didn't stop after throw()"
@@ -113,7 +112,8 @@ def _bootstrap_lock(db_uri: str):
                         fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
                 except OSError:
                     pass
-            fh.close()
+            if fh is not None:
+                fh.close()
         except Exception:
             pass
 
