@@ -335,6 +335,13 @@ def process_form_data(form_data):
         if alias in case_data and not case_data.get(canonical):
             case_data[canonical] = case_data[alias]
 
+    # Shortcomings list for bullet rendering in Unsafe_file.adoc
+    raw = case_data.get("shortcomings") or form_data.get("shortcomings") or ""
+    items = [x.strip() for x in str(raw).replace(",", "\n").splitlines() if x.strip()]
+    case_data["shortcomings_list"] = items
+    if "shortcomings" not in case_data:
+        case_data["shortcomings"] = raw
+
     if "cost_in_words" not in case_data or not case_data["cost_in_words"]:
         total_cost = case_data.get("total_cost", "0")
         try:
