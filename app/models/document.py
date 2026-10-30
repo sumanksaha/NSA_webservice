@@ -57,6 +57,7 @@ class CaseFile(db.Model):
     other_food_articles = db.Column(db.String(500))
     total_cost = db.Column(db.String(50))
     cost_in_words = db.Column(db.String(200))
+    shortcomings = db.Column(db.Text, nullable=True)
 
     # Sample details
     sample_code = db.Column(db.String(100), nullable=False)

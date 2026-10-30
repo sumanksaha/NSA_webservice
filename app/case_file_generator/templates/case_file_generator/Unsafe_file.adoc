@@ -146,14 +146,24 @@ Kolkata Municipal Corporation,
 [.justify]
 Whereas, a sample namely **{{ sample_name }}** of {{ packet_count }} sealed packets/bottles (X {{ packet_count }} = {{ sample_quantity }} ) bearing Batch No - {{ batch_no }}, Date of Manufacture - {{ mfg_date }}, Date of Expiry - {{ expiry_date }} collected by {{ fso_name }} (Food Safety Officer, Br. XVI) under Section 38(1)(a) and Section 47 of the Food Safety &amp; Standards Act, 2006 vide Sample Code {{ sample_code }} dated {{ inspection_date }} (date of sampling) from {{ retailer_name }} ({{ retailer_fbo_name }}), {{ retailer_address }}, License No - {{ retailer_fssai }}, and submitted to the Food Analyst for analysis according to Section 47 of the Food Safety &amp; Standards Act, 2006 read with Section 2.4 of the Food Safety &amp; Standards Rules, 2011.
 
-Upon further inquiry, {{ retailer_name }} disclosed the name of {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, FSSAI License No - {{ manufacturer_fssai }} as the manufacturer of the said product **{{ sample_name }}** (scaled packet).
+{% if not retailer_cum_manufacturer %}Upon further inquiry, {{ retailer_name }} disclosed the name of {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, FSSAI License No - {{ manufacturer_fssai }} as the manufacturer of the said product **{{ sample_name }}** (scaled packet).{% endif %}
 
 <<<
 
 [.justify]
-Whereas, upon analysis of sample by the Food Analyst according to Section 46 of the Food Safety &amp; Standards Act, 2006 read with Section 2.14(2) of the Food Safety &amp; Standards Rules, 2011, it has been opined by the Food Analyst that the sample is "Unsafe" as per clause (zz)[(v), (viii)]{% if is_substandard %} and "substandard" as per clause (zx) of subsection (1) of Section 3{% endif %} of the Food Safety &amp; Standards Act, 2006, (sample analysis report: {{ analyst_report_no }} dated {{ analyst_report_date }} — attached herewith, marked A).
+Whereas, upon analysis of sample by the Food Analyst according to Section 46 of the Food Safety &amp; Standards Act, 2006 read with Section 2.14(2) of the Food Safety &amp; Standards Rules, 2011, it has been opined by the Food Analyst that the sample is "Unsafe" as per clause (zz)[(v), (viii)]{% if is_substandard %} and "substandard" as per clause (zx) of subsection (1) of Section 3{% endif %}{% if is_misbranded %} and "misbranded" as per clause (zx) of subsection (1) of Section 3{% endif %} of the Food Safety &amp; Standards Act, 2006, (sample analysis report: {{ analyst_report_no }} dated {{ analyst_report_date }} — attached herewith, marked A).
+
+{% if shortcomings_list %}
+Specific shortcomings observed:
+{% for s in shortcomings_list %}
+* {{ s }}
+{% endfor %}
+{% endif %}
 
 An intimation letter vide No - {{ directive_letter_no }} dated {{ directive_letter_date }} along with a copy of the Food Analyst Report (No. {{ analyst_report_no }} dated {{ analyst_report_date }}) was received by the representative of {{ retailer_name }} on {{ retailer_report_receive_date }} and to the representative of {{ manufacturer_name }} on {{ manufacturer_report_receive_date }} via email (attached herewith, marked B). The manufacturer acknowledged the receipt of the letter on {{ manufacturer_report_receive_date }}.
+
+// Optional food standard definition (autofill from RAG) — kept commented to avoid visible damage:
+// {% if not retailer_cum_manufacturer and food_standard_definition %}{{ food_standard_definition }}{% endif %}
 
 The Food Business Operator(s) did not prefer an appeal under Section 46(4) of the Food Safety &amp; Standards Act, 2006 within the stipulated time as per FSSAI guidelines.
 
@@ -180,7 +190,7 @@ Pursuant to Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, a dra
 [.justify]
 In accordance with the applicable legal framework and the directions issued by the Government of West Bengal, Health and Family Welfare Department, Food Safety Branch, vide Memo No: 258/HF/CES/IA-23/2019 dated 29/04/2025, the following documents are attached herewith (marked E):
 
-Now, all the relevant documents regarding the collection of the sample **{{ sample_name }}** of {{ packet_count }} sealed packets (Batch No - {{ batch_no }}, Date of Manufacture {{ mfg_date }}, Date of Expiry {{ expiry_date }}) are attached herewith (marked F) for the following:
+Now, all the relevant documents regarding the collection of the sample **{{ sample_name }}** of {{ packet_count }} sealed packets{% if not retailer_cum_manufacturer %} (Batch No - {{ batch_no }}, Date of Manufacture {{ mfg_date }}, Date of Expiry {{ expiry_date }}){% endif %} are attached herewith (marked F) for the following:
 d. Initiation of Prohibition on Sale of Unsafe food.
 e. Grant of Sanction for Prosecution,
 f. Initiation of Product Recall, if applicable.
