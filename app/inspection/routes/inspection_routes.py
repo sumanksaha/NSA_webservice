@@ -735,6 +735,7 @@ def serve_notice(inspection_id):
 
 # ponytail: auth gate added; RBAC handled by blueprint-level auth
 # Add @login_required if required by app auth policy.
+@inspection_bp.route("/premises/search", methods=["GET", "POST"])
 def premises_search():
     """Search the FSSAI registry and build an inspection checklist.
 

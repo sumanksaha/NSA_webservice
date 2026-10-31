@@ -89,6 +89,11 @@ class Inspection(db.Model):
     reinspection_seq = db.Column(db.Integer, nullable=True, default=1)
     shortcomings_json = db.Column(db.Text, nullable=True)
 
+    # Inspection notes (e.g., discarded items), propagated to the adjudication
+    # petition. Restored after b4dcb4d dropped it while the edit form and the
+    # adjudication hand-off still read/write it.
+    notes = db.Column(db.Text, nullable=True)
+
     __table_args__ = (
         db.Index("idx_inspection_code", "inspection_code"),
         db.Index("idx_inspection_date", "inspection_date"),

@@ -68,7 +68,12 @@ def pending_action():
     today_date = datetime.now(UTC)
     for inspection in inspections:
         if inspection.compliance_deadline:
-            inspection.days_overdue = (today_date - inspection.compliance_deadline).days
+            # SQLite/Postgres return naive datetimes for these columns; normalise
+            # before subtracting or the comparison raises TypeError.
+            deadline = inspection.compliance_deadline
+            if deadline.tzinfo is None:
+                deadline = deadline.replace(tzinfo=UTC)
+            inspection.days_overdue = (today_date - deadline).days
         else:
             inspection.days_overdue = 0
 
@@ -314,7 +319,9 @@ def inspection_detail(inspection_id):
         inspection=inspection,
         photos=photos,
         fso_names=fso_names,
-        checklist=checklist,
+        # Templates call checklist.get(...) unconditionally; an inspection with no
+        # saved checklist (checklist_json NULL) must not 500 the detail page.
+        checklist=checklist or {},
         assessments=assessments,
         photo_scoring_enabled=bool(cfg.photo_scoring_enabled),
         photo_scoring_threshold=float(cfg.photo_scoring_threshold),

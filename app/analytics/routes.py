@@ -35,12 +35,25 @@ logger = logging.getLogger(__name__)
 # --------------------------------------------------------------------------- #
 
 
+def _month_expr(column):
+    """'YYYY-MM' month bucket, database-agnostic.
+
+    SQLite uses ``strftime('%Y-%m', col)``; PostgreSQL uses
+    ``to_char(col, 'YYYY-MM')``. ``func.strftime`` is SQLite-only and raises
+    a SQL error (500) on PostgreSQL.
+    """
+    bind = db.session.get_bind()
+    if bind.dialect.name == "postgresql":
+        return func.to_char(column, "YYYY-MM").label("month")
+    return func.strftime("%Y-%m", column).label("month")
+
+
 def _case_status_counts() -> list[dict]:
     """Count CaseFile + Adjudication records by creation month."""
     case_counts = (
         db.session
         .query(
-            func.strftime("%Y-%m", CaseFile.created_at).label("month"),
+            _month_expr(CaseFile.created_at),
             func.count(CaseFile.id).label("count"),
         )
         .group_by("month")
@@ -50,7 +63,7 @@ def _case_status_counts() -> list[dict]:
     adj_counts = (
         db.session
         .query(
-            func.strftime("%Y-%m", Adjudication.created_at).label("month"),
+            _month_expr(Adjudication.created_at),
             func.count(Adjudication.id).label("count"),
         )
         .group_by("month")
@@ -97,7 +110,7 @@ def _sample_pipeline() -> list[dict]:
     rows = (
         db.session
         .query(
-            func.strftime("%Y-%m", Sample.collection_date).label("month"),
+            _month_expr(Sample.collection_date),
             Sample.billed,
             func.count(Sample.id).label("count"),
         )

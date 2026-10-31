@@ -17,7 +17,7 @@ content %}
                     <select id="filter_fso" name="fso_name" class="form-select">
                         <option value="">-- All FSOs --</option>
                         {% for fso in fso_names %}
-                        <option value="{{ fso }}" {% if filter_fso="" ="fso" %}selected{% endif %}>
+                        <option value="{{ fso }}" {% if filter_fso == fso %}selected{% endif %}>
                             {{ fso }}
                         </option>
                         {% endfor %}
@@ -26,31 +26,13 @@ content %}
                 <div class="filter-group">
                     <label for="filter_type">Filter by Type</label>
                     <select id="filter_type" name="type" class="form-select">
-                        <option value="all" {% if filter_type="" ="all" %}selected{% endif %}>
+                        <option value="all" {% if filter_type == "all" %}selected{% endif %}>
                             All
                         </option>
-                        <option
-                            value="dismissed"
-                            {%
-                            if
-                            filter_type=""
-                            ="dismissed"
-                            %}selected{%
-                            endif
-                            %}
-                        >
+                        <option value="dismissed" {% if filter_type == "dismissed" %}selected{% endif %}>
                             Corrective Implemented
                         </option>
-                        <option
-                            value="adjudicated"
-                            {%
-                            if
-                            filter_type=""
-                            ="adjudicated"
-                            %}selected{%
-                            endif
-                            %}
-                        >
+                        <option value="adjudicated" {% if filter_type == "adjudicated" %}selected{% endif %}>
                             Adjudicated
                         </option>
                     </select>
@@ -155,7 +137,7 @@ content %}
                             </a>
                             {% if inspection.adjudication_id %}
                             <a
-                                href="{{ url_for('adjudication.get_adjudication_case', case_id=inspection.adjudication_id) }}"
+                                href="{{ url_for('adjudication.get_case', case_id=inspection.adjudication_id) }}"
                                 class="btn btn-secondary btn-sm"
                                 title="View Adjudication"
                             >
