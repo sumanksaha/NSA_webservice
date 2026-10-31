@@ -128,7 +128,7 @@
         </div>
     </div>
 
-    <div class="charts-grid">
+    <div class="charts-grid" id="chartsGrid">
         <div class="chart-card">
             <h3><i class="fa-solid fa-chart-bar"></i> Case Trends (by Month)</h3>
             <canvas id="caseTrendsChart"></canvas>
@@ -155,7 +155,7 @@
         </div>
     </div>
 
-    <div class="map-card">
+    <div class="map-card" id="mapCard">
         <h3><i class="fa-solid fa-map-location-dot"></i> FBO Locations</h3>
         <div id="fboMap"></div>
     </div>
@@ -164,6 +164,9 @@
         <i class="fa-solid fa-spinner fa-spin"></i> Loading analytics data…
     </div>
     <div id="analyticsError" class="analytics-error" style="display: none"></div>
+    <div id="chartsUnavailable" class="analytics-error" style="display: none">
+        <i class="fa-solid fa-triangle-exclamation"></i> Charts unavailable — Chart.js could not be loaded. Summary data is still shown above.
+    </div>
 </div>
 {% endblock %} {% block extra_js %}
 <!-- Chart.js -->
@@ -437,6 +440,12 @@
                     return;
                 }
                 renderSummary(data.summary);
+                if (typeof Chart === "undefined" || typeof L === "undefined") {
+                    document.getElementById("chartsUnavailable").style.display = "block";
+                    document.getElementById("chartsGrid").style.display = "none";
+                    document.getElementById("mapCard").style.display = "none";
+                    return;
+                }
                 renderCaseTrends(data.case_trends);
                 renderCompliance(data.inspection_compliance);
                 renderSamplePipeline(data.sample_pipeline);
