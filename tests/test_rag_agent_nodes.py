@@ -1339,13 +1339,15 @@ def test_multi_hop_skips_already_retrieved_units(monkeypatch):
     def fake_run(query, **kw):
         calls.append(query)
         return {
-            "chunks": [{
-                "chunk_id": "c1",
-                "text": "Section 18 procedure applies, subject to Section 55",
-                "section_number": "18",
-                "act_name": "Food Safety and Standards Act, 2006",
-                "document_title": "Food Safety and Standards Act 2006",
-            }],
+            "chunks": [
+                {
+                    "chunk_id": "c1",
+                    "text": "Section 18 procedure applies, subject to Section 55",
+                    "section_number": "18",
+                    "act_name": "Food Safety and Standards Act, 2006",
+                    "document_title": "Food Safety and Standards Act 2006",
+                }
+            ],
         }
 
     monkeypatch.setattr(tasks, "run_retrieval_pipeline", fake_run)
