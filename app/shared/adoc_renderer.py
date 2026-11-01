@@ -33,6 +33,10 @@ _BLOCK_ATTR_RE = re.compile(r"^\[[.#][^\]]*\]$")
 # Section-style headings written as "-- TITLE --"
 _DASHED_TITLE_RE = re.compile(r"^--\s+(.+?)\s+--$")
 
+# Upper bound for a single pandoc conversion. Real templates render in well
+# under a second, so anything slower is a hung/misbehaving converter.
+PANDOC_TIMEOUT_SECONDS = 30
+
 
 def _pandoc_cmd(*args: str) -> list[str]:
     """Resolve the pandoc binary to a full path (S607: no PATH lookups).
@@ -72,8 +76,13 @@ def render_adoc_to_docx(template_dir: Path | str, template_name: str, context: d
 def _pandoc_asciidoc_to_docx(rendered_adoc: str) -> bytes | None:
     """Convert rendered AsciiDoc to DOCX via pandoc.
 
-    Returns None when pandoc is unavailable, lacks the asciidoc reader, or
-    fails — the caller falls back to the python-docx renderer.
+    Returns None when pandoc is unavailable, lacks the asciidoc reader, times
+    out, or fails — the caller falls back to the python-docx renderer.
+
+    The timeout matters: pandoc's asciidoc reader hangs (and grows without
+    bound) on malformed input such as an unterminated ``////`` comment block,
+    so a template typo must degrade to the fallback instead of wedging the
+    request — or the CI runner — forever.
 
     Binary mode throughout: ``pandoc -t docx -o -`` streams the DOCX (a ZIP
     archive) to stdout, which must never be decoded as text.
@@ -85,8 +94,9 @@ def _pandoc_asciidoc_to_docx(rendered_adoc: str) -> bytes | None:
             input=rendered_adoc.encode("utf-8"),
             capture_output=True,
             check=False,
+            timeout=PANDOC_TIMEOUT_SECONDS,
         )
-    except FileNotFoundError:
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
     if result.returncode != 0 or not result.stdout:
         return None

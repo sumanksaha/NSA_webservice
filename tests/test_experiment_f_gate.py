@@ -11,11 +11,19 @@ import sys
 import warnings
 from pathlib import Path
 
+import pytest
+
 warnings.filterwarnings("ignore")
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "evaluation"))
+
+# The evaluation package hard-imports the scientific stack at module scope.
+# The fast CI job deliberately does not install it, and a module-level
+# ImportError here aborts collection for the *whole* suite — skip instead.
+pytest.importorskip("torch")
+pytest.importorskip("matplotlib")
 
 from evaluation.experiment_b_topk_eval import abstain_check
 from evaluation.experiment_f_calibration_eval import (

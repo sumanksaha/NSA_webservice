@@ -108,13 +108,28 @@ class Reranker:
         try:
             scores = encoder.predict(pairs)
             scored = list(zip(scores, chunks, strict=False))
-            scored.sort(key=lambda x: float(x[0]), reverse=True)
-            for score, chunk in scored:
-                chunk.score = float(score)
-            result = [chunk for _, chunk in scored]
         except Exception as exc:
             logger.warning("Cross-encoder reranking failed, falling back: %s", exc)
             return self._rerank_fallback(query, chunks, top_k)
+
+        # An encoder that is not a real CrossEncoder (a stub, a mocked module,
+        # a broken wrapper) can return something that iterates as empty rather
+        # than raising.  Treat a short/empty score vector as a reranker
+        # failure: returning ``[]`` would look to the caller like "this query
+        # has no evidence" and wipe an otherwise good pool (the CI-only
+        # ``test_rag_e2e`` failures of 2026-10-25).
+        if len(scored) != len(chunks):
+            logger.warning(
+                "Cross-encoder returned %d scores for %d chunks, falling back to text-overlap reranking",
+                len(scored),
+                len(chunks),
+            )
+            return self._rerank_fallback(query, chunks, top_k)
+
+        scored.sort(key=lambda x: float(x[0]), reverse=True)
+        for score, chunk in scored:
+            chunk.score = float(score)
+        result = [chunk for _, chunk in scored]
 
         if top_k is not None:
             result = result[:top_k]

@@ -7,38 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added (2026-11-26) — Photo violation scoring in inspection UI (ADR-0011)
+### Fixed (2026-10-25) — CI RAG test isolation + fast-test timeout
 
-- **Photo violation assessment** (`app/inspection/photo_scoring.py`, `app/inspection/photo_service.py`, `app/inspection/routes/photo_routes.py`, `app/inspection/routes/derived_views.py`): a Food Safety Officer can click a premises photo during an inspection; the decision model (`inception/mercury-decide:free`, not JEV — JEV is a text retrieval model and cannot analyze images) scores the photo against every photo-visible checklist field and returns an independent `p_violation` probability (0–1) per field, with no cap on selections — all 12, none, or any subset can be flagged. A premises-interior gate question suppresses scoring on non-premises images (documents, scans, exteriors), and `Pest_report`/`Water_report` are excluded since they require documents, not photos. Results are persisted as append-only `EvidenceAssessment` rows and shown on the inspection detail page with per-field progress bars, a threshold (default 0.70, `PHOTO_SCORING_THRESHOLD`) for "suggested violation" labeling, and an "Apply to checklist" button that pre-fills the FSO's checklist (advisory only — the FSO confirms before saving).
-- **Scoring at upload**: inspection photo uploads (`POST /inspection/photo-upload`) now run the scorer between storage and the Evidence insert; the photo and its assessment land in one transaction, and a scoring failure never blocks the upload.
-- **Apply-suggestion endpoint**: `POST /inspection/<id>/checklist/apply-suggestion` accepts `{"fields": [...]}` and writes the correct form polarity (checklist fields → `"no"`, `artificial_colour`/`Expired_item` → `"yes"`).
-
-### Added (2026-10-30) — Shortcomings field in case-file generator (Unsafe File only)
-
-- **Shortcomings field** (`app/case_file_generator/routes.py`, `app/case_file_generator/templates/case_file_generator/index.html`, `app/case_file_generator/templates/case_file_generator/edit.html`): the sample-adjudication create and edit forms now expose a "Shortcomings observed" textarea that is revealed only when the sample is judged **Unsafe** (`is_unsafe`). The value is persisted on `CaseFile.shortcomings` on both create (`POST /case_file_generator/generate_case_file`) and edit (`PUT /case_file_generator/case/<id>`), and is rendered as bullets under "Specific shortcomings observed" in `Unsafe_file.adoc` — the prohibition-order / Unsafe File document only. It is never printed in the Petition, Permission Letter, or Prohibition Order.
-
-### Added (2026-10-28) — Inspection-Sample merge + FBO type
-
-- **Sample capture moved into Inspection UI**: Samples are now created via the Inspection entry form (conditional "Sample Collection" block). When `sample_collected` is ticked, five fields become required: `sample_code`, `collection_date`, `sample_name`, `price`, and `sample_status` (dropdown: ok/substandard/misbranded/unsafe). Five optional fields are also captured: `batch_no`, `mfd`, `exp`, `submission_date`, `manufacturer_details`. The standalone Sample create form is deprecated (Phase 4); samples are now created, edited, and audited through the Inspection module.
-- **Sample ↔ Inspection linkage**: `sample.inspection_id` FK (nullable, unique when set) links each Sample to the Inspection that drew it. `adjudication.sample_id` FK links sample-based adjudications to the exact Sample record. `Inspection.sample` backref provides one-sample-per-inspection access.
-- **Adjudication launch from Inspection UI**: Two new routes — `POST /inspection/<id>/launch-adjudication` (non-sample, no Sample linkage) and `POST /inspection/<id>/launch-sample-adjudication` (links a Sample, with cross-FBO guard). Both require an Improvement Notice to be issued first.
-- **Richer sample fields editable via Inspection detail**: `POST /inspection/<id>/update-sample-details` updates retailer details and OCR fields (retailer_fssai, retailer_name, nature_of_food, batch_no, mfd, exp, manufacturer_details) on the linked Sample.
-- **Samples audit view**: `GET /inspection/samples` replaces the deprecated `/sample/list` route. Lists all samples with filtering (FSO, date range, status), pagination, and links to originating inspections.
-- **FBO Type field**: `inspection.fbo_type` (manufacturer/retailer/food vending establishment) added to the Inspection model, captured via dropdown in the Inspection UI, and displayed on the detail page.
-- **Shared validation**: `validate_sample_code(code, sample_type)` now supports both enforcement (`SL/WB/…`) and surveillance (`FSO/Br-…/…`) formats. `validate_sample_status(status)` validates ok/substandard/misbranded/unsafe.
-- **Alembic merge migration**: `merge_all_heads_2026_10` combines all 6 open heads into a single head.
-- **Circular FK resolution**: Added `use_alter=True` to all FKs in the adjudication-inspection-sample cycle. Updated `guard_rail.py` event listener to SQLAlchemy 1.4+ signature.
-
-### Changed (2026-10-28)
-
-- **Navigation**: "Sample" nav link removed; "Samples" nav link now points to `/inspection/samples` (audit view). Sample create form shows deprecation notice.
-- **Blueprint registration**: `sample_bp` removed from `register_blueprints()`; Sample routes no longer accessible via `/sample/*`.
-- **AGENTS.md**: Added shell environment (PowerShell) and model location navigation pointers. Removed backticks from model identifiers (`inception/mercury-decide:free`, `typesafe/jev-1.13`) to fix steering docs test.
-
-### Fixed (2026-10-28)
-
-- **Casefile validation: sections 51 and 52 now allowed** (`app/utils/sections_data.py`, `app/utils/suggester.py`, `app/validation/rules.py`): FSS Act sections 51 (sub-standard) and 52 (mis-branded) were added to `VALID_SECTION_IDS`, so casefiles citing them no longer fail the `StatutoryReferenceRule` warning. The validator message now lists the tracked sections dynamically instead of a stale hardcoded list.
-- **Work Diary note: only mention samples when count > 0** (`app/diary.py`): the premises/samples count sentence now reports each count only when it is non-zero, instead of the combined `(premises or samples)` guard that wrote "collected 0 sample(s)" on days with premises but no samples.
+- **Reranker can no longer turn a good pool into "no evidence"**
+  (`app/rag/retrieval/reranker.py`): a cross-encoder that returns fewer scores
+  than it was given chunks — a stub, a mocked module, a broken wrapper — is now
+  treated as a reranker failure and falls back to the deterministic
+  text-overlap reranker. It used to return `[]` silently.
+- **`HybridRetriever` keeps the fused pool when the reranker returns nothing**
+  (`app/rag/retrieval/hybrid_retriever.py`): reranking is a re-ordering stage,
+  never a filter. Previously an empty rerank result propagated as
+  `total=0`, which read downstream as "this query has no evidence".
+- **`tests/test_experiment_d_helpers.py` no longer leaks process-global stubs**:
+  the `matplotlib` / `torch` / `sentence_transformers` stubs were installed into
+  `sys.modules` at import time and never removed, which poisoned every later
+  module in the CI slow-test job — `model_runtime` resolved `CrossEncoder` to a
+  `_AnyStub` whose `predict()` iterates as empty. The stubs are now installed by
+  the module's fixture and uninstalled (plus `model_runtime.clear_model_cache()`)
+  when the module finishes.
+- **`tests/test_rag_agent_nodes.py` patches the live expand-query seam**: the
+  node resolves its client via `app.shared.llm_client.get_llm_client`, so the
+  failure-path test patches that instead of the retired
+  `app.rag.generation.llm_client.GroundedLLMClient`.
+- **`Fast Tests` now runs as three shards** (`.github/workflows/validation.yml`,
+  `scripts/ci_shard.py`): the unsplit suite needs ~10–16 minutes and accumulates
+  enough memory that the runner is shut down mid-run — reproducibly at ~68%,
+  while the DOCX/PDF modules load, logged as `The runner has received a shutdown
+  signal` (a genuine timeout says `The operation was canceled.`). Three
+  independent jobs take a deterministic third each (round-robin over the sorted
+  file list) with a 15-minute limit. `pytest-xdist` is not safe here: `tests/conftest.py`
+  pins one SQLite database, and modules call `drop_all()`/`create_all()`.
+- **`Prohibition_order.adoc` closes its AsciiDoc comment block**
+  (`app/case_file_generator/templates/case_file_generator/Prohibition_order.adoc`):
+  the block opened with `////` on line 1 but was terminated with `//`, so the
+  whole template stayed inside a comment. Pandoc's `asciidoc` reader does not
+  reject that — it loops forever while allocating, which is what shut the runner
+  down (`exit code 143`) with no pytest output at all. Reproduced with pandoc
+  3.11: `////\nfoo\n` never returns, `////\nfoo\n////\n` converts in 0.2s.
+- **`_pandoc_asciidoc_to_docx` is now bounded** (`app/shared/adoc_renderer.py`):
+  a 30-second `PANDOC_TIMEOUT_SECONDS` cap makes a hung converter fall back to the
+  python-docx renderer instead of stalling the request (and the CI job) forever.
+  `tests/test_adoc_renderer.py` covers the timeout, the missing-binary path, and
+  asserts every `.adoc` template has balanced `////` fences.
 
 ### Security (2026-10-25) — filelock CVE floor, retire `safety` dev pin
 

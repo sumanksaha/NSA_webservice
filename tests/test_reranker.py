@@ -126,6 +126,36 @@ class TestRerankerCrossEncoder:
         result = reranker.rerank("section 55", chunks)
         assert len(result) == 3
 
+    def test_cross_encoder_fallback_on_empty_scores(self):
+        """An encoder that yields no scores must not wipe the pool.
+
+        A stubbed ``sentence_transformers`` (``tests/test_experiment_d_helpers``)
+        hands back an object whose ``predict()`` iterates as empty instead of
+        raising; the reranker used to return ``[]``, which read as "no evidence"
+        downstream (CI-only ``test_rag_e2e`` ``total=0`` failures).
+        """
+
+        class EmptyEncoder:
+            def predict(self, pairs):
+                return []
+
+        reranker = Reranker(encoder=EmptyEncoder())
+        chunks = _make_chunks()
+        result = reranker.rerank("section 55", chunks)
+        assert len(result) == 3
+
+    def test_cross_encoder_fallback_on_short_scores(self):
+        """Fewer scores than chunks means the encoder is unusable — fall back."""
+
+        class ShortEncoder:
+            def predict(self, pairs):
+                return [0.9]
+
+        reranker = Reranker(encoder=ShortEncoder())
+        chunks = _make_chunks()
+        result = reranker.rerank("section 55", chunks)
+        assert len(result) == 3
+
 
 class TestRerankerEdgeCases:
     """Edge-case handling."""

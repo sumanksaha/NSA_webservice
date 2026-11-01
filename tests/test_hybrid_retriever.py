@@ -167,6 +167,31 @@ class TestHybridRetrieverReranker:
         result = hybrid.retrieve("q")
         assert result.total == 1
 
+    def test_reranker_returning_nothing_keeps_fused_pool(self):
+        """An empty rerank result must not be read as "no evidence".
+
+        A cross-encoder that is really a stub (the CI-only ``test_rag_e2e``
+        failure of 2026-10-25) returns ``[]`` instead of raising.  The reranker
+        is a re-ordering stage, so the fused pool has to survive it.
+        """
+        chunk_a = _chunk("a", 0.9)
+        chunk_b = _chunk("b", 0.8)
+        dense = StubDenseRetriever(
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk_a], total=1, source="dense"),
+        )
+        sparse = StubSparseRetriever(
+            SearchResult(query="q", query_type="general_qa", chunks=[chunk_b], total=1, source="sparse"),
+        )
+
+        class EmptyReranker:
+            def rerank(self, query, chunks, top_k=None, query_type=None):
+                return []
+
+        hybrid = HybridRetriever(dense=dense, sparse=sparse, reranker=EmptyReranker())
+        result = hybrid.retrieve("q")
+        assert result.total == 2
+        assert {c.chunk_id for c in result.chunks} == {"a", "b"}
+
 
 class TestHybridRetrieverRRF:
     def test_rrf_ranks_by_reciprocal_rank(self):
