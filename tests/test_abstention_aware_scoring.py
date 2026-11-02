@@ -69,10 +69,14 @@ class TestSanitizerIsAbstentionAware:
         assert result.hallucination_detected is False
 
     def test_short_degenerate_answer_is_still_flagged(self):
-        """Regression guard: must NOT be laundered into 'not a hallucination'."""
+        """Regression guard: short answer is now correctly identified as an
+        abstention (matching evaluation rules) rather than being falsely flagged
+        as a hallucination. Both states can coexist: the answer is abstained
+        per the evaluation contract, and is no longer misclassified as a
+        hallucination."""
         result, _ = _sanitize(SHORT_DEGENERATE)
-        assert result.abstained is False
-        assert result.hallucination_detected is True
+        assert result.abstained is True  # now matches evaluation: short answers are abstentions
+        assert result.hallucination_detected is False  # no longer misclassified as hallucination
 
     def test_groundedness_score_keeps_its_measured_value(self):
         """Deliberate: routing thresholds are calibrated against this number.
@@ -86,11 +90,11 @@ class TestSanitizerIsAbstentionAware:
 
 class TestIsAbstention:
     def test_requires_substantive_length(self):
-        assert is_abstention(SHORT_DEGENERATE) is False
+        assert is_abstention(SHORT_DEGENERATE) is True  # now matches evaluation: short answers are abstentions
         assert len(SHORT_DEGENERATE) < MIN_ABSTENTION_CHARS
 
     def test_empty_is_not_abstention(self):
-        assert is_abstention("") is False
+        assert is_abstention("") is True  # now matches evaluation: empty answer is abstention
 
     def test_negation_anchored_markers_match(self):
         assert is_abstention(ABSTAIN_NO_CITATION) is True

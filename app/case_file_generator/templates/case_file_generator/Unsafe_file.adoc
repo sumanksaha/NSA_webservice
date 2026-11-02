@@ -152,7 +152,7 @@ Whereas, a sample namely **{{ sample_name }}** of {{ packet_count }} sealed pack
 <<<
 
 [.justify]
-Whereas, upon analysis of sample by the Food Analyst according to Section 46 of the Food Safety &amp; Standards Act, 2006 read with Section 2.14(2) of the Food Safety &amp; Standards Rules, 2011, it has been opined by the Food Analyst that the sample is "Unsafe" as per clause (zz)[(v), (viii)]{% if is_substandard %} and "substandard" as per clause (zx) of subsection (1) of Section 3{% endif %}{% if is_misbranded %} and "misbranded" as per clause (zx) of subsection (1) of Section 3{% endif %} of the Food Safety &amp; Standards Act, 2006, (sample analysis report: {{ analyst_report_no }} dated {{ analyst_report_date }} — attached herewith, marked A).
+Whereas, upon analysis of sample by the Food Analyst according to Section 46 of the Food Safety &amp; Standards Act, 2006 read with Section 2.14(2) of the Food Safety &amp; Standards Rules, 2011, it has been opined by the Food Analyst that the sample is "Unsafe" as per clause (zz)[(v), (viii)]{% if is_substandard %} and "substandard" as per clause (zx) of subsection (1) of Section 3{% endif %}{% if is_misbranded %} and "misbranded" as per clause (zf) of subsection (1) of Section 3{% endif %} of the Food Safety &amp; Standards Act, 2006, (sample analysis report: {{ analyst_report_no }} dated {{ analyst_report_date }} — attached herewith, marked A).
 
 {% if shortcomings_list %}
 Specific shortcomings observed:
@@ -175,18 +175,13 @@ The Food Business Operator(s) did not prefer an appeal under Section 46(4) of th
 // Not a box; full letterhead prohibition directed at the concerned operator.
 // ─────────────────────────────────────────────────────────────────────────
 
-[.bold]#PROHIBITION ORDER — DIRECTED TO THE FOOD BUSINESS OPERATOR#
-
-[.justify]
-Under Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, read with Section 18(1)(2) of the said Act, you — {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, FSSAI License No — {{ manufacturer_fssai }} — are hereby directed to stop sale and distribution of **{{ sample_name }}** (product name), bearing Batch No - {{ batch_no }} and manufactured on {{ mfg_date }}, Date of Expiry — {{ expiry_date }}, with immediate effect.
-
-[.justify]
-This prohibition applies to all packets, bottles, and units of the said product, whether in the possession of the retailer or the manufacturer, and shall remain in force until further orders.
-
-[.legal-notice-box]
+//// 
+[.bold]#PROHIBITION ORDER — DIRECTED TO THE FOOD BUSINESS OPERATOR#[.justify]
+Under Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, read with Section 18(1)(2) of the said Act, you — {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, FSSAI License No — {{ manufacturer_fssai }} — are hereby directed to stop sale and distribution of **{{ sample_name }}** (product name), bearing Batch No - {{ batch_no }} and manufactured on {{ mfg_date }}, Date of Expiry — {{ expiry_date }}, with immediate effect.[.justify]
+This prohibition applies to all packets, bottles, and units of the said product, whether in the possession of the retailer or the manufacturer, and shall remain in force until further orders.[.legal-notice-box]
 Pursuant to Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, a draft Prohibition Order (marked D) is enclosed herewith. The concerned FBO may submit representations, if any, within the time and manner prescribed under the applicable rules.
-
 <<<
+//// 
 
 [.justify]
 In accordance with the applicable legal framework and the directions issued by the Government of West Bengal, Health and Family Welfare Department, Food Safety Branch, vide Memo No: 258/HF/CES/IA-23/2019 dated 29/04/2025, the following documents are attached herewith (marked E):

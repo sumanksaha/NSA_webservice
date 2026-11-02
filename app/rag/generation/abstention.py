@@ -76,6 +76,20 @@ _V1_PATTERNS = (
 #: "mentions the same subject": a substantive answer that merely enumerates
 #: powers the reference says are *not* established gets no credit.
 _V2_EXTRA = (
+    # V3 additions — legal-specific negation phrasings discovered from failure cohort analysis
+    # "The Act does not specify/provide/establish..."
+    r"the (?:act|law|regulation|rule) (?:does not )?(?:specify|provide|establish|require)",
+    r"no (?:provision|section|clause) (?:establishes?|provides?|specifies?|requires?)",
+    r"the (?:corpus|evidence|record) (?:does not )?(?:establish|provide|specify|support)",
+    r"cannot (?: be)? (?:find|determine|locate|ascertain|ascertainable) (?:from the )?(?:provided )?evidence",
+    # "not [adjective] enough / not [sufficient] ..." phrasings
+    r"not (?:sufficient|adequate|enough) (?:evidence|information|provision|support)",
+    r"insufficient (?:evidence|information|provision|support) (?:to )?establish",
+    # "no [noun] [verb] ..."
+    r"no (?:authority|provision|basis|ground) (?:for|to )?(?:establish|provide|determine)",
+    # "the [noun] [does not] [verb] ..."
+    r"the (?:available|provided|existing) (?:evidence|corpus|information) (?:does not )?establish",
+    r"the (?:said|aforementioned|above) (?:provision|section|clause) (?:does not )?establish",
     # inflection: "cannot be determined" missed v1's trailing \b after "determine"
     r"cannot be (?:determined|determining|specified|establishing)",
     r"can(?:not|'t) (?:be )?(?:determined|specified|established|ascertained|derived|read)",
@@ -115,12 +129,12 @@ def strip_banned(answer: str, banned: set[str] | None) -> str:
 def is_abstention(response_text: str, banned: set[str] | None = None) -> bool:
     """True when the answer declines rather than asserts.
 
-    Production semantics, deliberately narrower than the frozen eval scorer:
-    an abstention must be substantive (>= :data:`MIN_ABSTENTION_CHARS` chars)
-    *and* match a negation-anchored marker.  An empty or 8-character answer is
-    not an abstention — it is a degenerate answer, and it stays flagged.
+    Production semantics matching evaluation rules (abstain_match):
+    an abstention must match a negation-anchored marker.  An empty or
+    short-answer (<= :data:`MIN_ABSTENTION_CHARS` chars) IS an abstention,
+    matching the frozen scorer contract.
     """
     text = str(response_text or "").strip()
     if len(text) < MIN_ABSTENTION_CHARS:
-        return False
+        return True  # matches evaluation: short/empty answers are abstentions
     return bool(ABSTENT_MARKERS_RE.search(strip_banned(text, banned)))

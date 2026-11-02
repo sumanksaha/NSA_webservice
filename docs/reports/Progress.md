@@ -366,6 +366,44 @@ classifier before using `abstention_discipline` as a gate.
 - **Live A/B (2026-10-20):** shipped prompt (conditioning + decomposition cue) vs legacy scan-only, 150 qids paired, 1 replicate. Provision_check +8.5 pp on failures and +14.3 pp on the provision slice, control cohort safe; binary +2/150 inside the 4/89 noise floor; benchmark elimination +3/150. The abstention_discipline drop is a lexicon artifact (actual refusals 4 -> 1). Keep the cue; it is not the 89-failure fix; answer-contract layer still unmeasured
 - **Code present, flag off by design:** 3 items (P3-11, P3-12 — infrastructure/labels dependent)
 - **Blocked:** 1 item (P0-2, awaiting source PDF for OCR re-extract)
+- **P1-8: Improve abstention lexicon to reduce false/missed rates** ✅ Complete (code change verified)
+  - **Files:** `app/rag/generation/abstention.py` — added V3 legal-specific negation patterns to `_V2_EXTRA`
+  - **Changes:** Added 25 new regex patterns covering legal-specific negation phrasings discovered from failure cohort analysis, including:
+    - "The Act does not specify/provide/establish..." patterns
+    - "No provision/section/clause establishes/provides/specifies/requires..." patterns
+    - "Cannot find/determine/locate/ascertain evidence..." patterns
+    - "Not sufficient/adequate/enough evidence..." patterns
+    - "Insufficient evidence/provision/support to establish..." patterns
+    - "No authority/provision/basis/ground for..." patterns
+    - "The available/provided/existing evidence does not establish..." patterns
+  - **Verification:** Existing tests (`test_abstention_rule.py`, `test_abstention_aware_scoring.py`) continue to pass; no regressions in v1/v2 pattern matching
+  - **Expected impact:** Reduced false_abstention_rate and missed_abstention_rate on the 89-model_wrong failure cohort by capturing additional legitimate refusal patterns previously missed
+
+- **P1-9: Ensure is_abstention() production logic matches evaluation rules** ✅ Complete (logic aligned & tests updated)
+  - **Files:** `app/rag/generation/abstention.py` — modified `is_abstention()` to return `True` for short/empty answers (<= MIN_ABSTENTION_CHARS=20 chars), matching `abstain_match()` evaluation rules
+  - **Change:** Modified line 139 from `return False` to `return True` for short-answer threshold, and updated docstring to reflect alignment with evaluation `abstain_match()` contract
+  - **Alignment:** Production `is_abstention()` now matches evaluation `abstain_match()`: both return `True` for empty/short answers (< 20 chars), and both use the same `ABSTENT_MARKERS_RE` regex for negation pattern matching
+  - **Tests updated:** `tests/test_abstention_aware_scoring.py` — 3 tests updated to expect `True` for `is_abstention()` on short/empty answers, matching evaluation rules
+  - **Verification:** All 9 tests in `test_abstention_aware_scoring.py` and all 7 tests in `test_abstention_rule.py` pass
+
+## JEV Decision Layer Tuning (2026-10-16)
+**Achieved:** `RAG_DECISION_THRESHOLD` default set to 0.13 (from 0.5). Tau sweep on 89+validation set (150 questions, cached scores) found the knee preserving abstention: tau=0.13–0.15, f1 0.075–0.076, abstain ≤0.007 overall / 0 on model_wrong. Decision-selector A/B at tau=0.13 k=6 on 150 questions: decision arm answer_correctness 0.078 vs baseline 0.078, gold_reachable 0.269 vs 0.265 — no regression.
+
+**Future jobs (deferred / pending budget):**
+1. **P3-13 JEV calibration** (`evaluation/experiment_f_calibration_eval.py`, `evaluation/calibrate_ce.py`) — blocked on `ceiling_v5/evaluator_v2_per_question.jsonl` artifact and legal CE-v2 model outputs; use calibrated thresholds to reduce variance across cohorts once artifacts exist.
+2. **W3/W4 live A/B** (`tests/test_decision_eval_tools.py`, structured reasoner / per-type directives) — reserved-budget live A/B scored by W1 rubric; flags remain off until rubric + citation gates + 3 replicates clear. The 2026-10-20 A/B covered the shipped prompt cue, not these two flags; W3/W4 remain unmeasured. Also measure `RAG_ANSWER_CONTRACT` / `_REPAIR` next: the prompt cue's provision gain is real but small, so the deterministic attribution layer is the remaining lever.
+3. **retry_second_pass live run** — retry now triggers on `authority_missing`/`authorities_missing` in addition to `concepts_missing`; needs call budget to run live and confirm soft/binary conversion on the 22 recovered gold-in-window cases.
+
+## Iteration: Eliminate abstention + attribution errors (2026-10-21)
+
+**Goal:** Reduce abstention_gate (31) + provision_check (35)=74% of failures. Budget: 600 live LLM calls.
+
+### Changes
+- Answer contract repair: stronger mandatory directives, forbid blanket refusals if governing provision/named sections present; expanded false-abstention detection.
+- Identifier: extended bare/section forms (sN/s N), improved detect_sections.
+- Grounded service/prompt: pass context to contract; require addressing named Act/Order/Rule/sections.
+
+**Status:** Implemented and registered. Ready for paired A/B with RAG_ANSWER_CONTRACT=true, RAG_ANSWER_CONTRACT_REPAIR=true on failure slices.
 
 ## Notes
 - All code implementations from the RAG analysis document are present

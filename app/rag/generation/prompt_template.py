@@ -25,7 +25,9 @@ GROUND_QA_SYSTEM_PROMPT = (
     "[n] citation; (2) each [n] maps to a source shown in the context "
     "(e.g. [1], [2]) — never cite a source that is not shown; "
     "(3) never fabricate facts. If the answer is not in the context, state "
-    "so clearly and qualify what is unknown instead of guessing."
+    "so clearly and qualify what is unknown instead of guessing. "
+    "RULE: No answer text may appear before at least one [n] citation "
+    "from the shown context is provided."
 )
 
 #: Domain-parameterized system prompts (Phase 1 — de-FSSAI).  The FSSAI

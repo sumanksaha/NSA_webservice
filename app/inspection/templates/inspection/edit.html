@@ -52,18 +52,29 @@
             </div>
         </div>
 
+        <div class="form-row form-row--2" id="errors-in-second-inspection-row">
+            <div class="form-group">
+                <label for="errors_in_second_inspection" class="form-label">Errors in Second Inspection</label>
+                {% if inspection.is_reinspection and inspection.reinspection_of_id %}
+                <input type="number" id="errors_in_second_inspection" name="errors_in_second_inspection" class="form-input"
+                       min="0" value="{{ inspection.reinspection_of.errors_in_second_inspection or '' }}" placeholder="e.g., 5"
+                       readonly>
+                {% else %}
+                <input type="number" id="errors_in_second_inspection" name="errors_in_second_inspection" class="form-input"
+                       min="0" value="{{ inspection.errors_in_second_inspection or '' }}" placeholder="e.g., 5">
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <small class="form-hint">Errors noted in the previous inspection (linked via Reinspection of)</small>
+            </div>
+        </div>
+
         <div class="form-row form-row--2">
             <div class="form-group">
                 <label for="days_allowed_for_errors" class="form-label">Days Allowed for Errors to be Corrected</label>
                 <input type="number" id="days_allowed_for_errors" name="days_allowed_for_errors" class="form-input"
                        min="0" value="{{ inspection.days_allowed_for_errors or '' }}" placeholder="e.g., 30">
             </div>
-            <div class="form-group">
-                <label for="errors_in_second_inspection" class="form-label">Errors in Second Inspection</label>
-                <input type="number" id="errors_in_second_inspection" name="errors_in_second_inspection" class="form-input"
-                       min="0" value="{{ inspection.errors_in_second_inspection or '' }}" placeholder="e.g., 5">
-            </div>
-        </div>
             <div class="form-group">
                 <label for="concerned_food" class="form-label">Concerned Food</label>
                 <input type="text" id="concerned_food" name="concerned_food" class="form-input"
@@ -86,7 +97,7 @@
         <div class="form-row">
             <div class="form-group full-width">
                 <label for="problem" class="form-label">Problem Description</label>
-                <textarea id="problem" name="problem" class="form-textarea" placeholder="Describe the problem or violation found">{{ inspection.problem or '' }}</textarea>
+                <textarea id="problem" name="problem" class="form-textarea" placeholder="Describe the problem or violation found" {% if inspection.visit_purpose != 'complaint' %}style="display:none;"{% endif %}>{{ inspection.problem or '' }}</textarea>
             </div>
         </div>
 
@@ -179,14 +190,7 @@
                     <input type="text" id="price" name="price" class="form-input" required placeholder="e.g. 250">
                 </div>
                 <div class="form-group">
-                    <label for="sample_status" class="form-label">Status <span class="required">*</span></label>
-                    <select id="sample_status" name="sample_status" class="form-select" required>
-                        <option value="">-- Select --</option>
-                        <option value="ok" {% if inspection.sample_code %}selected{% endif %}>OK</option>
-                        <option value="substandard">Substandard</option>
-                        <option value="misbranded">Misbranded</option>
-                        <option value="unsafe">Unsafe</option>
-                    </select>
+                    
                 </div>
             </div>
             <!-- Optional fields -->
@@ -385,8 +389,32 @@ async function lookupFssaiInspection() {
     }
 }
 
-// Form submission handling
-document.getElementById('editInspectionForm').addEventListener('submit', async function(e) {
+// Toggle errors in second inspection row based on reinspection checkbox
+document.getElementById('is_reinspection').addEventListener('change', function() {
+    var row = document.getElementById('errors-in-second-inspection-row');
+    if (this.checked) {
+        row.style.display = 'block';
+        // Auto-focus the errors field when reinspection is checked
+        var errorsInput = document.getElementById('errors_in_second_inspection');
+        if (errorsInput.value === '') {
+            errorsInput.focus();
+        }
+    } else {
+        row.style.display = 'none';
+        // Clear the errors field when reinspection is unchecked
+        var errorsInput = document.getElementById('errors_in_second_inspection');
+        errorsInput.value = '';
+    }
+});
+
+// Initialize on page load - hide row if not already checked
+document.addEventListener('DOMContentLoaded', function() {
+    var row = document.getElementById('errors-in-second-inspection-row');
+    var checkbox = document.getElementById('is_reinspection');
+    if (!checkbox.checked) {
+        row.style.display = 'none';
+    }
+});
     e.preventDefault();
 
     const form = e.target;
