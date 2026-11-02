@@ -16,6 +16,7 @@ suppressed: a degenerate short answer is ungrounded, not an abstention.
 
 No network, no LLM, no Qdrant.
 """
+
 from __future__ import annotations
 
 from app.rag.generation.abstention import MIN_ABSTENTION_CHARS, is_abstention
