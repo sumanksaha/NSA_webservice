@@ -163,36 +163,11 @@ def validate_case_file_form(form_data: dict) -> dict[str, str]:
     rcm = _is_retailer_cum_manufacturer(form_data)
     errors: dict[str, str] = {}
 
-    # --- Required fields ---
-    # Standard required fields for all cases.
-    # ``authorization_date`` is intentionally excluded: it is issued by the
-    # Designated Officer when the permission file is submitted, i.e. after
-    # first data entry.  It stays editable and gates petition generation.
-    standard_required = tuple(
-        field for field, label in _REQUIRED_FIELDS.items() if field not in ("authorization_date", *_RCM_EXEMPT_FIELDS)
-    )
-    for field, label in _REQUIRED_FIELDS.items():
-        if field not in standard_required:
-            continue
-        value = _lookup_field(form_data, field)
-        if value is None or (isinstance(value, str) and not value.strip()):
-            errors[field] = f"{label} is required."
-
-    # RCM cases: manufacturer identity is the retailer, and loose foods
-    # have no batch/mfg/expiry dates. The missing manufacturer/batch/mfg/expiry
-    # fields are therefore acceptable; manufacturer_report_receive_date is
-    # also absent because no separate manufacturer is served the report.
-    if not rcm:
-        for field in sorted(_RCM_EXEMPT_FIELDS):
-            label = _REQUIRED_FIELDS.get(field, field)
-            if field == "mfg_date" or field == "expiry_date":
-                value = form_data.get(field, "").strip()
-                if not value:
-                    errors[field] = f"{label} is required."
-                continue
-            value = _lookup_field(form_data, field)
-            if value is None or (isinstance(value, str) and not value.strip()):
-                errors[field] = f"{label} is required."
+    # Partial entry allowed: no field is hard-required for saving a draft.
+    # Required-field enforcement removed so case details can be saved with
+    # any subset of data entered. Date/format/ordering checks below still
+    # apply to whatever values are provided.
+    pass
 
     # --- Numeric validations ---
     packet_count = form_data.get("packet_count", "")
