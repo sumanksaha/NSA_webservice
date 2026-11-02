@@ -1060,6 +1060,15 @@ def _unsafe_offender_table_rows(case_data: dict) -> list[dict]:
     if case_data.get("is_misbranded"):
         verdicts.append("Misbranded")
     analysis_result = " and ".join(verdicts) or "Unsafe"
+    report_ref = ""
+    report_no = (case_data.get("analyst_report_no") or "").strip()
+    report_date = (case_data.get("analyst_report_date") or "").strip()
+    if report_no or report_date:
+        report_ref = " (FA Report " + report_no
+        if report_date:
+            report_ref += " dated " + report_date
+        report_ref += ")"
+    analysis_result = analysis_result + report_ref
 
     retailer_recv = (case_data.get("retailer_report_receive_date") or "").strip()
     manufacturer_recv = (case_data.get("manufacturer_report_receive_date") or "").strip()
