@@ -193,6 +193,8 @@ class GroundedGenerationService:
                     "passed": contract_check.passed,
                     "false_abstention": contract_check.false_abstention,
                     "provision_mismatch": contract_check.provision_mismatch,
+                    "citation_mismatch": contract_check.citation_mismatch,
+                    "citation_gate_failed": contract_check.citation_gate_failed,
                     "violations": [
                         {"kind": v.kind, "severity": v.severity, "message": v.message}
                         for v in contract_check.violations

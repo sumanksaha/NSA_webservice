@@ -306,6 +306,41 @@ _TABLE: tuple[Setting, ...] = (
         False,
         help="",
     ),
+    Setting(
+        "RAG_CITATION_BEFORE_GENERATION",
+        "citation_before_generation",
+        bool,
+        False,
+        help="Require every material legal proposition to carry a [n] citation before the answer is accepted. Gate-checked by answer_contract.citation_gate.",
+    ),
+    Setting(
+        "RAG_ITERATIVE_RETRIEVAL",
+        "iterative_retrieval",
+        bool,
+        False,
+        help="Enable iterative retrieval with re-ranking: after the initial fetch+rerank, detect coverage gaps and issue targeted follow-up queries until the evidence set is sufficient or max rounds reached.",
+    ),
+    Setting(
+        "RAG_ITERATIVE_MAX_ROUNDS",
+        "iterative_max_rounds",
+        int,
+        3,
+        help="Maximum number of iterative retrieval rounds (including the initial fetch).",
+    ),
+    Setting(
+        "RAG_ITERATIVE_MIN_COVERAGE",
+        "iterative_min_coverage",
+        float,
+        0.7,
+        help="Minimum evidence-type coverage (0-1) before iterative retrieval stops expanding. Below this, follow-up queries are issued.",
+    ),
+    Setting(
+        "RAG_ITERATIVE_COOLDOWN_MS",
+        "iterative_cooldown_ms",
+        int,
+        0,
+        help="Optional cooldown between iterative retrieval rounds in milliseconds (0 = no cooldown).",
+    ),
     # --- Decision pathway (alternate, default off; plan: rag-decision-pathway) ---
     Setting(
         "RAG_DECISION_PATH",
