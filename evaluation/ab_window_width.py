@@ -161,6 +161,18 @@ def main() -> int:
                 svc.llm_client = SSLBypassLLMClient(model=os.environ["RAG_LLM_MODEL"])
                 sys_p, user_p = svc._render_prompt(q.question, built)
                 llm = svc._call_llm(sys_p, user_p)
+                try:
+                    from app.rag.two_pass import TwoPassReasoner
+                    from app.answer_contract import verify_citations
+                    check = verify_citations(getattr(llm, "text", "") or "", [c.get("chunk_id", "") for c in built.citations])
+                    if (getattr(llm, "confidence", 1.0) is not None and llm.confidence < 0.7) or not check.get("valid", True):
+                        tp = TwoPassReasoner(llm_client=svc.llm_client)
+                        r = tp.reason(q.question, built.context)
+                        if r and getattr(r, "text", None):
+                            llm.text = r.text
+                            llm.success = getattr(r, "success", True)
+                except Exception:
+                    pass
                 answer = getattr(llm, "text", "") or ""
                 # Real post-generation path: CitationTracker + ResponseSanitizer.
                 # Without these the A/B cannot see whether a wider window makes

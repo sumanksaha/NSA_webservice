@@ -40,6 +40,16 @@ from app.shared.llm_client import get_llm_client
 logger = logging.getLogger(__name__)
 
 
+def _abstention_threshold(qt: str) -> float:
+    try:
+        by_type = getattr(cfg, "abstention_threshold_by_type", None) or {}
+        if qt and qt.lower() in by_type:
+            return float(by_type[qt.lower()])
+        return float(getattr(cfg, "abstention_threshold", 0.3))
+    except Exception:
+        return 0.3
+
+
 class GroundedGenerationService:
     """Orchestrates grounded RAG generation.
 
@@ -171,6 +181,24 @@ class GroundedGenerationService:
                         logger.debug("answer contract repair retry failed: %s", exc)
             except Exception as exc:
                 logger.debug("answer contract check failed: %s", exc)
+        else:
+            try:
+                from app.answer_contract import verify_citations
+
+                check = verify_citations(llm_response.text or "", [c["index"] for c in built.citations])
+                if (not check.get("valid", True)) and llm_response.success:
+                    try:
+                        rs, ru = self._render_prompt(query, built, reasoning=reasoning, query_type=query_type)
+                        rs2 = rs + "\nOnly use citations that appear in the provided context. Include only valid [n] citations present in the context."
+                        llm_response2 = self._call_llm(rs2, ru)
+                        if llm_response2.success and (llm_response2.text or ""):
+                            check2 = verify_citations(llm_response2.text or "", [c["index"] for c in built.citations])
+                            if check2.get("valid", True):
+                                llm_response = llm_response2
+                    except Exception as exc:
+                        logger.debug("contract verification retry failed: %s", exc)
+            except Exception as exc:
+                logger.debug("contract verification skipped: %s", exc)
 
         # 4. Extract citations
         citations = self._extract_citations(llm_response, chunks, built)

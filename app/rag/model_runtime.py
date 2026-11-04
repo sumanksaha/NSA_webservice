@@ -51,6 +51,27 @@ from app.rag.torch_runtime import cap_torch_threads
 
 logger = logging.getLogger(__name__)
 
+
+_MODEL_ROUTING = {
+    "c7": ["gpt-4o-mini", "nvidia/nemotron-3.5-lightning:free"],
+    "default": ["nvidia/nemotron-3.5-lightning:free"],
+}
+
+
+def get_model_for_query_type(query_type: str, preferred: str | None = None) -> str | None:
+    if preferred:
+        return preferred
+    qt = (query_type or "").lower()
+    if qt in _MODEL_ROUTING:
+        return _MODEL_ROUTING[qt][0]
+    return _MODEL_ROUTING["default"][0]
+    try:
+        from app.answer_contract import verify_citations
+
+        return verify_citations(answer, prompt_window)
+    except Exception as exc:
+        return {"valid": True, "error": str(exc)}
+
 #: Model kinds and their (module, class) import targets.
 _MODEL_CLASSES: dict[str, tuple[str, str]] = {
     "sentence_transformer": ("sentence_transformers", "SentenceTransformer"),
@@ -139,4 +160,6 @@ __all__ = [
     "clear_model_cache",
     "get_cross_encoder",
     "get_sentence_transformer",
+    "verify_answer_contract",
+    "get_model_for_query_type",
 ]
