@@ -82,15 +82,13 @@
 ++++
 
 |===
-14-column table on page 1: offender/sample details for unsafe prohibition order
 | SI. no | Name of Offenders | Address and other details of offender(s) | FSSAI license no | Sample particulars with code no. of the sample | State of the Sample (Packed/loose) | Sample drawn by | Date of drawl of sample | Result of analysis | Whether report of analysis communicated to FBO for giving opportunity of hearing | Whether offender(s) preferred to D.O. as per SEC 46(4) of FS&S act 2006 read with rule 2.4.6(1) of FS&S rules 2011 (Yes/No) | If yes, whether the sample has been forwarded to the referred food laboratory | Result of rederrel food laboratory | Remarks
 {% for row in table_rows -%}
 | {{ row.si }} | {{ row.offender_name }} | {{ row.offender_address }} | {{ row.fssai_license }} | {{ row.sample_particulars }} | {{ row.sample_state }} | {{ row.sampled_by }} | {{ row.drawl_date }} | {{ row.analysis_result }} | {{ row.report_communicated }} | {{ row.offender_preferred }} | {{ row.forwarded }} | {{ row.lab_result }} | {{ row.remarks }}
 {% endfor -%}
 |===
 
-// Page 2+: prohibition-order letter body (no sample table — page 1 already has it;
-// portrait orientation applied by the renderer's section post-processing)
+
 F.S. & S Case No. {{ case_number }}
 
 To,
@@ -100,7 +98,6 @@ Kolkata Municipal Corporation,
 
 *Sub:* Initiation of Prohibition on Sale of Unsafe Food and Grant of Sanction for Prosecution in respect of Sample No : {{ sample_code }}
 
-. Prayer to the Designated Officer
 
 [.justify]
 Whereas, a sample namely **{{ sample_name }}** of {{ packet_count }} sealed packets/bottles **({{ per_packet_sample_quantity }} X {{ packet_count }} = {{ sample_quantity }} )** {% if not retailer_cum_manufacturer %} bearing Batch No - {{ batch_no }}, Date of Manufacture - {{ mfg_date }}, Date of Expiry - {{ expiry_date }}{% endif %} collected by **{{ fso_name }}** (Food Safety Officer, Br.    ) under Section 38(1)(a) and Section 47 of the Food Safety &amp; Standards Act, 2006 vide Sample Code {{ sample_code }} dated {{ inspection_date }} (date of sampling) from {{ retailer_name }} ({{ retailer_fbo_name }}), {{ retailer_address }}, License No - {{ retailer_fssai }}, and submitted to the Food Analyst for analysis according to Section 47 of the Food Safety &amp; Standards Act, 2006 read with Section 2.4 of the Food Safety &amp; Standards Rules, 2011.
@@ -112,12 +109,12 @@ Whereas, a sample namely **{{ sample_name }}** of {{ packet_count }} sealed pack
 [.justify]
 Whereas, upon analysis of sample by the Food Analyst according to Section 46 of the Food Safety &amp; Standards Act, 2006 read with Section 2.14(2) of the Food Safety &amp; Standards Rules, 2011, it has been opined by the Food Analyst that the sample is "Unsafe" as per clause (zz)[(v), (viii)]{% if is_substandard %} and "substandard" as per clause (zx) of subsection (1) of Section 3{% endif %}{% if is_misbranded %} and "misbranded" as per clause (zf) of subsection (1) of Section 3{% endif %} of the Food Safety &amp; Standards Act, 2006, (sample analysis report: {{ analyst_report_no }} dated {{ analyst_report_date }} — attached herewith, marked A).
 
-{% if shortcomings_list %}
-Specific shortcomings observed:
-{% for s in shortcomings_list %}
-* {{ s }}
-{% endfor %}
-{% endif %}
+// {% if shortcomings_list %}
+// Specific shortcomings observed:
+// {% for s in shortcomings_list %}
+// * {{ s }}
+// {% endfor %}
+// {% endif %}
 
 An intimation letter vide No - {{ directive_letter_no }} dated {{ directive_letter_date }} along with a copy of the Food Analyst Report (No. {{ analyst_report_no }} dated {{ analyst_report_date }}) was received by the representative of {{ retailer_name }} on {{ retailer_report_receive_date }} and to the representative of {{ manufacturer_name }} on {{ manufacturer_report_receive_date }} via email (attached herewith, marked B). The manufacturer acknowledged the receipt of the letter on {{ manufacturer_report_receive_date }}.
 
@@ -131,17 +128,17 @@ The Food Business Operator(s) did not prefer an appeal under Section 46(4) of th
 In accordance with the applicable legal framework and the directions issued by the Government of West Bengal, Health and Family Welfare Department, Food Safety Branch, vide Memo No: 258/HF/CES/IA-23/2019 dated 29/04/2025, the following documents are attached herewith (marked E):
 
 Now, all the relevant documents regarding the collection of the sample **{{ sample_name }}** of {{ packet_count }} sealed packets{% if not retailer_cum_manufacturer %} (Batch No - {{ batch_no }}, Date of Manufacture {{ mfg_date }}, Date of Expiry {{ expiry_date }}){% endif %} are attached herewith (marked F) for the following:
-d. Initiation of Prohibition on Sale of Unsafe food.
-e. Grant of Sanction for Prosecution,
-f. Initiation of Product Recall, if applicable.
+a. Initiation of Prohibition on Sale of Unsafe food.
+b. Grant of Sanction for Prosecution,
+c. Initiation of Product Recall, if applicable.
 
 *Enclosures:*
 . Attachment A — copy of {{ directive_letter_no }} dated {{ directive_letter_date }} and Food Analyst Report No. {{ analyst_report_no }} dated {{ analyst_report_date }}, duly received by the representative of {{ retailer_name }} on {{ retailer_report_receive_date }}.
-. Attachment B — Entry of {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, Lic No - {{ manufacturer_fssai }}.
+{% if not retailer_cum_manufacturer %}. Attachment B — Details of {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, Lic No - {{ manufacturer_fssai }}.
 . Attachment C — Reply of the manufacturer dated {{ manufacturer_report_receive_date }}.
-. Attachment D — Draft prohibition order.
-. Attachment E — Memo No: 258/HF/CES/IA-23/2019 dated 29/04/2025.
-. Attachment F — Documents regarding the collection of the sample of {{ sample_name }} vide Sample Code {{ sample_code }} dated {{ inspection_date }}.
+{% endif %}. Attachment {% if retailer_cum_manufacturer %}B{% else %}D{% endif %} — Draft prohibition order.
+. Attachment {% if retailer_cum_manufacturer %}C{% else %}E{% endif %} — Memo No: 258/HF/CES/IA-23/2019 dated 29/04/2025.
+. Attachment {% if retailer_cum_manufacturer %}D{% else %}F{% endif %} — Documents regarding the collection of the sample of {{ sample_name }} vide Sample Code {{ sample_code }} dated {{ inspection_date }}.
   i. Copy of Form of Notice to the FBO (Form VA dated {{ inspection_date }}).
   ii. Copy of Form of Memorandum to the Food Analyst (Form VI dated {{ inspection_date }}).
   iii. Copy of sample coupon form dated {{ inspection_date }}.
