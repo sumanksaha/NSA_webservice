@@ -79,3 +79,7 @@ jobs:
 
       - name: Run Prettier check
         run: npm run format:js
+      - name: Prompt noise lint
+        run: |
+          python -m pip install -q -r requirements.txt 2>&1 | tail -2
+          python scripts/prompt_noise_linter.py | tail -15

@@ -247,6 +247,13 @@ def with_query_type_directive(user_prompt: str, query_type: str) -> str:
     The directive is inserted before the question so it still reads as an
     instruction, not as trailing content after ``Answer:``.
     """
+    # Ensure packing ranks are built for this query type so the context
+    # builder can apply query-type-specific provision ordering.
+    try:
+        from app.rag.generation.context_builder import _ensure_pack_ranks
+        _ensure_pack_ranks(_registry.resolve(query_type))
+    except Exception:
+        pass
     directive = query_type_directive(query_type)
     if not directive:
         return user_prompt

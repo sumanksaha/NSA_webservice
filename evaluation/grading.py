@@ -32,6 +32,21 @@ _AMOUNT_RE = re.compile(
 _IMPRISONMENT_RE = re.compile(
     r"imprisonment\s*for\s*a\s*term|imprisonment|fine\s*(?:not\s*less|which\s*may\s*extend)", re.IGNORECASE,
 )
+#: Section numbers cited in prose ("Section 31", "S. 31", "section 31A").
+_SECTION_RE = re.compile(r"(?:section|sec\.?|s\.?)\s*\d+[A-Za-z]?", re.IGNORECASE)
+#: Act / regulation names ("the Act", "FSS Act", "the Rules").
+_ACT_NAME_RE = re.compile(
+    r"(?:the\s+)?(?:[A-Z][A-Za-z]{1,30}\s+)?(?:Act|Rules?|Regulation|Ordinance|Amendment)\b",
+    re.IGNORECASE,
+)
+#: High-signal legal terms that must be backed by evidence when asserted
+#: as a positive claim (not merely mentioned in a negation).
+_LEGAL_TERMS_RE = re.compile(
+    r"\b(?:proviso|suspension|forfeiture|seizure|cancellation|licen[cs]e|"
+    r"permit|registration|appeal|revision|review|commutation|"
+    r"exemption|exclusion|proviso|saving)\b",
+    re.IGNORECASE,
+)
 _ABSTAIN_PHRASES = (
     "not establish",
     "not establish",
@@ -134,14 +149,49 @@ def grade_answer(
     # --- G: hallucination proxy (numeric/legal claims not in evidence) ---
     evidence_blob = " ".join(evidence_texts.values()).lower()
     hallucinated = False
+    hallucination_reasons: list[str] = []
     for claim in _AMOUNT_RE.findall(answer):
         if claim.lower() not in evidence_blob:
             hallucinated = True
+            hallucination_reasons.append(f"amount:{claim!r}")
             break
     if not hallucinated and _IMPRISONMENT_RE.search(answer):
         # imprisonment claims must be backed by evidence text mentioning them
         if "imprisonment" not in evidence_blob and "fine" not in evidence_blob:
             hallucinated = True
+            hallucination_reasons.append("imprisonment_unbacked")
+
+    # G+: section-number hallucination — a cited section must appear in evidence
+    if not hallucinated:
+        for match in _SECTION_RE.finditer(answer):
+            section_text = match.group(0).strip().lower()
+            # Only flag if the section number is asserted as a positive claim
+            # (not inside a negation or "not section X" context)
+            if section_text not in evidence_blob:
+                hallucinated = True
+                hallucination_reasons.append(f"section:{section_text!r}")
+                break
+
+    # G+: act-name hallucination — named Acts/Rules not in evidence
+    if not hallucinated:
+        for match in _ACT_NAME_RE.finditer(answer):
+            act_text = match.group(0).strip().lower()
+            if act_text not in evidence_blob and act_text not in ("the act", "the rules", "the regulation"):
+                # Skip generic references; only flag specific named instruments
+                if re.search(r"[A-Z][a-z]+", match.group(0)):
+                    hallucinated = True
+                    hallucination_reasons.append(f"act_name:{act_text!r}")
+                    break
+
+    # G+: unbacked high-signal legal terms — positive assertions of legal
+    # concepts (proviso, forfeiture, cancellation, etc.) not supported by evidence
+    if not hallucinated:
+        for match in _LEGAL_TERMS_RE.finditer(answer):
+            term = match.group(0).lower()
+            if term not in evidence_blob:
+                hallucinated = True
+                hallucination_reasons.append(f"legal_term:{term!r}")
+                break
 
     # --- H: abstention ---
     abstention_correct = None
@@ -191,6 +241,7 @@ def grade_answer(
         "temporal_correct": temporal_correct,
         "jurisdiction_correct": jurisdiction_correct,
         "hallucination_detected": hallucinated,
+        "hallucination_reasons": hallucination_reasons,
         "abstention_correct": abstention_correct,
         "critical_error": critical_error,
         "wrong_family_marker": wrong_family_marker,

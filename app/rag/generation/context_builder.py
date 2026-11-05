@@ -47,6 +47,56 @@ _PACK_ORDER: dict[str, int] = {
 }
 _PACK_ORDER_DEFAULT = 7
 
+#: Query-type-specific packing sequences.
+#: Each tuple defines the rank order for provisions, where lower rank = higher priority.
+#: These sequences are applied when RAG_QUERY_TYPE_DIRECTIVES is on and a
+#: matching query type is detected. Sequences drawn from analysis of 89 model_wrong
+#: failures and effective_context_windows analysis.
+_PACK_SEQUENCES: dict[str, list[str]] = {
+    "provision_search": ["primary_provision", "exception", "adjacent_section"],
+    "obligation": ["primary_provision", "adjacent_section", "exception"],
+    "authority": ["primary_provision", "authority", "exception"],
+    "prohibition": ["primary_provision", "exception", "penalty_provision"],
+    "cross_reference": ["primary_provision", "cross_reference", "definition"],
+    "case_law": ["primary_provision", "definition", "authority"],
+    "general_qa": ["primary_provision", "exception", "definition", "penalty_provision"],
+    "insufficient_evidence": ["definition", "primary_provision"],
+}
+
+#: Global packing ranks: query_type -> {provision_role -> rank}.
+#: Built lazily by _ensure_pack_ranks() when a query type is first detected.
+#: Each entry maps a provision role to its packing rank (lower = higher priority)
+#: for that query type, using _PACK_SEQUENCES when available and _PACK_ORDER
+#: defaults otherwise.
+_PACK_RANKS: dict[str, dict[str, int]] = {}
+
+
+def _build_pack_ranks(query_type: str | None) -> dict[str, int]:
+    """Build per-provision ranks from _PACK_SEQUENCES for the given query type.
+
+    Returns dict mapping provision role -> rank, where rank is its position
+    in the sequence (lower = higher priority), with defaults from _PACK_ORDER
+    for any roles not in the sequence.
+    """
+    ranks: dict[str, int] = {}
+    if query_type and query_type in _PACK_SEQUENCES:
+        sequence = _PACK_SEQUENCES[query_type]
+        for rank, role in enumerate(sequence):
+            ranks[role] = rank
+    # Add default ranks from _PACK_ORDER for any roles not in the sequence
+    for role, default_rank in _PACK_ORDER.items():
+        if role not in ranks:
+            ranks[role] = default_rank
+    return ranks
+
+
+def _ensure_pack_ranks(query_type: str | None) -> None:
+    """Ensure packing ranks are built for the given query type."""
+    global _PACK_RANKS
+    if query_type and query_type not in _PACK_RANKS:
+        _PACK_RANKS[query_type] = _build_pack_ranks(query_type)
+
+
 #: Index/navigation detection for context dropping (config
 #: ``RAG_CONTEXT_DROP_INDEX_CHUNKS``, default on).
 #:
@@ -313,7 +363,13 @@ class ContextBuilder:
         # already judged the FULL pool — packing happens strictly after, so
         # filtering can never shrink the set that gate considered.
         if evidence_set:
-            ranked = self._pack_by_role(ranked, roles)
+            qt = self._query_type or query_type or None
+            # Only build/use query-type-specific packing ranks when the
+            # operator has enabled RAG_QUERY_TYPE_DIRECTIVES; otherwise the
+            # default render (global _PACK_ORDER) is byte-identical.
+            if cfg.query_type_directives and qt:
+                _ensure_pack_ranks(qt)
+            ranked = self._pack_by_role(ranked, roles, qt)
         selected = ranked[: self.max_context_chunks]
 
         context_parts: list[str] = []
@@ -461,22 +517,41 @@ class ContextBuilder:
         return roles
 
     @staticmethod
-    def _pack_by_role(ranked: list[RetrievedChunk], roles: dict[str, str]) -> list[RetrievedChunk]:
+    def _pack_by_role(
+        ranked: list[RetrievedChunk],
+        roles: dict[str, str],
+        query_type: str | None = None,
+    ) -> list[RetrievedChunk]:
         """Order selected provisions by legal role, unselected as overflow.
 
         Selected chunks sort by role (:data:`_PACK_ORDER`) then by descending score;
         unselected chunks follow in their original score order.
+
+        When *query_type* is provided, packing ranks have been built for it
+        (via :func:`_ensure_pack_ranks`), and the operator has enabled
+        ``RAG_QUERY_TYPE_DIRECTIVES``, the query-type-specific sequence takes
+        precedence over the global :data:`_PACK_ORDER`. Otherwise the global
+        order is used, keeping the default render byte-identical.
         """
         if not roles:
             return list(ranked)
-        return sorted(
-            ranked,
-            key=lambda c: (
+        # Use query-type packing ranks only when the directives flag is on,
+        # so the default render (directives off) is unchanged.
+        use_type_ranks = bool(cfg.query_type_directives) and bool(query_type)
+        type_ranks = _PACK_RANKS.get(query_type or "", {}) if use_type_ranks else {}
+        if type_ranks:
+            rank_key = lambda c: (
+                0 if c.chunk_id in roles else 1,
+                type_ranks.get(roles.get(c.chunk_id, ""), _PACK_ORDER_DEFAULT),
+                -c.score,
+            )
+        else:
+            rank_key = lambda c: (
                 0 if c.chunk_id in roles else 1,
                 _PACK_ORDER.get(roles.get(c.chunk_id, ""), _PACK_ORDER_DEFAULT),
                 -c.score,
-            ),
-        )
+            )
+        return sorted(ranked, key=rank_key)
 
     @staticmethod
     def _format_entry(idx: int, header: str, text: str, role: str | None = None) -> str:

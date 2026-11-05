@@ -22,6 +22,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import random
+import re
 import threading
 from collections import defaultdict
 from dataclasses import dataclass
@@ -30,11 +31,74 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 #: Discrete action space — (top_k, rrf_k) pairs.
-DEFAULT_TOP_K_VALUES: tuple[int, ...] = (5, 10, 15, 20)
+#: top_k values span the production default (10) through the widened window
+#: (50) that recovered gold provisions ranking below R@10 on 40/89
+#: model_wrong questions (R@10 51.7% vs R@20 68.5% vs R@50 78.2%).
+DEFAULT_TOP_K_VALUES: tuple[int, ...] = (5, 10, 15, 20, 30, 40, 50)
 DEFAULT_RRF_K_VALUES: tuple[float, ...] = (10.0, 30.0, 60.0, 100.0)
 
 #: Default action when no policy value exists yet (matches production defaults).
 DEFAULT_ACTION: tuple[int, float] = (10, 60.0)
+
+#: Widened top-k floor for queries the planner flags as difficult when the
+#: RL arm is off.  Drawn from the effective_context_windows analysis: 40 of
+#: 89 model_wrong questions had the gold provision in the candidate pool but
+#: ranked below the R@10 window (R@10 51.7% vs R@20 68.5% vs R@50 78.2%).
+DIFFICULTY_TOP_K_FLOOR = 20
+
+
+def difficulty_score(query: str) -> int:
+    """Deterministic difficulty signal for a query (0-7).
+
+    A query is "difficult" when it scores >= 2 on any combination of:
+    multi-part structure, penalty/sanction content, cross-reference/comparison
+    intent, multi-hop reasoning, length > 100 chars, or multiple named legal
+    instruments.  The signal feeds both the RL context bucket and the
+    non-RL fallback top-k boost.
+
+    This is a deterministic, no-LLM heuristic — it runs in microseconds.
+    """
+    q = (query or "").lower()
+    score = 0
+
+    # Multi-part: question contains multiple question words or conjunctions
+    if any(w in q for w in [" and ", " or ", " also ", ";"]):
+        score += 1
+    if q.count("?") > 1 or len(re.findall(r"\b(?:and|or|also|plus|additionally)\b", q)) >= 2:
+        score += 1
+
+    # Penalty / sanction questions need deeper evidence
+    if any(w in q for w in ["penalty", "penalties", "punish", "punishes", "punished",
+                             "fine", "fines", "imprisonment", "sanction", "sanctions",
+                             "compounding", "forfeit", "forfeiture", "seizure"]):
+        score += 1
+
+    # Cross-reference / comparison questions span multiple provisions
+    if any(w in q for w in ["compare", "difference", "contrast", "versus",
+                             "vs.", "whereas", "whether"]):
+        score += 1
+
+    # Multi-hop: "what is X and how does it relate to Y"
+    if any(w in q for w in ["relate", "affect", "depend", "consequence",
+                             "implication", "therefore", "thus"]):
+        score += 1
+
+    # Long queries (> 100 chars) tend to carry more constraints
+    if len(query or "") > 100:
+        score += 1
+
+    # Named legal instruments: more instruments = wider search needed.
+    # Multi-word names like "Food Safety Act" or "Environment Protection
+    # Act" need a flexible pattern: one or more capitalized words followed
+    # by the instrument type keyword.
+    instrument_count = len(re.findall(
+        r"\b(?:the\s+)?(?:[A-Z][A-Za-z]{1,30}\s+){1,4}(?:Act|Rules?|Regulation|Ordinance)\b",
+        query or "",
+    ))
+    if instrument_count >= 2:
+        score += 1
+
+    return score
 
 
 @dataclass(frozen=True)
@@ -53,6 +117,7 @@ class RLContext:
     confidence_bucket: str = "med"
     has_identifier: bool = False
     length_bucket: str = "medium"
+    difficulty: str = "easy"
 
     @classmethod
     def from_query(
@@ -84,16 +149,21 @@ class RLContext:
         else:
             lb = "medium"
 
+        # Difficulty signal — same heuristic as RLController._query_difficulty
+        # but kept here so the bandit's state captures it.
+        diff = "hard" if difficulty_score(query) >= 2 else "easy"
+
         return cls(
             query_type=qt,
             confidence_bucket=bucket,
             has_identifier=bool(has_identifier) if has_identifier is not None else False,
             length_bucket=lb,
+            difficulty=diff,
         )
 
     def key(self) -> str:
         """Canonical string key for this context — used as the dict key."""
-        return f"{self.query_type}|{self.confidence_bucket}|{int(self.has_identifier)}|{self.length_bucket}"
+        return f"{self.query_type}|{self.confidence_bucket}|{int(self.has_identifier)}|{self.length_bucket}|{self.difficulty}"
 
 
 @dataclass
