@@ -297,7 +297,7 @@ def run_retrieval_pipeline(
                     eff_top_k,
                     tuple(collection_name),
                     merged_filters,
-                    query_type.value,
+                    getattr(query_type, "value", query_type) if query_type else "",
                     legal_qt,
                     identifier,
                     rrf_k=eff_rrf_k,
@@ -959,9 +959,7 @@ def _generate_resolve_evidence(
                     pipeline=pipeline,
                 )
                 sq_chunks = [
-                    chunk
-                    for chunk in (_as_chunk(raw) for raw in sq_data.get("chunks", []))
-                    if chunk is not None
+                    chunk for chunk in (_as_chunk(raw) for raw in sq_data.get("chunks", [])) if chunk is not None
                 ]
                 per_subquery.append(sq_chunks)
                 # Use the first sub-query retrieval data for metadata
@@ -972,13 +970,82 @@ def _generate_resolve_evidence(
             retrieval_data["chunks"] = chunk_objects
             retrieval_data["sub_queries"] = sub_queries
         else:
+            # Widen the initial fetch pool so gold provisions that dense/sparse
+            # rank below top_k still enter the reranker's window.  The pool is
+            # truncated to top_k downstream (reranker / evidence selector) so
+            # the prompt contract is unchanged; only recall improves.
+            fetch_k = top_k * max(cfg.retrieval_widen_pool, 1)
             retrieval_data = run_retrieval_pipeline(
                 query=query,
-                top_k=top_k,
+                top_k=fetch_k,
                 collection_name=collection_name,
                 filters=filters,
                 pipeline=pipeline,
             )
+            # Iterative retrieval fallback: when the widened pool still fails
+            # validation, run targeted follow-up rounds to fill coverage gaps.
+            if cfg.retrieval_iterative_fallback:
+                try:
+                    from app.rag.retrieval.validation import validate_retrieval
+
+                    ranked = [c for c in (_as_chunk(raw) for raw in retrieval_data.get("chunks", [])) if c is not None]
+                    validation = validate_retrieval(query, ranked)
+                    if not validation.get("valid"):
+                        from app.rag.retrieval.iterative_retriever import run_iterative_retrieval
+
+                        iter_result = run_iterative_retrieval(
+                            query,
+                            top_k=fetch_k,
+                            max_rounds=cfg.iterative_max_rounds,
+                            min_coverage=cfg.iterative_min_coverage,
+                            initial_chunks=ranked,
+                        )
+                        fused = iter_result.get("chunks") or []
+                        if fused:
+                            retrieval_data["chunks"] = [c.to_dict() if hasattr(c, "to_dict") else c for c in fused]
+                            retrieval_data["iterative_fallback"] = {
+                                "rounds": iter_result.get("rounds", 0),
+                                "coverage": iter_result.get("coverage", 0.0),
+                                "gaps_filled": iter_result.get("gaps_filled", []),
+                            }
+                except Exception as exc:  # never block generation on fallback failure
+                    logger.warning("retrieval iterative fallback failed: %s", exc)
+
+            # Query expansion: when the widened pool has few section-stamped
+            # chunks, generate reformulated retrieval queries (act + key terms)
+            # and merge their results to surface gold provisions that rank below
+            # the widened pool.
+            if cfg.retrieval_query_expansion:
+                try:
+                    from app.rag.retrieval.identifier import detect_act
+
+                    ranked = [c for c in (_as_chunk(raw) for raw in retrieval_data.get("chunks", [])) if c is not None]
+                    stamped = sum(1 for c in ranked if getattr(c, "section_number", None))
+                    if stamped < 2:
+                        act = detect_act(query)
+                        if act:
+                            expansion_queries = [
+                                f"{act} section",
+                                f"{act} requirements",
+                            ]
+                            seen_ids = {c.chunk_id for c in ranked}
+                            for eq in expansion_queries:
+                                eq_data = run_retrieval_pipeline(
+                                    query=eq,
+                                    top_k=fetch_k,
+                                    collection_name=collection_name,
+                                    filters=filters,
+                                    pipeline=pipeline,
+                                )
+                                for raw in eq_data.get("chunks", []):
+                                    c = _as_chunk(raw)
+                                    if c is not None and c.chunk_id not in seen_ids:
+                                        ranked.append(c)
+                                        seen_ids.add(c.chunk_id)
+                                retrieval_data["chunks"] = [c.to_dict() if hasattr(c, "to_dict") else c for c in ranked]
+                                retrieval_data.setdefault("expansion_queries", []).append(eq)
+                except Exception as exc:  # never block generation on expansion failure
+                    logger.warning("retrieval query expansion failed: %s", exc)
         raw_chunks = retrieval_data.get("chunks", [])
         query_type = retrieval_data.get("query_type", query_type)
     else:

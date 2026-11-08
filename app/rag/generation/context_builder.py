@@ -319,7 +319,40 @@ class ContextBuilder:
                 missing=missing,
             )
 
-        ranked = sorted(chunks, key=lambda c: c.score, reverse=True)
+        # Boost chunks whose section_number matches a section named in the
+        # query, so the governing provision leads the context.  Without this, a
+        # high-scoring preamble/intro chunk can outrank the exact provision
+        # chunks (e.g. Q005: query names Section 22 but the preamble outranks
+        # the s22 chunks, so the model cites only the preamble and correctly
+        # refuses because it contains no standards).
+        query_sections: set[str] = set()
+        if query:
+            try:
+                from app.rag.retrieval.identifier import detect_sections
+
+                query_sections = set(detect_sections(query))
+            except Exception:  # never block context building
+                query_sections = set()
+
+        if query_sections:
+
+            def _section_aware_score(c: RetrievedChunk) -> tuple:
+                sec = str(getattr(c, "section_number", None) or "")
+                return (1.0 if sec in query_sections else 0.0, float(c.score))
+
+            ranked = sorted(chunks, key=_section_aware_score, reverse=True)
+        else:
+            ranked = sorted(chunks, key=lambda c: c.score, reverse=True)
+
+        # When the query names a section, keep the governing-provision chunks
+        # first and drop non-matching chunks so the model cites the actual
+        # provision instead of an unrelated preamble (gate issue: Q005 names
+        # Section 22 but cited only the regulation preamble and refused).
+        if query_sections:
+            matched = [c for c in ranked if str(getattr(c, "section_number", None) or "") in query_sections]
+            unmatched = [c for c in ranked if str(getattr(c, "section_number", None) or "") not in query_sections]
+            if matched:
+                ranked = matched + unmatched[:2]
 
         # P0-1 roles are resolved first because the index drop below has to
         # know which chunks the evidence selector explicitly picked.
