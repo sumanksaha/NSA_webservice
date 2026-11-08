@@ -326,11 +326,13 @@ class ContextBuilder:
         # the s22 chunks, so the model cites only the preamble and correctly
         # refuses because it contains no standards).
         query_sections: set[str] = set()
+        query_act: str | None = None
         if query:
             try:
-                from app.rag.retrieval.identifier import detect_sections
+                from app.rag.retrieval.identifier import detect_sections, detect_act
 
                 query_sections = set(detect_sections(query))
+                query_act = detect_act(query)
             except Exception:  # never block context building
                 query_sections = set()
 
@@ -338,7 +340,17 @@ class ContextBuilder:
 
             def _section_aware_score(c: RetrievedChunk) -> tuple:
                 sec = str(getattr(c, "section_number", None) or "")
-                return (1.0 if sec in query_sections else 0.0, float(c.score))
+                # Act-awareness: a chunk whose section number matches but whose
+                # act differs from the one named in the query is NOT the
+                # governing provision.  Q019 (query names FSS Act s68, pool
+                # contains FSS Amendment Act s68 — a Copyright Act omission) and
+                # Q091 (query names Contract Act s73, pool contains Companies
+                # Act s73 — deposit acceptance) both abstained because the
+                # section-only boost promoted the wrong act's same-numbered
+                # section to the top of context.
+                act = str(getattr(c, "act_name", None) or getattr(c, "document_title", None) or "")
+                act_match = 1.0 if (not query_act or query_act.lower() in act.lower()) else 0.0
+                return (1.0 if sec in query_sections else 0.0, act_match, float(c.score))
 
             ranked = sorted(chunks, key=_section_aware_score, reverse=True)
         else:
@@ -349,8 +361,26 @@ class ContextBuilder:
         # provision instead of an unrelated preamble (gate issue: Q005 names
         # Section 22 but cited only the regulation preamble and refused).
         if query_sections:
-            matched = [c for c in ranked if str(getattr(c, "section_number", None) or "") in query_sections]
-            unmatched = [c for c in ranked if str(getattr(c, "section_number", None) or "") not in query_sections]
+            matched = [
+                c
+                for c in ranked
+                if str(getattr(c, "section_number", None) or "") in query_sections
+                and (
+                    not query_act
+                    or query_act.lower()
+                    in str(getattr(c, "act_name", None) or getattr(c, "document_title", None) or "").lower()
+                )
+            ]
+            unmatched = [
+                c
+                for c in ranked
+                if str(getattr(c, "section_number", None) or "") not in query_sections
+                or (
+                    query_act
+                    and query_act.lower()
+                    not in str(getattr(c, "act_name", None) or getattr(c, "document_title", None) or "").lower()
+                )
+            ]
             if matched:
                 ranked = matched + unmatched[:2]
 
