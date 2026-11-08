@@ -106,9 +106,44 @@ _V2_EXTRA = (
     r"is not (?:a )?(?:specific|exact|single|stable|fixed) ",
 )
 
+#: v4 extensions — residual negation phrasings surfaced from the missed-abstention
+#: cohort (rubric residual set) that the v2 lexicon did not capture.  Kept
+#: negation-anchored: each alternative declines on a specific negation, never on
+#: "mentions the same subject".  Adding here is the only place production and
+#: evaluation must stay in sync (evaluation/abstention_rule.py re-exports this
+#: same compiled object).
+_V4_EXTRA = (
+    # "there is no ... / there are no ..." existential absence
+    r"there (?:is|are) no (?:provision|section|clause|rule|rules|authority|basis|evidence|information)",
+    r"there (?:is|are) not (?:any|a )?(?:provision|section|clause|rule|rules|authority|basis|evidence|information)",
+    # "the act / the law / the corpus is silent on ..." — silence negation
+    r"the (?:act|law|corpus|record) (?:is|remains) silent (?:on|as to|regarding|about)",
+    # "no ... can be / could be / may be ... established" modal negation
+    r"no (?:provision|section|clause|figure|threshold|limit|amount|figure) (?:can|could|may) (?:be )?(?:established|determined|ascertained|derived|read|found)",
+    # "it is not possible to ... / not possible to ..." possibility negation
+    r"it is not (?:possible|feasible|practicable) (?:to )?(?:determine|establish|ascertain|derive|find|read)",
+    # "cannot be ... from the provided evidence / context" source-scoped negation
+    r"cannot be (?:determined|established|ascertained|derived|read|found) (?:from the )?(?:provided )?(?:evidence|context|materials|record)",
+    # "does not ... itself / per se / standing alone" limitation negation
+    r"(?:does not|do not) (?:itself|per se|standing alone|in isolation) (?:establish|provide|specify|determine|set out|prescribe)",
+    # "no ... for/in the purpose(s) of ..." purpose-bounded absence (with any
+    # intervening words such as "exists" / "is present"; negation-anchored via
+    # the leading "no <noun>")
+    r"no (?:provision|section|clause|authority|basis) [^.;:]{0,40}(?:purpose|purposes)",
+    # "not ... specified / stated / set out anywhere" anywhere negation
+    r"not (?:specified|stated|set out|provided|established|recorded|mentioned|defined) anywhere",
+    # "no X is stated/specified/provided anywhere" subject-scoped anywhere negation
+    r"no (?:penalty|fee|amount|figure|threshold|limit|provision|section|clause|rule|authority) [^.;:]{0,30}?(?:stated|specified|provided|established|recorded|mentioned|defined) anywhere",
+    # "nowhere in the ... does ..." nowhere negation
+    r"nowhere in the (?:act|law|corpus|record|evidence|context|materials)",
+    # "fails to ... / fails to establish ..." failure negation
+    r"(?:the |this )?(?:act|law|provision|section|clause|corpus|evidence|record) fails to (?:establish|provide|specify|determine|set out|prescribe|record)",
+)
+
+
 #: The single compiled lexicon.  ``evaluation.abstention_rule`` re-exports it.
 ABSTENT_MARKERS_RE = re.compile(
-    r"\b(?:" + "|".join(_V1_PATTERNS + _V2_EXTRA) + r")\b",
+    r"\b(?:" + "|".join(_V1_PATTERNS + _V2_EXTRA + _V4_EXTRA) + r")\b",
     re.IGNORECASE,
 )
 
@@ -116,6 +151,17 @@ ABSTENT_MARKERS_RE = re.compile(
 #: no proposition to decline, so a short answer is ungrounded rather than an
 #: abstention — laundering it into "not a hallucination" would be a regression.
 MIN_ABSTENTION_CHARS = 20
+
+#: A long answer carrying citation markers is a substantive answer, not an
+#: abstention.  The regex below can match a *legal qualification* inside a
+#: longer answer — e.g. "the context does not specify a named authority" in
+#: a 9500-char memo that went on to answer the question with [n] citations.
+#: Q049 (9546 chars), Q059 (29271 chars) and Q066 all wrote full legal memos
+#: with Issue/Rule/Application/Conclusion structure and were falsely
+#: classified as abstentions by the regex matching a qualification phrase.
+#: Below this length an answer is too short to carry substantive analysis;
+#: above it, citation markers are strong evidence the model answered.
+SUBSTANTIVE_ANSWER_CHARS = 2000
 
 
 def strip_banned(answer: str, banned: set[str] | None) -> str:
@@ -133,8 +179,21 @@ def is_abstention(response_text: str, banned: set[str] | None = None) -> bool:
     an abstention must match a negation-anchored marker.  An empty or
     short-answer (<= :data:`MIN_ABSTENTION_CHARS` chars) IS an abstention,
     matching the frozen scorer contract.
+
+    A long answer (>= :data:`SUBSTANTIVE_ANSWER_CHARS`) carrying citation
+    markers is a substantive answer, not an abstention.  The regex below
+    can match a *legal qualification* inside a longer answer — e.g. "the
+    context does not specify a named authority" in a 9500-char memo that
+    went on to answer the question with [n] citations.  Q049 (9546 chars),
+    Q059 (29271 chars) and Q066 all wrote full legal memos with
+    Issue/Rule/Application/Conclusion structure and were falsely
+    classified as abstentions by the regex matching a qualification phrase.
+    Below this length an answer is too short to carry substantive analysis;
+    above it, citation markers are strong evidence the model answered.
     """
     text = str(response_text or "").strip()
     if len(text) < MIN_ABSTENTION_CHARS:
         return True  # matches evaluation: short/empty answers are abstentions
+    if len(text) >= SUBSTANTIVE_ANSWER_CHARS:
+        return False  # long, citation-rich answer is substantive
     return bool(ABSTENT_MARKERS_RE.search(strip_banned(text, banned)))
