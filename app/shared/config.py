@@ -233,8 +233,10 @@ _TABLE: tuple[Setting, ...] = (
         "RAG_SECTION_ARM",
         "section_arm",
         bool,
-        False,
-        help="",
+        True,
+        help="Enable section/act-scoped structural retrieval arm (RAG_SECTION_ARM). "
+             "Validated: deterministic section/act features give R@10=0.474 vs 0.311 "
+             "for untuned cross-encoder. Additive — never displaces existing arms.",
     ),
     Setting(
         "RAG_FORM_ARM",
@@ -342,6 +344,28 @@ _TABLE: tuple[Setting, ...] = (
         int,
         0,
         help="Optional cooldown between iterative retrieval rounds in milliseconds (0 = no cooldown).",
+    ),
+    # --- Retrieval recall levers (S1: false abstention is dominated by recall misses) ---
+    Setting(
+        "RAG_RETRIEVAL_WIDEN_POOL",
+        "retrieval_widen_pool",
+        int,
+        4,
+        help="Initial retrieval fetch pool is top_k * this multiplier; the pool is reranked down to top_k for the prompt. Wider pools surface gold provisions that dense/sparse rank below top_k.",
+    ),
+    Setting(
+        "RAG_RETRIEVAL_ITERATIVE_FALLBACK",
+        "retrieval_iterative_fallback",
+        bool,
+        True,
+        help="When the initial retrieval pool fails validation (insufficient evidence), run iterative retrieval rounds to fill coverage gaps before generating.",
+    ),
+    Setting(
+        "RAG_RETRIEVAL_QUERY_EXPANSION",
+        "retrieval_query_expansion",
+        bool,
+        False,
+        help="When the initial pool has few section-stamped chunks, generate reformulated retrieval queries (act + key terms) and merge their results to surface gold provisions that rank below the widened pool.",
     ),
     # --- Decision pathway (alternate, default off; plan: rag-decision-pathway) ---
     Setting(

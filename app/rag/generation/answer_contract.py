@@ -138,15 +138,36 @@ class AnswerContractResolver:
 
         if gov and gov.section:
             extra_parts.append(
-                f"CRITICAL: The governing provision for this question is {gov.act or ''} Section {gov.section}. You MUST answer this question by citing and applying {gov.act or 'the Act'} Section {gov.section} with [n] markers. NEVER abstain or say 'not in context'/'cannot find the answer' if Section {gov.section} appears in the <legal_context>. If the provision is present, you MUST extract and apply it. Answer ALL parts of the question."
+                f"CRITICAL: The governing provision for this question is {gov.act or ''} Section {gov.section}. "
+                f"You MUST answer this question by citing and applying {gov.act or 'the Act'} Section {gov.section} "
+                f"with [n] markers. NEVER abstain or say 'not in context'/'cannot find the answer' if Section "
+                f"{gov.section} appears in the <legal_context>. If the provision is present, you MUST extract "
+                f"and apply it. Answer ALL parts of the question."
             )
-            system_add = f" MANDATORY: You MUST cite {gov.act or 'the applicable Act'} Section {gov.section} with [n] markers. DO NOT give a blanket refusal. If the governing provision exists in the provided context, answer directly."
+            system_add = (
+                f" MANDATORY: You MUST cite {gov.act or 'the applicable Act'} Section {gov.section} "
+                f"with [n] markers. DO NOT give a blanket refusal. If the governing provision exists in "
+                f"the provided context, answer directly."
+            )
             if named:
                 extra_parts.append(
                     "Address each of these named sections explicitly: "
                     + ", ".join(f"Section {s}" for s in named)
                     + "."
                 )
+            # Lightweight-model repair: the model may still refuse after the
+            # directive above.  Give it a concrete worked example so the
+            # instruction is unambiguous — the model is more likely to follow
+            # a pattern than an abstract imperative.
+            extra_parts.append(
+                "REPAIR EXAMPLE: If the context contains a passage from Section "
+                f"{gov.section} of {gov.act or 'the Act'}, you MUST write an answer "
+                "that quotes or paraphrases that passage and cites it with [n]. "
+                "Do NOT write 'the evidence does not establish' or 'the corpus "
+                "does not contain' — those phrases are FORBIDDEN when the "
+                f"governing Section {gov.section} is in the context. Write the "
+                "answer now."
+            )
         elif named:
             extra_parts.append(
                 f"CRITICAL: The question names these sections/laws: {', '.join(f'Section {s}' for s in sorted(named))} and/or {contract.named_act or ''}. You MUST address each named element with a direct citation [n] from the provided context. Do NOT decline the entire question — answer the parts you can and explicitly state only which specific sub-part (if any) lacks support in the cited passages."
