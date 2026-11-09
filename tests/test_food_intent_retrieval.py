@@ -363,6 +363,18 @@ class TestParentReconstruction:
         assert "2.9.8" in ctx
         assert "Reconstructed context" in ctx
 
+    def test_bundle_skips_synthetic_context_without_verified_clause(self):
+        """A row with no clause payload must not produce contentless context.
+
+        S1 regression: ``Reconstructed context: Clause unknown of …`` was
+        numbered into the generator's legal context as evidence and caused
+        refusals despite real evidence in the pool.
+        """
+        rows = _chunk(CUMIN_ROWS, chunk_id="rows_without_clause", clause=None, score=0.7)
+        bundle = reconstruct_evidence_bundle("What is the standard for cumin?", [rows])
+        assert bundle["parent_context"] == []
+        assert all("Clause unknown" not in str(ctx) for ctx in bundle["parent_context"])
+
     def test_bundle_definition_intent(self):
         heading = _chunk(CUMIN_HEADING, chunk_id="heading", clause="2.9.8", score=0.4)
         rows = _chunk(CUMIN_ROWS, chunk_id="rows", clause="2.9.8", score=0.9)

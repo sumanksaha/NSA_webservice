@@ -19,6 +19,7 @@ Each component follows a documented reuse pattern:
 
 from app.rag.generation.citation_tracker import CitationTracker
 from app.rag.generation.context_builder import BuiltContext, ContextBuilder
+from app.rag.generation.generation import GenerationModule, generate
 from app.rag.generation.grounded_service import GroundedGenerationService
 from app.rag.generation.llm_client import GroundedLLMClient, GroundedLLMResponse
 from app.rag.generation.logger import GenerationLogger
@@ -30,10 +31,12 @@ __all__ = [
     "CitationTracker",
     "ContextBuilder",
     "GenerationLogger",
+    "GenerationModule",
     "GroundedGenerationService",
     "GroundedLLMClient",
     "GroundedLLMResponse",
     "PromptTemplate",
     "ResponseSanitizer",
     "SanitizedResponse",
+    "generate",
 ]

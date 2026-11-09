@@ -1,0 +1,119 @@
+++++
+<head>
+<meta charset="UTF-8">
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    line-height: 1.4;
+    margin: 40px;
+  }
+  .header {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 30px;
+  }
+  .sub-header {
+    margin-bottom: 20px;
+    font-weight: bold;
+  }
+  .justify {
+    text-align: justify;
+  }
+  .bold {
+    font-weight: bold;
+  }
+  .center {
+    text-align: center;
+  }
+  .footer-table {
+    width: 100%;
+    margin-top: 20px;
+    border: none;
+  }
+  .footer-table td {
+    width: 50%;
+    border: none;
+  }
+  .container {
+    display: flex;
+    border-top: 2px solid black;
+    border-bottom: 2px solid black;
+    min-height: auto;
+  }
+
+  .legal-notice-box {
+    border: 2px solid #2c3e50;
+    padding: 15px;
+    margin: 20px 0;
+    background-color: #f8f9fa;
+    font-weight: bold;
+    line-height: 1.6;
+    border-radius: 4px;
+  }
+  .section-title {
+    text-transform: uppercase;
+    text-decoration: underline;
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .column {
+    width: 50%;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  .left-col {
+    border-right: 1px solid black;
+  }
+
+  .entry {
+    margin-bottom: 40px;
+  }
+  .entry-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+
+  .page-break {
+    break-after: always;
+  }
+</style>
+</head>
+++++
+
+To,
+Ld. C.M.L.O. & AD (Law Department)
+Through Designated Officer,
+
+[.text-left]
+== Subject: Prayer for engagement of a Ld. Advocate to draft and file a petition before Ld. Counsel of Ordinary Jurisdiction
+
+[.text-justify]
+This instant file may kindly be forwarded to Ld. C.M.L.O. for engagement of a Ld. Advocate to draft and file a petition before the Ld. court of ordinary Jurisdiction for violation of F.S.S. Act, 2006.
+
+[.text-left]
+== Statement of Facts
+
+. **Sample** :
+. **Sample Code** :
+. **Collection place** :
+. **Manufacturer** :
+. **Analyst report** :
+. **Prohibition Order** :
+. **Sanction of Prosecution** :
+. **Sections involved** :
+
+[.text-justify]
+All case records including analyst reports, intimation letters, manufacturers's reply, prohibition order, and sanction of prosecution have been submitted.
+
+[.signature]
+{{ food_safety_officer_name }}
+Food Safety Officer +
+Kolkata Municipal Corporation
+
+
+
+
+
+
+

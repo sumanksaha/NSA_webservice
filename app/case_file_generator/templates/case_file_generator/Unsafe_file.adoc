@@ -118,8 +118,10 @@ Whereas, upon analysis of sample by the Food Analyst according to Section 46 of 
 
 An intimation letter vide No - {{ directive_letter_no }} dated {{ directive_letter_date }} along with a copy of the Food Analyst Report (No. {{ analyst_report_no }} dated {{ analyst_report_date }}) was received by the representative of {{ retailer_name }} on {{ retailer_report_receive_date }} and to the representative of {{ manufacturer_name }} on {{ manufacturer_report_receive_date }} via email (attached herewith, marked B). The manufacturer acknowledged the receipt of the letter on {{ manufacturer_report_receive_date }}.
 
-// Optional food standard definition (autofill from RAG) — kept commented to avoid visible damage:
-// {% if not retailer_cum_manufacturer and food_standard_definition %}{{ food_standard_definition }}{% endif %}
+// Optional food standard definition (autofill from RAG) — kept commented to avoid      
+// visible damage:
+// {% if not retailer_cum_manufacturer and food_standard_definition %}
+// {{ food_standard_definition }}{% endif %}
 
 The Food Business Operator(s) did not prefer an appeal under Section 46(4) of the Food Safety &amp; Standards Act, 2006 within the stipulated time as per FSSAI guidelines.
 

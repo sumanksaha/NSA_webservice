@@ -125,8 +125,19 @@ Any new prompt/template change must pass an abstention-discipline check: `false_
 4. **S1:** Build per-query-type `false_abstention_rate` / `missed_abstention_rate` on a calibration split; tune `GROUNDEDNESS_RETRY_BELOW` and/or `EVIDENCE_COVERAGE_SYNTHESIZE_AT_LEAST` per type subject to the 0.0 guardrail; store tuned values in `thresholds.py` (or a calibration config).
 5. **S6:** Add the abstention-discipline flip-stability check as a CI gate for any prompt/template change.
 
-### Phase 3 — Linear-path abstain (conditional)
-6. **S3:** Extend `route_after_verify`/`route_after_budget` to route critically low-evidence linear-path questions to `abstain_node`; gate behind a constant (default off); enable only after cohort validation shows `false_abstention_rate = 0.0`.
+### Phase 3 — Linear-path abstain (conditional; implemented, default off)
+6. **S3:** Implemented behind `RAG_LINEAR_ABSTAIN` (default off):
+   - `app/rag/agent/thresholds.py`: `LINEAR_ABSTENTION_FLOOR = 0.1`
+   - `app/rag/agent/graph.py`: `route_after_verify` gains an abstain branch
+     when retry budget is exhausted AND groundedness < floor AND
+     `linear_abstain` is set; `build_graph` / `_get_graph` /
+     `TopologyFlags` gain a `linear_abstain` parameter; a new
+     `_resolve_linear_abstain` reads the live config flag.
+   - `app/shared/config.py`: `RAG_LINEAR_ABSTAIN` setting declared.
+   - **NOT enabled on the served path** — the S1 calibration measured
+     `false_abstention_rate = 0.8148`, so enabling unconditionally would
+     regress the guardrail. Enable only after cohort validation shows
+     `false_abstention_rate = 0.0`.
 
 ---
 
@@ -193,11 +204,12 @@ which rules out a per-type fix and points at the shared text-generation path.
 2. **Calibration storage:** Should per-query-type thresholds live in `app/rag/agent/thresholds.py` (code) or a separate calibration config file? (Recommended: `thresholds.py` for determinism/unit-testability, matching existing convention.)
 3. **Residual lexicon source:** Where should the residual missed-abstention phrasings be mined from — `evaluation/out/ceiling_v5/failure_attribution.json` or the rubric residual set? (Recommended: the rubric residual / `failure_attribution.json`.)
 
-### Completed (Phase 1)
+### Completed (Phase 1 + Phase 2 data + Phase 3 implementation)
 
 - S4 abstain-audit diagnosis (`app/rag/agent/nodes/dag.py` — `abstain_drivers`, `abstain_required`, `evidence_coverage` in the abstain audit entry).
 - S2 abstention lexicon V4 extensions (`app/rag/generation/abstention.py` — `_V4_EXTRA`, kept negation-anchored, re-exported via `evaluation/abstention_rule.py`).
 - S5 tests (`tests/test_abstain_node.py`, V4 + negative tests in the existing abstention tests).
-- S1 calibration data (`evaluation/prepare_abstention_calibration.py` → `evaluation/out/ceiling_v5/abstention_calibration_data.json`).
+- S1 calibration data (`evaluation/prepare_abstention_calibration.py` → `evaluation/out/ceiling_v5/abstention_calibration_data.json`, version v2 from S1 signals, 0 LLM). Threshold strategy superseded — no continuous signal separates abstained from answering.
+- S3 linear-path abstain implemented behind `RAG_LINEAR_ABSTAIN` (default off; `app/rag/agent/graph.py`, `app/rag/agent/thresholds.py`, `app/shared/config.py`).
 
 All `ruff check`/`ruff format` pass; new tests pass (14/14). The 5 remaining failures in the abstention suite are pre-existing (short/empty-answer handling inconsistency, confirmed on the unmodified code via `git stash`).

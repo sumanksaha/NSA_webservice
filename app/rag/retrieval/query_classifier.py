@@ -314,7 +314,12 @@ class SectionQueryParser:
         if run_match:
             numbers = re.findall(r"\d{1,3}", run_match.group(1))
             if numbers:
-                result["section_numbers"] = numbers
+                # Only ``section_number`` — that is the payload field.  A
+                # companion ``section_numbers`` key (removed 2026-11-06) is
+                # not a payload field on any legal collection, so passing it
+                # to Qdrant 400'd the whole query ("Index required but not
+                # found for section_numbers") and returned an empty pool for
+                # every section lookup on the non-FSSAI collections.
                 result["section_number"] = numbers
 
         # Single section with optional subsection: "Section 55(2)"

@@ -74,6 +74,35 @@ DEFAULT_PAYLOAD_INDEX_FIELDS: tuple[str, ...] = (
 
 _DISTANCE_NAMES = {"cosine": "Cosine", "dot": "Dot", "euclid": "Euclid", "euclidean": "Euclid"}
 
+#: Per-collection payload-index schema, cached per process.  Indexes change
+#: only when someone runs :mod:`evaluation.ensure_structural_indexes`, so a
+#: single read per collection per process is enough to police every filter.
+_INDEX_FIELDS_CACHE: dict[str, frozenset[str]] = {}
+
+
+def collection_index_fields(client: Any, collection_name: str) -> frozenset[str]:
+    """Payload fields *collection_name* has an index for.
+
+    Returns an empty set when the schema cannot be read, which callers must
+    treat as "unknown" (do not prune) rather than "nothing is indexed".
+    """
+    cached = _INDEX_FIELDS_CACHE.get(collection_name)
+    if cached is not None:
+        return cached
+    try:
+        info = client.get_collection(collection_name)
+        fields = frozenset(str(k) for k in (getattr(info, "payload_schema", None) or {}))
+    except Exception as exc:
+        logger.warning("collection_index_fields(%s) failed: %s", collection_name, exc)
+        return frozenset()
+    _INDEX_FIELDS_CACHE[collection_name] = fields
+    return fields
+
+
+def reset_index_fields_cache() -> None:
+    """Forget cached payload schemas (tests, or after creating an index)."""
+    _INDEX_FIELDS_CACHE.clear()
+
 
 def build_qdrant_client() -> Any | None:
     """Construct a Qdrant client from the config seam, or ``None``.
@@ -555,6 +584,53 @@ class QdrantStore:
             logger.warning("QdrantStore.create_payload_index(%s) failed: %s", field_name, exc)
             return False
 
+    def payload_index_fields(self) -> frozenset[str]:
+        """Return the payload fields this collection declares an index for.
+
+        A Qdrant filter on an unindexed key is rejected with HTTP 400 and the
+        whole query returns nothing, so a caller that filters on an optional
+        field (``clause_number`` is only populated for the FSSAI corpus) must
+        check here first and degrade to a filter it knows works.
+
+        Returns an empty set when the schema cannot be read; callers should
+        then fall back to their own best-known-good field rather than skipping
+        retrieval entirely.
+        """
+        client = self._get_client()
+        if client is None:
+            return frozenset()
+        return collection_index_fields(client, self.collection_name)
+
+    def _query_filters(self, filters: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Drop flat filter keys this collection has no payload index for.
+
+        One stale/unknown key otherwise costs the entire query: Qdrant answers
+        HTTP 400 and the retriever reports an empty pool.  Observed live
+        2026-11-06 — ``section_numbers`` (a ``QueryParser`` artefact that no
+        collection has as a payload field) 400'd every section lookup on the
+        five non-FSSAI collections, and ``clause_number`` did the same before
+        its index existed.
+
+        Pre-shaped filters (``must``/``should``/``must_not``) are left alone:
+        their owner (:mod:`app.rag.retrieval.section_scope`) builds them from
+        fields that are indexed everywhere.
+        """
+        if not filters or any(k in filters for k in ("must", "should", "must_not")):
+            return filters
+        indexed = self.payload_index_fields()
+        if not indexed:
+            return filters
+        unknown = sorted(k for k in filters if k not in indexed)
+        if not unknown:
+            return filters
+        logger.warning(
+            "dropping unindexed payload filter key(s) %s for collection %s (indexed: %s)",
+            unknown,
+            self.collection_name,
+            sorted(indexed),
+        )
+        return {k: v for k, v in filters.items() if k in indexed}
+
     def upsert_points(self, points: list[Point]) -> int:
         """Batch-upsert points into the collection in small request batches.
 
@@ -625,7 +701,7 @@ class QdrantStore:
 
         """
         client = self._require_client()
-        filter_dict = self._build_filter(filters) if filters else None
+        filter_dict = self._build_filter(self._query_filters(filters)) if filters else None
         points = dense_search(
             client,
             collection_name=self.collection_name,
@@ -665,7 +741,7 @@ class QdrantStore:
 
         """
         client = self._require_client()
-        filter_dict = self._build_filter(filters) if filters else None
+        filter_dict = self._build_filter(self._query_filters(filters)) if filters else None
         points = sparse_search(
             client,
             collection_name=self.collection_name,
@@ -745,7 +821,7 @@ class QdrantStore:
             ]
             kwargs["query"] = models.FusionQuery(fusion=models.Fusion.RRF)
         if filters:
-            kwargs["query_filter"] = self._build_filter(filters)
+            kwargs["query_filter"] = self._build_filter(self._query_filters(filters))
         response = query_points(**kwargs)
         return [
             {
@@ -802,7 +878,7 @@ class QdrantStore:
         if score_threshold is not None:
             kwargs["score_threshold"] = score_threshold
         if filters:
-            kwargs["query_filter"] = self._build_filter(filters)
+            kwargs["query_filter"] = self._build_filter(self._query_filters(filters))
         response = query_points(**kwargs)
         return [
             {
@@ -866,7 +942,7 @@ class QdrantStore:
             ]
             kwargs["query"] = models.FusionQuery(fusion=models.Fusion.RRF)
         if filters:
-            kwargs["query_filter"] = self._build_filter(filters)
+            kwargs["query_filter"] = self._build_filter(self._query_filters(filters))
         response = query_points(**kwargs)
         return [
             {
@@ -928,7 +1004,7 @@ class QdrantStore:
             "with_vectors": False,
         }
         if filters:
-            kwargs["scroll_filter"] = self._build_filter(filters)
+            kwargs["scroll_filter"] = self._build_filter(self._query_filters(filters))
         records, _next_offset = client.scroll(**kwargs)
         return [{"id": str(r.id), "payload": getattr(r, "payload", None) or {}} for r in (records or [])]
 
@@ -972,7 +1048,7 @@ class QdrantStore:
             if next_offset is not None:
                 kwargs["offset"] = next_offset
             if filters:
-                kwargs["scroll_filter"] = self._build_filter(filters)
+                kwargs["scroll_filter"] = self._build_filter(self._query_filters(filters))
             records, next_offset = client.scroll(**kwargs)
             for r in records or []:
                 item: dict[str, Any] = {

@@ -551,8 +551,40 @@ def budget_gate_node(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _abstain_drivers(state: dict[str, Any]) -> list[str]:
+    """Which sufficiency signals drove the abstain decision, for audit diagnosis.
+
+    Reads the per-task signal verdicts already computed by
+    ``evidence_sufficiency_node`` and returns the union of failed gating
+    signals (coverage, relevance, authority, contradiction, temporal) plus
+    the advisory signals (specificity, completeness) so operators can tell
+    whether a missed abstention was retrieval- or sufficiency-driven.
+    """
+    drivers: list[str] = []
+    seen: set[str] = set()
+    for verdict in state.get("task_sufficiency") or []:
+        if not isinstance(verdict, dict):
+            continue
+        for sig in verdict.get("failures") or []:
+            if sig not in seen:
+                seen.add(sig)
+                drivers.append(sig)
+    if state.get("budget_exhausted") and "BUDGET_EXHAUSTED" not in seen:
+        seen.add("BUDGET_EXHAUSTED")
+        drivers.append("BUDGET_EXHAUSTED")
+    return drivers
+
+
 def abstain_node(state: dict[str, Any]) -> dict[str, Any]:
     """P2: Abstain when evidence is insufficient. Returns an abstention answer."""
+    detail: dict[str, Any] = {"reason": "insufficient_evidence"}
+    drivers = _abstain_drivers(state)
+    if drivers:
+        detail["abstain_drivers"] = drivers
+    if state.get("abstain_required") is not None:
+        detail["abstain_required"] = bool(state["abstain_required"])
+    if state.get("evidence_coverage") is not None:
+        detail["evidence_coverage"] = state["evidence_coverage"]
     return {
         "answer": "INSUFFICIENT EVIDENCE: The evidence gathered does not support a defensible answer. Additional retrieval (e.g., targeted retry or expanded query) or expert review may be required.",
         "groundedness": 0.0,
@@ -560,7 +592,7 @@ def abstain_node(state: dict[str, Any]) -> dict[str, Any]:
         "abstained": True,
         "audit_trail": [
             *(state.get("audit_trail") or []),
-            {"node": "abstain", "latency_ms": 0, "detail": {"reason": "insufficient_evidence"}},
+            {"node": "abstain", "latency_ms": 0, "detail": detail},
         ],
     }
 

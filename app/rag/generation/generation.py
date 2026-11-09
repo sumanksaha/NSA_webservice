@@ -1,0 +1,452 @@
+"""Deep generation module — the single seam for grounded RAG generation.
+
+Concentrates the full pipeline behind one interface:
+
+    generate(query, chunks, query_type="", query_log_id=None, evidence_set=None,
+             prompts=None) -> RAGResponse
+
+All pipeline steps (context building, prompt rendering, optional structured
+reasoning, LLM call, answer-contract build/repair/check, citation extraction,
+sanitization, logging, response assembly) live behind this seam.  Callers and
+tests cross exactly one seam; internal dependencies
+(``GroundedLLMClient``, ``ContextBuilder``, ``PromptTemplate``,
+``CitationTracker``, ``ResponseSanitizer``, ``GenerationLogger``,
+``TokenCounter``, the answer-contract resolver, ``StructuredReasoner``) are
+constructed internally with defaults gated on ``cfg``.
+
+Backward compatibility: ``GroundedGenerationService`` (in
+``grounded_service.py``) remains as a thin adapter delegating to this module,
+so existing callers (``app/rag/tasks.py``, ``app/rag/resilient.py``) and
+existing tests keep working unchanged.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from typing import Any
+
+from app.rag.generation.answer_contract import get_answer_contract_resolver
+from app.rag.generation.citation_tracker import CitationTracker
+from app.rag.generation.context_builder import BuiltContext, ContextBuilder
+from app.rag.generation.llm_client import GroundedLLMClient, GroundedLLMResponse
+from app.rag.generation.logger import GenerationLogger
+from app.rag.generation.prompt_template import PromptTemplate, query_type_directive, with_query_type_directive
+from app.rag.generation.sanitizer import ResponseSanitizer, SanitizedResponse
+from app.rag.retrieval.result import RAGResponse, RetrievedChunk
+from app.rag.verification.token_counter import TokenCounter
+from app.shared.config import cfg
+from app.shared.llm_client import get_llm_client
+
+logger = logging.getLogger(__name__)
+
+
+class GenerationModule:
+    """Deep module for grounded RAG generation.
+
+    One public method: :meth:`generate`.  Everything else is internal.
+    """
+
+    # ------------------------------------------------------------------ #
+    # Construction — all dependencies internal, defaulted from cfg.
+    # ------------------------------------------------------------------ #
+
+    def __init__(
+        self,
+        *,
+        llm_client: GroundedLLMClient | None = None,
+        context_builder: ContextBuilder | None = None,
+        prompt_template: PromptTemplate | None = None,
+        citation_tracker: CitationTracker | None = None,
+        sanitizer: ResponseSanitizer | None = None,
+        generation_logger: GenerationLogger | None = None,
+        token_counter: TokenCounter | None = None,
+    ) -> None:
+        self.llm_client = llm_client or get_llm_client()
+        self.context_builder = context_builder or ContextBuilder()
+        self.prompt_template = prompt_template or PromptTemplate()
+        self.citation_tracker = citation_tracker or CitationTracker()
+        self.sanitizer = sanitizer or ResponseSanitizer()
+        self.generation_logger = generation_logger or GenerationLogger()
+        self.token_counter = token_counter or TokenCounter()
+
+    # ------------------------------------------------------------------ #
+    # Public seam
+    # ------------------------------------------------------------------ #
+
+    def generate(
+        self,
+        query: str,
+        chunks: list[RetrievedChunk],
+        query_type: str = "",
+        query_log_id: str | None = None,
+        evidence_set: dict[str, Any] | None = None,
+        prompts: tuple[str, str] | None = None,
+    ) -> RAGResponse:
+        """Run the full grounded-generation pipeline.
+
+        Args:
+            query: The user's question.
+            chunks: Retrieved chunks from the hybrid retriever.
+            query_type: Classified query type (for logging and directives).
+            query_log_id: Optional ``RAGQueryLog`` UUID to update with
+                generation metrics.
+            evidence_set: Serialized evidence selection used to pack the
+                prompt by legal role.  ``None`` keeps score-only order.
+            prompts: Optional caller-supplied (system, user) prompt pair.
+                When provided, replaces the default prompt rendering.
+                Used by the food-intent answer mode.
+
+        Returns:
+            A :class:`RAGResponse` with answer, citations, and groundedness.
+        """
+        total_start = time.perf_counter()
+
+        # Early exit — no chunks means no context, no LLM call needed.
+        if not chunks:
+            total_latency_ms = int((time.perf_counter() - total_start) * 1000)
+            return self._empty_response(query, query_type, total_latency_ms)
+
+        # 1. Build context
+        built = self._build_context(query, chunks, query_type, evidence_set)
+
+        # 1b. Optional two-pass structured reasoning (flag-gated).
+        reasoning = self._reason(query, built, query_type=query_type) if getattr(cfg, "structured_reasoner", False) else None
+
+        # Answer contract (provision-check / abstention-gate).
+        contract = None
+        contract_check = None
+        resolver = None
+        if getattr(cfg, "answer_contract", False):
+            try:
+                resolver = get_answer_contract_resolver()
+                contract = resolver.build_contract(query, chunks, query_type)
+            except Exception as exc:
+                logger.debug("answer contract build failed: %s", exc)
+
+        # 2. Render prompt (or use caller-supplied prompts).
+        if prompts and prompts[0] and prompts[1]:
+            system_prompt, user_prompt = prompts
+        else:
+            system_prompt, user_prompt = self._render_prompt(query, built, reasoning=reasoning, query_type=query_type)
+            if contract is not None and resolver is not None and getattr(cfg, "answer_contract_repair", False):
+                try:
+                    system_prompt, user_prompt = resolver.repair_prompt(
+                        contract, system_prompt, user_prompt
+                    )
+                except Exception as exc:
+                    logger.debug("answer contract repair prompt failed: %s", exc)
+
+        # 3. Call LLM
+        llm_response = self._call_llm(system_prompt, user_prompt)
+
+        # Contract check + optional repair retry (once).
+        if contract is not None and resolver is not None and llm_response.success:
+            try:
+                contract_check = resolver.check_answer(llm_response.text or "", contract, chunks)
+                if not contract_check.passed and getattr(cfg, "answer_contract_repair", False):
+                    try:
+                        rs, ru = self._render_prompt(query, built, reasoning=reasoning, query_type=query_type)
+                        rs2, ru2 = resolver.repair_prompt(contract, rs, ru)
+                        llm_response2 = self._call_llm(rs2, ru2)
+                        if llm_response2.success and (llm_response2.text or ""):
+                            llm_response = llm_response2
+                            contract_check = resolver.check_answer(
+                                llm_response.text or "", contract, chunks
+                            )
+                    except Exception as exc:
+                        logger.debug("answer contract repair retry failed: %s", exc)
+            except Exception as exc:
+                logger.debug("answer contract check failed: %s", exc)
+        elif contract is None:
+            # Legacy citation verification path (answer_contract off).
+            try:
+                from app.answer_contract import verify_citations
+
+                check = verify_citations(llm_response.text or "", [c["index"] for c in built.citations])
+                if (not check.get("valid", True)) and llm_response.success:
+                    try:
+                        rs, ru = self._render_prompt(query, built, reasoning=reasoning, query_type=query_type)
+                        rs2 = rs + "\nOnly use citations that appear in the provided context. Include only valid [n] citations present in the context."
+                        llm_response2 = self._call_llm(rs2, ru)
+                        if llm_response2.success and (llm_response2.text or ""):
+                            check2 = verify_citations(llm_response2.text or "", [c["index"] for c in built.citations])
+                            if check2.get("valid", True):
+                                llm_response = llm_response2
+                    except Exception as exc:
+                        logger.debug("contract verification retry failed: %s", exc)
+            except Exception as exc:
+                logger.debug("contract verification skipped: %s", exc)
+
+        # 4. Extract citations
+        citations = self._extract_citations(llm_response, chunks, built)
+
+        # 5. Sanitise
+        sanitized = self.sanitizer.sanitize(llm_response.text, citations, chunks)
+
+        # 6. Log generation (best-effort)
+        total_latency_ms = int((time.perf_counter() - total_start) * 1000)
+        self._log_generation(query_log_id, query, llm_response, sanitized, total_latency_ms, built)
+
+        # 7. Assemble response
+        resp = self._assemble_response(
+            query, query_type, chunks, llm_response, sanitized, total_latency_ms, built, reasoning=reasoning
+        )
+        if contract_check is not None:
+            try:
+                resp.debug = dict(resp.debug or {})
+                resp.debug["answer_contract"] = {
+                    "passed": contract_check.passed,
+                    "false_abstention": contract_check.false_abstention,
+                    "provision_mismatch": contract_check.provision_mismatch,
+                    "citation_mismatch": contract_check.citation_mismatch,
+                    "citation_gate_failed": contract_check.citation_gate_failed,
+                    "violations": [
+                        {"kind": v.kind, "severity": v.severity, "message": v.message}
+                        for v in contract_check.violations
+                    ],
+                }
+            except Exception:
+                pass
+        return resp
+
+    # ------------------------------------------------------------------ #
+    # Pipeline steps (each isolated for testability, all internal)
+    # ------------------------------------------------------------------ #
+
+    def _build_context(
+        self,
+        query: str,
+        chunks: list[RetrievedChunk],
+        query_type: str,
+        evidence_set: dict[str, Any] | None = None,
+    ) -> BuiltContext:
+        try:
+            return self.context_builder.build(query, chunks, query_type, evidence_set=evidence_set)
+        except Exception as exc:
+            logger.warning("ContextBuilder failed: %s", exc)
+            return BuiltContext(context="", citations=[], chunk_count=0, truncated=True)
+
+    def _render_prompt(
+        self,
+        query: str,
+        built: BuiltContext,
+        reasoning: Any | None = None,
+        query_type: str = "",
+    ) -> tuple[str, str]:
+        try:
+            if reasoning is not None:
+                system_prompt, user_prompt = self.prompt_template.render(
+                    "grounded_qa_structured",
+                    query=query,
+                    context=built.context,
+                    extra_vars={"reasoning": reasoning.model_dump_json()},
+                )
+                # W3 x W4: the structured memo path honours the query-type
+                # directive only when the operator opts in via
+                # RAG_STRUCTURED_QUERY_TYPE_DIRECTIVES.
+                if cfg.structured_query_type_directives and query_type:
+                    user_prompt = with_query_type_directive(user_prompt, query_type)
+                return system_prompt, user_prompt
+            if query_type and cfg.query_type_directives:
+                return self.prompt_template.render_default(query, built.context, query_type=query_type)
+            return self.prompt_template.render_default(query, built.context)
+        except Exception as exc:
+            logger.warning("PromptTemplate failed: %s", exc)
+            return "Answer the following question.", f"Question: {query}"
+
+    def _reason(self, query: str, built: BuiltContext, query_type: str = "") -> Any | None:
+        if not built.context:
+            return None
+        try:
+            from app.rag.generation.structured_reasoner import StructuredReasoner
+
+            reasoner_model = getattr(cfg, "reasoner_model", "") or None
+            if reasoner_model:
+                from app.shared.llm_client import get_llm_client as _get
+
+                reasoner_client = _get(model=reasoner_model)
+            else:
+                reasoner_client = self.llm_client
+            reasoner = StructuredReasoner(llm_client=reasoner_client)
+            directive = query_type_directive(query_type) if cfg.structured_query_type_directives else ""
+            reason_context = built.context
+            if len(reason_context) > 16000:
+                reason_context = reason_context[:16000] + "\n...[truncated for reasoning]"
+            return reasoner.reason(query, reason_context, directive=directive)
+        except Exception as exc:
+            logger.warning("StructuredReasoner unavailable: %s", exc)
+            return None
+
+    def _call_llm(self, system_prompt: str, user_prompt: str) -> GroundedLLMResponse:
+        try:
+            return self.llm_client.call(system_prompt, user_prompt)
+        except Exception as exc:
+            logger.warning("LLM client call failed: %s", exc)
+            return GroundedLLMResponse(error=str(exc))
+
+    def _extract_citations(
+        self,
+        llm_response: GroundedLLMResponse,
+        chunks: list[RetrievedChunk],
+        built: BuiltContext,
+    ) -> list:
+        if not llm_response.success:
+            return []
+        chunk_by_id = {c.chunk_id: c for c in chunks}
+        citation_map: dict[int, RetrievedChunk] = {}
+        for cit in built.citations:
+            chunk = chunk_by_id.get(cit["chunk_id"])
+            if chunk is not None:
+                citation_map[cit["index"]] = chunk
+        try:
+            return self.citation_tracker.extract(llm_response.text, chunks, citation_map)
+        except Exception as exc:
+            logger.warning("CitationTracker failed: %s", exc)
+            return []
+
+    def _log_generation(
+        self,
+        query_log_id: str | None,
+        query: str,
+        llm_response: GroundedLLMResponse,
+        sanitized: SanitizedResponse,
+        total_latency_ms: int,
+        built: BuiltContext,
+    ) -> None:
+        if not query_log_id:
+            return
+        try:
+            full_prompt = built.context
+            token_est = self.token_counter.estimate_usage(context=full_prompt, response=llm_response.text or "")
+            self.generation_logger.log_generation(
+                query_log_id,
+                query=query,
+                response_text=llm_response.text,
+                cited_chunk_ids=[c.chunk_id for c in sanitized.valid_citations],
+                groundedness_score=sanitized.groundedness_score,
+                hallucination_detected=sanitized.hallucination_detected,
+                hallucinated_claims=sanitized.hallucinated_claims,
+                total_latency_ms=total_latency_ms,
+                prompt_tokens=llm_response.usage.get("prompt_tokens"),
+                completion_tokens=llm_response.usage.get("completion_tokens"),
+                llm_model=llm_response.model,
+                error=llm_response.error,
+                context_length=token_est.context_length,
+                token_counter_result=token_est.to_dict(),
+            )
+        except Exception as exc:
+            logger.warning("GenerationLogger.log_generation failed: %s", exc)
+
+    def _assemble_response(
+        self,
+        query: str,
+        query_type: str,
+        chunks: list[RetrievedChunk],
+        llm_response: GroundedLLMResponse,
+        sanitized: SanitizedResponse,
+        total_latency_ms: int,
+        built: BuiltContext,
+        reasoning: Any | None = None,
+    ) -> RAGResponse:
+        usage = llm_response.usage
+        gen_latency_ms = int(llm_response.latency * 1000) if llm_response.success else 0
+        real_context_tokens = self.token_counter.estimate(built.context) if built.context else 0
+
+        structured_argument = None
+        if reasoning is not None:
+            try:
+                structured_argument = reasoning.model_dump()
+            except Exception as exc:
+                logger.debug("structured argument dump failed: %s", exc)
+
+        return RAGResponse(
+            query=query,
+            query_type=query_type,
+            answer=llm_response.text if llm_response.success else "",
+            citations=sanitized.valid_citations,
+            retrieved_chunks=chunks,
+            groundedness_score=sanitized.groundedness_score,
+            hallucination_detected=sanitized.hallucination_detected,
+            hallucinated_claims=sanitized.hallucinated_claims,
+            confidence=sanitized.confidence,
+            has_conclusion=sanitized.has_conclusion,
+            generation_latency_ms=gen_latency_ms,
+            total_latency_ms=total_latency_ms,
+            llm_model=llm_response.model,
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
+            token_usage={
+                "prompt": usage.get("prompt_tokens", 0) or real_context_tokens,
+                "completion": usage.get("completion_tokens", 0),
+                "total": usage.get("total_tokens", 0) or (real_context_tokens + usage.get("completion_tokens", 0)),
+                "reasoning": usage.get("reasoning_tokens", 0),
+                "cost": usage.get("cost", 0.0),
+            },
+            debug={
+                "context_length": real_context_tokens,
+                "chunk_count": built.chunk_count,
+                "truncated": built.truncated,
+                "invalid_citation_count": len(sanitized.invalid_citations),
+                "error": llm_response.error,
+                "finish_reason": llm_response.finish_reason,
+                "has_conclusion": sanitized.has_conclusion,
+                "reasoning_tokens": usage.get("reasoning_tokens", 0),
+                "cost_usd": usage.get("cost", 0.0),
+                "structured_argument": structured_argument,
+            },
+        )
+
+    def _empty_response(self, query: str, query_type: str, total_latency_ms: int) -> RAGResponse:
+        return RAGResponse(
+            query=query,
+            query_type=query_type,
+            answer="",
+            citations=[],
+            retrieved_chunks=[],
+            groundedness_score=0.0,
+            hallucination_detected=False,
+            hallucinated_claims=[],
+            confidence=0.0,
+            generation_latency_ms=0,
+            total_latency_ms=total_latency_ms,
+            llm_model="",
+            debug={
+                "context_length": 0,
+                "chunk_count": 0,
+                "truncated": False,
+                "empty_context": True,
+            },
+        )
+
+    # The contract resolver is resolved lazily on first use so that the module
+    # imports cleanly even when the answer-contract flag is off.
+    _resolver = None
+
+    @property
+    def resolver(self):
+        if self._resolver is None:
+            self._resolver = get_answer_contract_resolver()
+        return self._resolver
+
+
+__all__ = ["GenerationModule", "generate"]
+
+#: Module-level convenience function — the single seam, no instantiation needed.
+def generate(
+    query: str,
+    chunks: list[RetrievedChunk],
+    query_type: str = "",
+    query_log_id: str | None = None,
+    evidence_set: dict[str, Any] | None = None,
+    prompts: tuple[str, str] | None = None,
+) -> RAGResponse:
+    """Module-level entry point: one call runs the full pipeline."""
+    return GenerationModule().generate(
+        query=query,
+        chunks=chunks,
+        query_type=query_type,
+        query_log_id=query_log_id,
+        evidence_set=evidence_set,
+        prompts=prompts,
+    )

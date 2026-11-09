@@ -254,7 +254,22 @@ class DenseRetriever:
                 )
 
             filter_dict = self._build_filter(filters) if filters else None
-            from app.rag.qdrant_client import DENSE_VECTOR_NAME, dense_search
+            from app.rag.qdrant_client import DENSE_VECTOR_NAME, collection_index_fields, dense_search
+
+            # Never filter on a key this collection has no index for: Qdrant
+            # answers 400 and the arm silently returns nothing.  Pre-shaped
+            # filters are owned by section_scope and must pass through.
+            indexed = collection_index_fields(client, self.collection_name)
+            if filters and indexed and not any(k in filters for k in ("must", "should", "must_not")):
+                unknown = sorted(k for k in filters if k not in indexed)
+                if unknown:
+                    logger.warning(
+                        "dropping unindexed payload filter key(s) %s for collection %s",
+                        unknown,
+                        self.collection_name,
+                    )
+                    filters = {k: v for k, v in filters.items() if k in indexed}
+                    filter_dict = self._build_filter(filters) if filters else None
 
             points = dense_search(
                 client,

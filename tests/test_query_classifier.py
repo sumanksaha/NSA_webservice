@@ -73,7 +73,10 @@ class TestSectionQueryParser:
 
     def test_multiple_sections(self):
         result = SectionQueryParser.parse("Sections 55, 56 and 58")
-        assert result["section_numbers"] == ["55", "56", "58"]
+        assert result["section_number"] == ["55", "56", "58"]
+        # Regression guard: ``section_numbers`` is not a payload field on any
+        # legal collection, so this key must not be emitted as a filter.
+        assert "section_numbers" not in result
 
     def test_u_s_abbreviation(self):
         result = SectionQueryParser.parse("What is u/s 37?")

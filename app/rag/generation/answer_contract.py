@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from app.rag.retrieval.identifier import detect_act, detect_sections
 from app.rag.generation.abstention import is_abstention
+from app.shared.config import cfg
 logger = logging.getLogger(__name__)
 _AMOUNT_RE = re.compile(r"(?:₹|Rs\.?|rupees)\s*(\d+(?:,\d+)*(?:\.\d+)?)", re.IGNORECASE)
 _SECTION_CITE_RE = re.compile(r"[Ss]ection\s+(\d+(?:\([^)]+\))*)")
@@ -101,6 +102,13 @@ class AnswerContractResolver:
             c.expects_penalty = True; c.expects_exact_figures = True
         c.governing = self._resolve_governing(question, context_chunks, c)
         if c.governing and c.governing.section: c.must_cite_sections.add(c.governing.section)
+        # Deterministic pre-gate (Strategy 1): if the question names a specific
+        # act+section but none of the retrieved chunks match, mark the contract
+        # as unanswerable so generation can be skipped downstream.
+        if getattr(cfg, "abstain_pre_gate", False):
+            if c.named_act and c.named_sections and c.governing is None:
+                c.should_answer = False
+                c.flags["missing_governing_provision"] = True
         return c
     def _resolve_governing(self, question: str, context_chunks: list[Any], c: AnswerContract):
         if c.named_sections:
@@ -173,6 +181,22 @@ class AnswerContractResolver:
                 f"CRITICAL: The question names these sections/laws: {', '.join(f'Section {s}' for s in sorted(named))} and/or {contract.named_act or ''}. You MUST address each named element with a direct citation [n] from the provided context. Do NOT decline the entire question — answer the parts you can and explicitly state only which specific sub-part (if any) lacks support in the cited passages."
             )
             system_add = f" MANDATORY: You MUST address all sections named in the question and cite them with [n] markers from the context. Do NOT give a blanket 'not in context' refusal."
+        elif named and not gov:
+            # Strategy 2: sections named but governing provision absent from
+            # retrieved chunks — direct the model to abstain rather than answer
+            # from related-but-insufficient context.
+            extra_parts.append(
+                f"The question names section(s) {', '.join(f'Section {s}' for s in sorted(named))} "
+                f"but none of those provisions appear in the <legal_context>. "
+                "Do NOT answer from related provisions. State that the governing "
+                "provision is not present in the context and abstain — qualify "
+                "exactly which section is missing."
+            )
+            system_add = (
+                f" MANDATORY: The named section(s) are not in the provided context. "
+                "Do NOT answer from related provisions — abstain and state which "
+                "section is missing."
+            )
         else:
             extra_parts.append(
                 "You MUST answer using ONLY the provided <legal_context>. Cite every material claim with [n] markers from the context. Do NOT guess or fabricate provisions. If only part of the question is answerable, answer that part and state the precise gap."
