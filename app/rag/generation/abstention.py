@@ -176,9 +176,11 @@ def is_abstention(response_text: str, banned: set[str] | None = None) -> bool:
     """True when the answer declines rather than asserts.
 
     Production semantics matching evaluation rules (abstain_match):
-    an abstention must match a negation-anchored marker.  An empty or
-    short-answer (<= :data:`MIN_ABSTENTION_CHARS` chars) IS an abstention,
-    matching the frozen scorer contract.
+    an abstention must match a negation-anchored marker.  A short or empty
+    answer (<= :data:`MIN_ABSTENTION_CHARS` chars) asserts nothing and is
+    not a *refusal* — laundering it into "not a hallucination" would be a
+    safety regression, so the length floor is load-bearing.  It is treated
+    as ungrounded rather than abstention by the frozen scorer contract.
 
     A long answer (>= :data:`SUBSTANTIVE_ANSWER_CHARS`) carrying citation
     markers is a substantive answer, not an abstention.  The regex below
@@ -188,12 +190,12 @@ def is_abstention(response_text: str, banned: set[str] | None = None) -> bool:
     Q059 (29271 chars) and Q066 all wrote full legal memos with
     Issue/Rule/Application/Conclusion structure and were falsely
     classified as abstentions by the regex matching a qualification phrase.
-    Below this length an answer is too short to carry substantive analysis;
+    Below 2000 chars an answer is too short to carry substantive analysis;
     above it, citation markers are strong evidence the model answered.
     """
     text = str(response_text or "").strip()
     if len(text) < MIN_ABSTENTION_CHARS:
-        return True  # matches evaluation: short/empty answers are abstentions
+        return False  # short/empty: ungrounded, not a refusal
     if len(text) >= SUBSTANTIVE_ANSWER_CHARS:
-        return False  # long, citation-rich answer is substantive
+        return False  # long, citation-rich: substantive answer
     return bool(ABSTENT_MARKERS_RE.search(strip_banned(text, banned)))
