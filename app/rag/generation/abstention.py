@@ -152,6 +152,11 @@ ABSTENT_MARKERS_RE = re.compile(
 #: abstention — laundering it into "not a hallucination" would be a regression.
 MIN_ABSTENTION_CHARS = 20
 
+#: Citation markers ([n]) are strong evidence the model answered substantively,
+#: even in a short answer.  Q091/Q076 write short refusals WITHOUT citations;
+#: a short answer that cites sources is answering, not abstaining.
+_CITATION_RE = re.compile(r"\[\d+\]")
+
 #: A long answer carrying citation markers is a substantive answer, not an
 #: abstention.  The regex below can match a *legal qualification* inside a
 #: longer answer — e.g. "the context does not specify a named authority" in
@@ -182,20 +187,27 @@ def is_abstention(response_text: str, banned: set[str] | None = None) -> bool:
     safety regression, so the length floor is load-bearing.  It is treated
     as ungrounded rather than abstention by the frozen scorer contract.
 
-    A long answer (>= :data:`SUBSTANTIVE_ANSWER_CHARS`) carrying citation
-    markers is a substantive answer, not an abstention.  The regex below
-    can match a *legal qualification* inside a longer answer — e.g. "the
-    context does not specify a named authority" in a 9500-char memo that
-    went on to answer the question with [n] citations.  Q049 (9546 chars),
-    Q059 (29271 chars) and Q066 all wrote full legal memos with
-    Issue/Rule/Application/Conclusion structure and were falsely
-    classified as abstentions by the regex matching a qualification phrase.
-    Below 2000 chars an answer is too short to carry substantive analysis;
-    above it, citation markers are strong evidence the model answered.
+    Citation markers ([n]) override the regex — a short answer that cites
+    sources is answering, not abstaining.  Q091/Q076 write short refusals
+    WITHOUT citations (len ~700–800 chars, under SUBSTANTIVE_ANSWER_CHARS
+    and with no [n] markers), so they are still correctly classified as
+    abstentions.  A short answer like "The penalty is ₹1 lakh. [1]" (with
+    citation) would NOT be an abstention.
+
+    A long answer (>= :data:`SUBSTANTIVE_ANSWER_CHARS`) is substantive,
+    not an abstention.  The regex below can match a *legal qualification*
+    inside a longer answer — e.g. "the context does not specify a named
+    authority" in a 9500-char memo that went on to answer the question
+    with [n] citations.  Q049 (9546 chars), Q059 (29271 chars) and Q066
+    all wrote full legal memos with Issue/Rule/Application/Conclusion
+    structure and were falsely classified as abstentions by the regex
+    matching a qualification phrase.
     """
     text = str(response_text or "").strip()
     if len(text) < MIN_ABSTENTION_CHARS:
         return False  # short/empty: ungrounded, not a refusal
+    if _CITATION_RE.search(text):
+        return False  # cited answer is substantive, not an abstention
     if len(text) >= SUBSTANTIVE_ANSWER_CHARS:
-        return False  # long, citation-rich: substantive answer
+        return False  # long answer is substantive
     return bool(ABSTENT_MARKERS_RE.search(strip_banned(text, banned)))
