@@ -20,6 +20,16 @@ from __future__ import annotations
 #: below this.  Read by ``route_after_verify`` (graph.py).
 GROUNDEDNESS_RETRY_BELOW: float = 0.7
 
+#: S3 (linear-path abstain): when the retry budget is exhausted AND overall
+#: groundedness falls below this floor, route to ``abstain`` instead of
+#: ``finalize`` (which would force a low-confidence answer).  Default is
+#: ``None`` — the branch is opt-in behind ``RAG_LINEAR_ABSTAIN`` and is NOT
+#: active on the served path.  The S1 calibration (2026-11-08) measured
+#: ``false_abstention_rate = 0.8148`` on the current pipeline, so enabling
+#: this unconditionally would regress the guardrail; it is implemented
+#: behind a flag so it can be validated on a held-out cohort first.
+LINEAR_ABSTENTION_FLOOR: float | None = 0.1
+
 #: Route to ``targeted_retry`` when the share of answer claims entailed by
 #: the evidence falls below this.  Read by ``route_after_verify``.
 CLAIM_GROUNDEDNESS_RETRY_BELOW: float = 0.5

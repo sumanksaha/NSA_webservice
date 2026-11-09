@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 
 
 def route_after_verify(state: RAGState) -> str:
-    """Conditional edge: retry (expand / targeted) or finalize.
+    """Conditional edge: retry (expand / targeted) / abstain / finalize.
 
     Multi-signal threshold (matches the ``citation_quality`` gate's design
     note in state.py):
@@ -69,11 +69,28 @@ def route_after_verify(state: RAGState) -> str:
     Phase 0 fix: the citation-quality signal was computed but never
     consulted — a grounded answer with hallucinated citations finalized
     silently.
+
+    S3 (linear-path abstain, opt-in behind ``RAG_LINEAR_ABSTAIN``): when the
+    retry budget is exhausted AND overall groundedness falls below
+    ``LINEAR_ABSTENTION_FLOOR``, route to ``abstain`` instead of ``finalize``
+    (which would force a low-confidence answer).  The S1 calibration
+    (2026-11-08) measured ``false_abstention_rate = 0.8148`` on the current
+    pipeline, so this branch is NOT active by default — it must be validated
+    on a held-out cohort first.
     """
     groundedness = float(state.get("groundedness", 0.0))
     retry_count = int(state.get("retry_count", 0))
     max_retries = int(state.get("max_retries", 2))
     if retry_count >= max_retries:
+        # S3: budget exhausted — check whether to abstain or force finalize.
+        from app.rag.agent.thresholds import LINEAR_ABSTENTION_FLOOR
+
+        if (
+            LINEAR_ABSTENTION_FLOOR is not None
+            and groundedness < LINEAR_ABSTENTION_FLOOR
+            and state.get("linear_abstain")
+        ):
+            return "abstain"
         return "finalize"
     # Phase 3 (item 18): the retrieval-round cap is enforced on the linear
     # path too — each retrieve/generate cycle consumed a round, and once
@@ -457,6 +474,21 @@ def _resolve_legal_auditor(explicit: bool | None) -> bool:
         return False
 
 
+def _resolve_linear_abstain(explicit: bool | None) -> bool:
+    """Resolve the ``linear_abstain`` topology flag (S3).
+
+    Same contract: explicit bool pins, ``None`` reads live
+    ``RAG_LINEAR_ABSTAIN`` (default off — the S1 calibration measured
+    ``false_abstention_rate = 0.8148``, so this is opt-in only).
+    """
+    if explicit is not None:
+        return bool(explicit)
+    try:
+        return bool(cfg.linear_abstain)
+    except Exception:
+        return False
+
+
 def build_graph(
     hitl: bool = False,
     checkpointer: Any | None = None,
@@ -464,6 +496,7 @@ def build_graph(
     fso_advisor: bool | None = None,
     structured_reasoner: bool | None = None,
     legal_auditor: bool | None = None,
+    linear_abstain: bool | None = None,
 ) -> Any:
     """Build and compile the agent ``StateGraph``.
 
@@ -489,6 +522,13 @@ def build_graph(
             revise loop on the reasoning path.  ``None`` reads live
             ``ENABLE_LEGAL_AUDITOR`` (default off).  Without the reasoner
             flag this flag has no effect.
+        linear_abstain: S3 — route critically low-groundedness linear-path
+            answers to ``abstain`` instead of ``finalize`` when the retry
+            budget is exhausted.  ``None`` reads live
+            ``RAG_LINEAR_ABSTAIN`` (default off).  The S1 calibration
+            (2026-11-08) measured ``false_abstention_rate = 0.8148`` on the
+            current pipeline, so this is NOT active by default; validate on
+            a held-out cohort before enabling.
 
     Returns the compiled graph; callers ``.invoke(state)`` it.
 
@@ -679,6 +719,7 @@ class TopologyFlags:
     fso_advisor: bool = False
     structured_reasoner: bool = False
     legal_auditor: bool = False
+    linear_abstain: bool = False
 
 
 _graph_cache: dict[TopologyFlags, Any] = {}
@@ -703,6 +744,7 @@ def _get_graph(
     resolved_fso = _resolve_fso_advisor(fso_advisor)
     resolved_reasoning = _resolve_structured_reasoner(structured_reasoner)
     resolved_auditor = _resolve_legal_auditor(legal_auditor)
+    resolved_linear = _resolve_linear_abstain(linear_abstain)
     if checkpointer is not None:
         return build_graph(
             hitl=hitl,
@@ -711,6 +753,7 @@ def _get_graph(
             fso_advisor=resolved_fso,
             structured_reasoner=resolved_reasoning,
             legal_auditor=resolved_auditor,
+            linear_abstain=resolved_linear,
         )
     key = TopologyFlags(
         hitl=bool(hitl),
@@ -718,6 +761,7 @@ def _get_graph(
         fso_advisor=resolved_fso,
         structured_reasoner=resolved_reasoning,
         legal_auditor=resolved_auditor,
+        linear_abstain=resolved_linear,
     )
     with _graph_cache_lock:
         graph = _graph_cache.get(key)
@@ -728,6 +772,7 @@ def _get_graph(
                 fso_advisor=resolved_fso,
                 structured_reasoner=resolved_reasoning,
                 legal_auditor=resolved_auditor,
+                linear_abstain=resolved_linear,
             )
             _graph_cache[key] = graph
         return graph

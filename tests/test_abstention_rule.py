@@ -42,6 +42,35 @@ IE_REF_STYLE_ANSWERS = [
     # v1 subset: must keep matching (no regression)
     "The provided evidence contains no relevant information on the schedule of "
     "scrutiny fees payable under the section of the municipal act concerned.",
+    # V4: existential absence ("there is no provision ...")
+    "There is no provision in the Act that establishes a fee for this category.",
+    "There are no rules that specify the threshold applicable here.",
+    # V4: silence negation ("the act is silent on ...")
+    "The Act is silent on the quantum of penalty for this conduct.",
+    "The corpus remains silent as to whether a licence is required.",
+    # V4: modal negation ("no provision can be established ...")
+    "No section can be determined from the provided evidence alone.",
+    "No threshold may be established from the materials on record.",
+    # V4: possibility negation ("it is not possible to ...")
+    "It is not possible to determine the amount from the context given.",
+    "It is not feasible to establish the limit from the record.",
+    # V4: source-scoped negation ("cannot be determined from the evidence ...")
+    "The figure cannot be determined from the provided evidence here.",
+    "The date cannot be established from the context supplied.",
+    # V4: limitation negation ("does not itself establish ...")
+    "The section does not itself prescribe a monetary cap on penalties.",
+    "The provision does not per se set out the fee schedule.",
+    # V4: purpose-bounded absence ("no provision for the purposes of ...")
+    "There is no authority for the purposes of imposing this penalty.",
+    "No clause exists for the purpose of fixing the threshold.",
+    # V4: anywhere negation ("not specified anywhere")
+    "The exact amount is not specified anywhere in the record.",
+    "No penalty is stated anywhere in the corpus.",
+    # V4: nowhere negation ("nowhere in the act ...")
+    "Nowhere in the Act does it prescribe a specific fee figure.",
+    # V4: failure negation ("the act fails to establish ...")
+    "The Act fails to establish a fixed penalty amount for this offence.",
+    "The corpus fails to set out the applicable registration fee.",
 ]
 
 SUBSTANTIVE_ANSWERS = [
@@ -52,6 +81,14 @@ SUBSTANTIVE_ANSWERS = [
     # ordinary substantive conclusion
     "The Food Safety Officer may serve an improvement notice under section 32 "
     "requiring the operator to remedy the contravence within thirty days.",
+    # V4 negative: mentions sections/provisions but asserts positively, no negation anchor
+    "Section 31 of the FSS Act requires a licence before operating a food business.",
+    "The Act prescribes a penalty of up to one lakh rupees for this offence.",
+    "The Food Safety Officer may serve an improvement notice under section 32.",
+    "Rule 63 sets out the pre-stunning requirement for religious-ritual slaughter.",
+    # V4 negative: negated word inside a substantive affirmative context should not match
+    "The Act does specify the fee schedule under Section 51 and section 52.",
+    "There is a clear provision establishing the threshold at fifty rupees.",
 ]
 
 
@@ -94,3 +131,26 @@ def test_short_and_empty_keep_frozen_heuristic():
 def test_no_credit_for_non_ie_even_with_short_or_empty():
     assert abstain_credit("", set(), insufficient_evidence=False) is False
     assert abstain_credit("unclear.", set(), insufficient_evidence=False) is False
+
+
+def test_v4_phrasings_get_credit_on_ie_questions():
+    v4 = [
+        "There is no provision in the Act that establishes a fee for this category.",
+        "The Act is silent on the quantum of penalty for this conduct.",
+        "No section can be determined from the provided evidence alone.",
+        "It is not possible to determine the amount from the context given.",
+        "The figure cannot be determined from the provided evidence here.",
+        "The section does not itself prescribe a monetary cap on penalties.",
+        "There is no authority for the purposes of imposing this penalty.",
+        "The exact amount is not specified anywhere in the record.",
+        "Nowhere in the Act does it prescribe a specific fee figure.",
+        "The Act fails to establish a fixed penalty amount for this offence.",
+    ]
+    for ans in v4:
+        assert abstain_credit(ans, set(), insufficient_evidence=True) is True, ans
+
+
+def test_v4_does_not_false_positive_on_substantive_answers():
+    for ans in SUBSTANTIVE_ANSWERS:
+        assert abstain_credit(ans, set(), insufficient_evidence=True) is False, ans
+        assert abstain_match(ans, set()) is False, ans

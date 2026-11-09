@@ -129,6 +129,28 @@ class TestDenseRetrieverSearch:
         assert received["limit"] == 5
         assert received["query_filter"]["must"][0] == {"key": "section_number", "match": {"value": "55"}}
 
+    def test_search_drops_unindexed_flat_filter_keys(self):
+        received = {}
+        client = SimpleNamespace(
+            get_collection=lambda name: SimpleNamespace(payload_schema={"section_number": object()}),
+            query_points=lambda **kw: received.update(kw) or SimpleNamespace(points=[_make_mock_point("c1")]),
+        )
+        retriever = DenseRetriever(collection_name="test_dense_prune", client=client, encoder=_make_mock_encoder())
+        result = retriever.search("Section 55", filters={"section_number": "55", "section_numbers": ["55"]})
+        assert result.total == 1
+        assert received["query_filter"] == {"must": [{"key": "section_number", "match": {"value": "55"}}]}
+
+    def test_search_passes_preshaped_filters_through(self):
+        received = {}
+        shaped = {"must": [{"key": "section_number", "match": {"value": "55"}}], "should": []}
+        client = SimpleNamespace(
+            get_collection=lambda name: SimpleNamespace(payload_schema={"section_number": object()}),
+            query_points=lambda **kw: received.update(kw) or SimpleNamespace(points=[_make_mock_point("c1")]),
+        )
+        retriever = DenseRetriever(collection_name="test_dense_shaped", client=client, encoder=_make_mock_encoder())
+        retriever.search("Section 55", filters=shaped)
+        assert received["query_filter"] == shaped
+
 
 class TestDenseRetrieverErrors:
     def test_search_handles_qdrant_exception(self):

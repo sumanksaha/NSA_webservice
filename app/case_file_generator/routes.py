@@ -1149,6 +1149,14 @@ def download_unsafe_file_docx(case_id: int):
     case_data.setdefault("fso_name", case_data.get("food_safety_officer_name", ""))
     case_data.setdefault("sample_name", case_data.get("product_name", ""))
 
+    # Per-packet sample quantity is derived (not a UI field): sample_quantity /
+    # packet_count, formatted for the
+    # "(per_packet X packet_count = sample_quantity)" equation in the letter.
+    case_data["per_packet_sample_quantity"] = _compute_per_packet_sample_quantity(
+        case_data.get("sample_quantity"),
+        case_data.get("packet_count"),
+    )
+
     # Page-1 14-column offender table rows (fill rules in the helper).
     case_data["table_rows"] = _unsafe_offender_table_rows(case_data)
 

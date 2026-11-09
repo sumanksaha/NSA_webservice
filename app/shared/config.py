@@ -304,6 +304,15 @@ _TABLE: tuple[Setting, ...] = (
         help="Enable answer contract repair: expanded false-abstention detection, stronger mandatory directives.",
     ),
     Setting(
+        "RAG_ABSTAIN_PRE_GATE",
+        "abstain_pre_gate",
+        bool,
+        False,
+        help="Deterministic pre-generation abstention gate: if the question names a specific act+section "
+        "but none of the retrieved chunks match, skip LLM generation and abstain (should_answer=False). "
+        "Default OFF — validate on a small population before enabling.",
+    ),
+    Setting(
         "ENABLE_LEGAL_AUDITOR",
         "legal_auditor",
         bool,

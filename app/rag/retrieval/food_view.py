@@ -230,12 +230,25 @@ def _fetch_siblings(
     )
     if clause_pool_size >= 3:
         return
+    # ``provision_metadata`` derives ``section`` as
+    # ``clause_number or section_number``, so the filter must use the field the
+    # heading chunk actually carries — and only a field the collection has an
+    # index for. Qdrant rejects a filter on an unindexed key with HTTP 400 and
+    # the pool comes back empty, which is how 13 S1 qids lost all retrieval.
+    key = "clause_number" if getattr(heading, "clause_number", None) else "section_number"
+    store = QdrantStore(collection_name=ctx.collection_name)
+    indexed = store.payload_index_fields()
+    if indexed and key not in indexed:
+        fallback = "section_number" if key == "clause_number" else "clause_number"
+        if fallback not in indexed:
+            logger.debug("clause-sibling fetch skipped: neither clause_number nor section_number indexed on %s", ctx.collection_name)
+            return
+        key = fallback
     view.sibling_budget[0] -= 1
     try:
-        store = QdrantStore(collection_name=ctx.collection_name)
         points = store.scroll_all(
             batch_size=500,
-            filters={"document_id": doc_id, "clause_number": clause_no},
+            filters={"document_id": doc_id, key: clause_no},
         )
         seen_ids = {c.chunk_id for c in ranked}
         fresh = []

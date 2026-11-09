@@ -117,6 +117,76 @@ class TestMultiCollectionFusion:
         assert len(res.chunks) == 10
         assert all(c.domain == "fssai" for c in res.chunks)
 
+    def test_partial_error_keeps_usable_chunks(self):
+        # Production bug fixed 2026-11-05: the dense arm raises on boxes
+        # without sentence-transformers while the sparse arm succeeds — the
+        # retriever returns chunks AND an error flag.  An error flag only
+        # disqualifies a collection when it produced no chunks at all;
+        # previously the whole collection (and then the route) was dropped.
+        retriever = mock.MagicMock()
+        retriever.retrieve = mock.MagicMock(
+            return_value=SimpleNamespace(
+                query="",
+                chunks=[_make_chunk("fssai_1", 0.95, "fssai")],
+                total=1,
+                latency_ms=0,
+                source="hybrid",
+                error="sentence-transformers not installed",
+            )
+        )
+        factory = mock.MagicMock(return_value=retriever)
+        with (
+            mock.patch("app.rag.domain_router.cfg.ensemble_rerank", False),
+            mock.patch("app.rag.domain_router.build_hybrid_retriever", factory),
+        ):
+            res = run_multi_collection_retrieval(
+                "food business operator discarding solid waste",
+                collection_names=["fssai_legal_768"],
+                top_k=4,
+            )
+        assert res.error is None
+        assert [c.chunk_id for c in res.chunks] == ["fssai_1"]
+
+    def test_empty_chunked_error_still_disqualified(self):
+        retriever = mock.MagicMock()
+        retriever.retrieve = mock.MagicMock(
+            return_value=SimpleNamespace(
+                query="", chunks=[], total=0, latency_ms=0, source="hybrid", error="boom"
+            )
+        )
+        factory = mock.MagicMock(return_value=retriever)
+        with (
+            mock.patch("app.rag.domain_router.cfg.ensemble_rerank", False),
+            mock.patch("app.rag.domain_router.build_hybrid_retriever", factory),
+        ):
+            res = run_multi_collection_retrieval(
+                "food business operator discarding solid waste",
+                collection_names=["env_legal_768"],
+                top_k=4,
+            )
+        assert res.error == "no collection returned results"
+        assert res.chunks == []
+
+    def test_str_query_type_does_not_raise(self):
+        # Production bug fixed 2026-11-05: the pipeline passes ``legal_qt``
+        # (a plain string from the legal query-type classifier) where the
+        # router assumed a ``QueryType`` enum and called ``.value`` — every
+        # multi-domain query crashed with AttributeError on the str.
+        chunk = _make_chunk("fssai_1", 0.95, "fssai")
+        factory = mock.MagicMock(side_effect=lambda name: self._mock_retriever([chunk]))
+        with (
+            mock.patch("app.rag.domain_router.cfg.ensemble_rerank", False),
+            mock.patch("app.rag.domain_router.build_hybrid_retriever", factory),
+        ):
+            res = run_multi_collection_retrieval(
+                "food business operator penalty",
+                collection_names=["fssai_legal_768"],
+                top_k=4,
+                query_type="penalty",
+            )
+        assert res.query_type == "penalty"
+        assert [c.chunk_id for c in res.chunks] == ["fssai_1"]
+
     def test_rerank_block_keeps_pool_on_failure(self):
         chunks = {
             "fssai_legal_768": [_make_chunk("fssai_1", 0.95, "fssai")],

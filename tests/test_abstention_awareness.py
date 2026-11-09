@@ -78,6 +78,43 @@ class TestLexicon:
     @pytest.mark.parametrize(
         "text",
         [
+            # V4: existential absence ("there is no provision ...")
+            "There is no provision in the Act that establishes a fee for this.",
+            "There are no rules that specify the threshold applicable here.",
+            # V4: silence negation ("the act is silent on ...")
+            "The Act is silent on the quantum of penalty for this conduct.",
+            "The corpus remains silent as to whether a licence is required.",
+            # V4: modal negation ("no provision can be established ...")
+            "No section can be determined from the provided evidence alone.",
+            "No threshold may be established from the materials on record.",
+            # V4: possibility negation ("it is not possible to ...")
+            "It is not possible to determine the amount from the context given.",
+            "It is not feasible to establish the limit from the record.",
+            # V4: source-scoped negation ("cannot be determined from the evidence ...")
+            "The figure cannot be determined from the provided evidence here.",
+            "The date cannot be established from the context supplied.",
+            # V4: limitation negation ("does not itself establish ...")
+            "The section does not itself prescribe a monetary cap on penalties.",
+            "The provision does not per se set out the fee schedule.",
+            # V4: purpose-bounded absence ("no provision for the purposes of ...")
+            "There is no authority for the purposes of imposing this penalty.",
+            "No clause exists for the purpose of fixing the threshold.",
+            # V4: anywhere negation ("not specified anywhere")
+            "The exact amount is not specified anywhere in the record.",
+            "No penalty is stated anywhere in the corpus.",
+            # V4: nowhere negation ("nowhere in the act ...")
+            "Nowhere in the Act does it prescribe a specific fee figure.",
+            # V4: failure negation ("the act fails to establish ...")
+            "The Act fails to establish a fixed penalty amount for this offence.",
+            "The corpus fails to set out the applicable registration fee.",
+        ],
+    )
+    def test_recognises_v4_refusals(self, text):
+        assert is_abstention(text), text
+
+    @pytest.mark.parametrize(
+        "text",
+        [
             "Section 31 imposes a penalty of ten thousand rupees.",
             "The FSO must issue a notice to the business operator.",
         ],

@@ -151,9 +151,12 @@ def _synthetic_parent_context(group: list[Any], fq: FoodQueryUnderstanding) -> s
     clause = meta.get("section", "unknown")
     regulation = meta.get("regulation", "unknown")
     commodity = meta.get("commodity", "unknown")
-    if clause == "unknown" and regulation == "unknown":
+    # A synthetic line without a verified clause is contentless evidence:
+    # ``Reconstructed context: Clause unknown of …`` gets numbered into the
+    # generator's context as if it were legal text and the model refuses.
+    if clause == "unknown":
         return None
-    parts = [f"Clause {clause}" if clause != "unknown" else "Clause unknown"]
+    parts = [f"Clause {clause}"]
     parts.append(f"of {regulation}" if regulation != "unknown" else "(regulation unknown)")
     if commodity != "unknown":
         parts.append(f"— {commodity}")

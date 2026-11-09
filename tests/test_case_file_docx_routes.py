@@ -503,6 +503,35 @@ class TestUnsafeFileDocxDownload:
         last = sections[-1]
         assert last.page_height > last.page_width, "pages after page 1 must be portrait"
 
+    def test_docx_applies_justify_alignment(self, client, case_file):
+        """[.justify] body paragraphs must render as justified Word alignment."""
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
+            xml = zf.read("word/document.xml").decode("utf-8", errors="replace")
+        # python-docx serializes justified alignment as w:val="both".
+        assert xml.count('w:val="both"') >= 1, "body paragraphs must be justified"
+
+    def test_docx_applies_centered_header(self, client, case_file):
+        """[.header] date line must render center-aligned."""
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
+            xml = zf.read("word/document.xml").decode("utf-8", errors="replace")
+        assert 'w:val="center"' in xml, "header date must be center-aligned"
+
+    def test_docx_applies_bold_emphasis(self, client, case_file):
+        """Bold inline markup (**...**) and [.bold] blocks must render as bold runs."""
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
+            xml = zf.read("word/document.xml").decode("utf-8", errors="replace")
+        assert xml.count("<w:b/>") >= 1, "bold runs must be present in the DOCX"
+
+    def test_docx_applies_right_aligned_signature(self, client, case_file):
+        """[.signature] block must render right-aligned."""
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
+            xml = zf.read("word/document.xml").decode("utf-8", errors="replace")
+        assert 'w:val="right"' in xml, "signature must be right-aligned"
+
 
 class TestUnsafeCaseDocumentGating:
     """Unsafe cases serve only the prohibition order.

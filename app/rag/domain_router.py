@@ -232,22 +232,31 @@ def run_multi_collection_retrieval(
             rrf_k=rrf_k,
         )
         if res.error:
+            # A partial result (e.g. the dense arm errored while the sparse
+            # arm succeeded) still carries usable chunks — an error flag on
+            # the SearchResult only disqualifies a collection when it
+            # produced nothing at all (mirrors the degrade path in
+            # ``tasks.run_retrieval_pipeline``: error → fallback, not silence).
             logger.warning(
-                "multi-domain route: collection %s (domain %s) returned error %s",
+                "multi-domain route: collection %s (domain %s) returned error %s (%d chunks kept)",
                 collection,
                 domain,
                 res.error,
+                len(res.chunks),
             )
-            continue
+            if not res.chunks:
+                continue
         for chunk in res.chunks:
             chunk.domain = domain
             chunk.collection = collection
         results.append((collection, res))
 
+    _qt = getattr(query_type, "value", query_type) if query_type else ""
+
     if not results:
         return SearchResult(
             query=query,
-            query_type=query_type.value if query_type else "",
+            query_type=_qt,
             chunks=[],
             total=0,
             error="no collection returned results",
@@ -290,7 +299,7 @@ def run_multi_collection_retrieval(
 
     return SearchResult(
         query=query,
-        query_type=query_type.value if query_type else "",
+        query_type=_qt,
         chunks=final_chunks,
         total=len(final_chunks),
         source="multi-domain",

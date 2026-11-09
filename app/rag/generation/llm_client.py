@@ -60,6 +60,40 @@ class GroundedLLMResponse:
 EMPTY_CONTENT_ERROR = "llm_empty_content"
 
 
+def _httpx_verify_arg() -> Any:
+    """TLS verification argument for the answer-model HTTP client.
+
+    Resolution order:
+
+    1. ``RAG_LLM_VERIFY_TLS=false`` (the declared opt-out:
+       :data:`app.shared.config.cfg.llm_verify_tls`, default on) →
+       ``False``.  Intended only for self-signed/private-CA deployments,
+       per the setting's help text.
+    2. ``truststore`` importable → a system-trust-store ``SSLContext``.
+       On machines behind a corporate TLS interceptor the OS trust store
+       already carries the interceptor's root CA, so verification stays
+       *on* and the chain validates — certifi alone would fail with
+       ``CERTIFICATE_VERIFY_FAILED: self-signed certificate in chain``.
+    3. Otherwise ``True`` — the httpx/certifi default, previously the only
+       behaviour.
+    """
+    import ssl
+
+    from app.shared.config import cfg
+
+    try:
+        if not cfg.llm_verify_tls:
+            return False
+    except Exception:
+        pass
+    try:
+        import truststore
+
+        return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    except ImportError:
+        return True
+
+
 def _usage_dict(usage: dict[str, Any] | None) -> dict[str, Any]:
     """Provider usage → the dict carried on the response.
 
@@ -318,15 +352,19 @@ class GroundedLLMClient:
 
         last_exc: Exception | None = None
         last_status: int | None = None
+        verify_arg = _httpx_verify_arg()
         for attempt in range(self.MAX_ATTEMPTS):
             try:
                 import httpx
 
-                # TLS certificate verification stays ON (httpx default, enforced
-                # via certifi). Disabling it would let a MITM read the API key
-                # and every prompt; it was the only verify=False in app/ and
-                # tripped Bandit B501 (High) in the Security Scan gate.
-                with httpx.Client(timeout=cfg.llm_timeout_s) as client:
+                # TLS certificate verification stays ON.  The ``verify``
+                # argument resolves through :func:`_httpx_verify_arg`: on
+                # machines whose chain is signed by a machine-level root CA
+                # (corporate proxy) the system trust store validates it while
+                # verification stays on; ``RAG_LLM_VERIFY_TLS=false`` is the
+                # declared opt-out (self-signed/private CA).  Disabling it in
+                # code would let a MITM read the API key and every prompt.
+                with httpx.Client(timeout=cfg.llm_timeout_s, verify=verify_arg) as client:
                     resp = client.post(url, headers=headers, json=body)
                     if resp.status_code in self.RETRYABLE_STATUS:
                         # Rate limit / transient server error.  Honour the

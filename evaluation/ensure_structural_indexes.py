@@ -29,6 +29,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -46,10 +47,17 @@ OUT_FILE = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5" / "structural_inde
 #: Fields the structural arm filters on. ``section_number`` was already
 #: indexed everywhere (Phase 0); the rest are the Act-scoping pair plus the
 #: fields ``DEFAULT_PAYLOAD_INDEX_FIELDS`` already declares.
+#:
+#: ``clause_number`` was added after S1: the food-view clause-sibling fetch
+#: (``app/rag/retrieval/food_view.py::_fetch_siblings``) filters on it, and on
+#: the five non-FSSAI legal collections that filter returned HTTP 400
+#: ("Index required but not found for clause_number"), which emptied the pool
+#: for 13 benchmark qids. Only ``fssai_legal_768`` declared the index.
 REQUIRED_FIELDS: tuple[str, ...] = (
     "section_number",
     "act_name",
     "document_title",
+    "clause_number",
 )
 
 
@@ -100,28 +108,39 @@ def audit_and_create(collections: list[str], dry_run: bool) -> dict:
 
 
 def _probe(coll: str) -> dict:
+    """Check every required filter actually works, not just that a key exists.
+
+    A declared index and a *working* filter are different properties: the S1
+    failure was a filter Qdrant rejected outright. Probing each required field
+    turns that class of defect into a hard failure of this script.
+    """
     from qdrant_client import QdrantClient
 
     url = os.environ.get("RAG_QDRANT_URL", "")
     if not url:
         return {"ok": False, "error": "RAG_QDRANT_URL not configured"}
     client = QdrantClient(url=url, api_key=os.environ.get("RAG_QDRANT_API_KEY") or None)
-    for section in ("1", "2", "8", "16"):
-        try:
-            points, _ = client.scroll(
-                collection_name=coll,
-                scroll_filter={"must": [{"key": "section_number", "match": {"value": section}}]},
-                limit=1,
-                with_payload=False,
-                with_vectors=False,
-            )
-            client.close()
-            return {"ok": True, "probe_section": section, "hit": bool(points)}
-        except Exception as exc:
-            last = str(exc)[:300]
-            continue
-    client.close()
-    return {"ok": False, "error": last}
+    results: dict[str, Any] = {}
+    try:
+        for field in REQUIRED_FIELDS:
+            # Any string value exercises the index; existence, not a hit, is
+            # what is under test.
+            candidate = "1" if field.endswith("_number") else "probe"
+            try:
+                client.scroll(
+                    collection_name=coll,
+                    scroll_filter={"must": [{"key": field, "match": {"value": candidate}}]},
+                    limit=1,
+                    with_payload=False,
+                    with_vectors=False,
+                )
+                results[field] = "ok"
+            except Exception as exc:
+                results[field] = str(exc)[:200]
+        failed = {f: e for f, e in results.items() if e != "ok"}
+        return {"ok": not failed, "fields": results, "failed_fields": sorted(failed)}
+    finally:
+        client.close()
 
 
 def main() -> int:
