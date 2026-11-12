@@ -29,6 +29,7 @@ ADOC_TEMPLATES = {
     "permission": "permission_letter.adoc",
     "unsafe_file": "Unsafe_file.adoc",
     "prohibition_order": "Prohibition_order.adoc",
+    "advocate_engagement": "advocate_engagement.adoc",
 }
 
 # Letter portrait in twips — matches Word's and pandoc's effective default
@@ -60,7 +61,8 @@ _AFTER_PG_SZ = (
 def render_docx(doc_type: str, context: dict) -> bytes:
     """Render a case-file .adoc template to DOCX bytes.
 
-    ``doc_type`` is ``petition``, ``permission`` or ``unsafe_file``.
+    ``doc_type`` is ``petition``, ``permission``, ``unsafe_file``,
+    ``prohibition_order``, or ``advocate_engagement``.
     """
     template_name = ADOC_TEMPLATES[doc_type]
     docx_bytes = render_adoc_to_docx(TEMPLATE_DIR, template_name, context)

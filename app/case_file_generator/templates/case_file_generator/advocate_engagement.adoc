@@ -94,20 +94,31 @@ This instant file may kindly be forwarded to Ld. C.M.L.O. for engagement of a Ld
 [.text-left]
 == Statement of Facts
 
-. **Sample** :
-. **Sample Code** :
-. **Collection place** :
-. **Manufacturer** :
-. **Analyst report** :
-. **Prohibition Order** :
-. **Sanction of Prosecution** :
-. **Sections involved** :
+{% if case_data.is_unsafe %}
+. **Sample** : {{ case_data.product_name or '—' }}
+. **Sample Code** : {{ case_data.sample_code or '—' }}
+. **Collection place** : {{ case_data.retailer_address or '—' }} (Collected from: {{ case_data.retailer_fbo_name or '—' }}, FSSAI: {{ case_data.retailer_fssai or '—' }})
+. **Manufacturer** : {{ case_data.manufacturer_name or '—' }} (FBO: {{ case_data.manufacturer_fbo_name or '—' }}, FSSAI: {{ case_data.manufacturer_fssai or '—' }})
+. **Analyst report** : Report No. {{ case_data.analyst_report_no or '—' }}{% if case_data.analyst_report_date %} dated {{ case_data.analyst_report_date }}{% else %} dated —{% endif %}
+. **Prohibition Order** : {{ prohibition_order or '—' }}
+   *Prohibition order status - shows 'YES' for unsafe cases, indicates case is subject to Section 36(3)(b) F.S.S. Act 2006
+. **Sanction of Prosecution** : {{ sanction_date or '—' }}
+   *Date of sanction granted for unsafe sample - indicates case has received official prosecution sanction under the F.S.S. Act
+{% else %}
+. **Sample** : Case not marked unsafe
+. **Sample Code** : N/A
+. **Collection place** : N/A - Case not unsafe
+. **Manufacturer** : N/A - Case not unsafe
+. **Analyst report** : N/A - Case not unsafe
+. **Prohibition Order** : N/A - Case not unsafe under Sec 36
+. **Sanction of Prosecution** : N/A - Case not unsafe under Sec 36
+{% endif %}
 
 [.text-justify]
 All case records including analyst reports, intimation letters, manufacturers's reply, prohibition order, and sanction of prosecution have been submitted.
 
 [.signature]
-{{ food_safety_officer_name }}
+{{ case_data.food_safety_officer_name or '—' }}
 Food Safety Officer +
 Kolkata Municipal Corporation
 
