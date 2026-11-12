@@ -689,6 +689,13 @@
                         >
                             <i class="fa-solid fa-file-word"></i> Prayer
                         </a>
+                        <a
+                            href="{{ url_for('case_file_generator.download_advocate_engagement_docx', case_id=c.id) }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Download Advocate Engagement Letter as Word — only for unsafe cases"
+                        >
+                            <i class="fa-solid fa-file-word"></i> Advocate Engagement
+                        </a>
                         {% if not c.retailer_cum_manufacturer %}
                         <a
                             href="{{ url_for('case_file_generator.download_prohibition_order_docx', case_id=c.id) }}"

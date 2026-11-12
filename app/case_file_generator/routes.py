@@ -1402,3 +1402,42 @@ def copy_letter(case_id: int, doc_type: str):
     html = post_process_pdf_html(html)
 
     return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+
+@case_file_generator_bp.route("/case/<int:case_id>/docx/advocate-engagement")
+@login_required
+def download_advocate_engagement_docx(case_id: int):
+    """Download the Advocate Engagement letter as a Word (.docx) document.
+
+    Only available for cases marked as unsafe. Not available for substandard or misbranded cases.
+    """
+    case = CaseFile.query.get_or_404(case_id)
+    if not _case_visible_to_current_user(case_id, "case_file"):
+        return jsonify({"error": "Case not found"}), 404
+
+    # Only generate for unsafe cases - not for substandard or misbranded
+    if not case.is_unsafe:
+        return jsonify({"error": "Advocate engagement letter only available for unsafe cases"}), 403
+
+    access = check_generation_allowed(
+        case_type="case_file",
+        doc_type="advocate_engagement",
+        authorization_date=case.authorization_date,
+        retailer_receive=case.retailer_report_receive_date,
+        manufacturer_receive=case.manufacturer_report_receive_date,
+    )
+    if not access.allowed:
+        return jsonify(access.payload()), access.status
+
+    form_data = case_file_to_dict(case)
+    case_data = process_form_data(form_data)
+    docx_bytes = render_docx("advocate_engagement", {"case_data": case_data})
+
+    buf = io.BytesIO(docx_bytes)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"Advocate_Engagement_{case.case_number or case_id}.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
