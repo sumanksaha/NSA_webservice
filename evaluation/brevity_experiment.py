@@ -240,6 +240,34 @@ STEP2_TIGHT_GUARDRAIL_SYSTEM = (
     "fabricate facts."
 )
 
+# Strategy J: step-2 multi-pass refinement — pass 1 short answer, pass 2 adds
+# any supported conclusions missing from pass 1. Preserves brevity while
+# recovering correctness/coverage.
+STEP2_STEP2_SYSTEM = (
+    "You are a legal assistant specialised in the Food Safety and Standards "
+    "Act, 2006 (FSS Act). Answer using ONLY the <legal_context> sources below. "
+    "Give a short, direct answer in one sentence per conclusion, with at least "
+    "one [n] citation per material claim. Do not add background, restate the "
+    "question, summarise, or include Step 1/Step 2 labels. "
+    "RULE: If the context provides enough evidence to answer, give the answer — "
+    "do not abstain or say 'not in context' unless the context truly lacks the "
+    "answer. State supported conclusions directly with citations rather than "
+    "hedging. If the answer is not in the context, say so briefly. Never "
+    "fabricate facts."
+)
+
+STEP2_REFINE_SYSTEM = (
+    "You are a legal assistant specialised in the Food Safety and Standards "
+    "Act, 2006 (FSS Act). You are given a question, the <legal_context> "
+    "sources, and a draft answer. Your task: decide whether the draft answer "
+    "omits any legal conclusion that IS supported by the context. For each "
+    "supported conclusion missing from the draft, add exactly one short cited "
+    "sentence stating that conclusion. Do not remove or rephrase existing "
+    "content. Do not add conclusions not supported by the context. Do not add "
+    "background, restatements, or summaries. Keep every added sentence to one "
+    "sentence with at least one [n] citation. Never fabricate facts."
+)
+
 def render_user_prompt(query: str, context_chunks: list[RetrievedChunk]) -> str:
     """Build the user message: context + question. Identical for all variants."""
     ctx = "\n\n".join(
@@ -305,6 +333,70 @@ def run_variant(
         "completion_tokens": resp.token_usage.get("completion", 0),
         "llm_model": resp.llm_model,
         "error": resp.debug.get("error"),
+    }
+
+
+def run_variant_step2(
+    service: GroundedGenerationService,
+    query: str,
+    chunks: list[RetrievedChunk],
+    expected: str,
+    insufficient_evidence: bool,
+    qid: str,
+) -> dict[str, Any]:
+    """Two-pass refinement: pass 1 short answer, pass 2 adds missing supported
+    conclusions. Preserves brevity while recovering correctness/coverage."""
+    # ---- Pass 1: short answer ----
+    user_prompt = render_user_prompt(query, chunks)
+    resp1 = service.generate_with_prompts(
+        query=query,
+        chunks=chunks,
+        query_type="",
+        prompts=(STEP2_TIGHT_GUARDRAIL_SYSTEM, user_prompt),
+    )
+    draft = resp1.answer or ""
+
+    # ---- Pass 2: refine ----
+    ctx = "\n\n".join(
+        f"[{i+1}] {c.text}" for i, c in enumerate(chunks)
+    )
+    refine_user = (
+        "Relevant legal context:\n"
+        "<legal_context>\n"
+        f"{ctx}\n"
+        "</legal_context>\n\n"
+        f"Question: {query}\n"
+        "Draft answer:\n"
+        f"{draft}\n"
+    )
+    resp2 = service.generate_with_prompts(
+        query=query,
+        chunks=chunks,
+        query_type="",
+        prompts=(STEP2_REFINE_SYSTEM, refine_user),
+    )
+    answer = resp2.answer or draft
+
+    abstained = is_abstention(answer)
+    scored = score_answer(answer, expected, insufficient_evidence)
+    return {
+        "qid": qid,
+        "variant": "step2_step2",
+        "answer": answer,
+        "answer_length": len(answer),
+        "answer_jaccard": scored["answer_jaccard"],
+        "answer_correctness": scored["answer_correctness"],
+        "answer_coverage": scored["answer_coverage"],
+        "binary_correct": scored["binary_correct"],
+        "abstained": abstained,
+        "has_conclusion": resp2.debug.get("has_conclusion", False),
+        "finish_reason": resp2.debug.get("finish_reason"),
+        "completion_tokens": (
+            resp1.token_usage.get("completion", 0)
+            + resp2.token_usage.get("completion", 0)
+        ),
+        "llm_model": resp2.llm_model,
+        "error": resp2.debug.get("error"),
     }
 
 
@@ -415,23 +507,27 @@ def main() -> int:
     results: list[dict[str, Any]] = []
     out_file = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5" / "brevity_ab_test.json"
     out_file.parent.mkdir(parents=True, exist_ok=True)
-    completed_qids = set()
+    completed_pairs = set()
     if out_file.exists():
         try:
             prior = json.loads(out_file.read_text(encoding="utf-8"))
             results = prior if isinstance(prior, list) else []
-            completed_qids = {r["qid"] for r in results}
-            print(f"Resuming: {len(completed_qids)} questions already completed", flush=True)
+            completed_pairs = {(r["qid"], r["variant"]) for r in results}
+            print(f"Resuming: {len(results)} result rows already completed", flush=True)
         except Exception:
             print("  [resume: could not read prior results, starting fresh]", file=sys.stderr, flush=True)
+    variant_names = {vname for vname, _ in variants} | {"step2_step2"}
     for q in selected:
-        if q.question_id in completed_qids:
+        remaining = [vn for vn in variant_names if (q.question_id, vn) not in completed_pairs]
+        if not remaining:
             print(f"\n=== {q.question_id} (SKIP - done) ===", flush=True)
             continue
         print(f"\n=== {q.question_id} ===", flush=True)
         chunks = retrieve_chunks(q.question)
         print(f"  chunks={len(chunks)}", flush=True)
         for vname, vsys in variants:
+            if (q.question_id, vname) in completed_pairs:
+                continue
             try:
                 r = run_variant(
                     service, q.question, chunks,
@@ -449,13 +545,35 @@ def main() -> int:
                 out_file.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
             except Exception as exc:
                 print(f"  {vname:16s} ERROR: {exc}", file=sys.stderr, flush=True)
+        # ---- Step-2 multi-pass refinement (extra pass, runs once per question) ----
+        if (q.question_id, "step2_step2") in completed_pairs:
+            pass
+        else:
+            try:
+                r = run_variant_step2(
+                    service, q.question, chunks,
+                    q.acceptable_conclusion, q.insufficient_evidence,
+                    q.question_id,
+                )
+                results.append(r)
+                status = "ABSTAIN" if r["abstained"] else "ANS"
+                print(
+                    f"  {'step2_step2':16s} len={r['answer_length']:5d} "
+                    f"jac={r['answer_jaccard']:.3f} soft={r['answer_correctness']:.3f} "
+                    f"bin={r['binary_correct']} {status} finish={r['finish_reason']}",
+                    flush=True,
+                )
+                out_file.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
+            except Exception as exc:
+                print(f"  {'step2_step2':16s} ERROR: {exc}", file=sys.stderr, flush=True)
 
     # ---- Aggregate report ----
     print("\n" + "=" * 72, flush=True)
-    print("BREVITY EXPERIMENT RESULTS (n=20 questions, 5 variants each)", flush=True)
+    print("BREVITY EXPERIMENT RESULTS (n=20 questions, 10 variants incl. step-2)", flush=True)
     print("=" * 72, flush=True)
 
-    for vname, _ in variants:
+    all_variants = list(variants) + [("step2_step2", STEP2_STEP2_SYSTEM)]
+    for vname, _ in all_variants:
         rows = [r for r in results if r["variant"] == vname and not r.get("error")]
         if not rows:
             continue
