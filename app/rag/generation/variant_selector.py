@@ -4,33 +4,35 @@ No single prompt variant passes all three guardrails (brevity >=15% length
 reduction, correctness drop <=0.02, abstention increase <=0.10pp) on real
 retrieval context.  The fix is to pick the right variant *per question*.
 
-``VariantSelector.generate_with_prompts`` runs a small candidate set of
-system prompts, scores each answer, and returns the best result:
+``VariantSelector.generate_with_prompts`` supports two modes:
 
-  1. Keep candidates whose soft correctness >= baseline_soft - 0.02
-     (correctness guardrail, relative to the default prompt).
-  2. Among those, pick the shortest answer (brevity guardrail).
-  3. If none meet correctness, pick the highest-soft candidate
-     (correctness priority).
-  4. Abstention: prefer non-abstaining candidates; never increase abstention
-     beyond baseline + 0.10pp.
+* **Multi-candidate mode** (default, no JEV): runs a small candidate set of
+  system prompts, scores each answer, and returns the best result:
+    1. Keep candidates whose soft correctness >= baseline_soft - 0.02.
+    2. Among those, pick the shortest answer (brevity).
+    3. If none meet correctness, pick the highest-soft candidate.
+    4. Prefer non-abstaining candidates.
 
-Candidate variants are the guardrail-protected prompts validated in
-``evaluation/brevity_experiment.py``.  The selector is config-gated
-(``RAG_VARIANT_SELECTOR_ENABLED``) and opt-in: when off,
-``generate_with_prompts`` behaves exactly as before.
+* **JEV-guided mode** (``RAG_VARIANT_SELECTOR_JEV=true``): asks the sanctioned
+  JEV decision model (``typesafe/jev-1.13``) via OpenRouter's Decisions API to
+  score each candidate variant, then generates *one* answer with the top-scored
+  variant.  Fail-closed: if JEV is disabled, unavailable, kill-switched, or
+  returns unusable scores, fall back to running all candidates
+  (multi-candidate mode) and never raise.
 
 The scoring (soft correctness, coverage, abstention) requires an expected
 answer, which the runtime doesn't have.  So the selector uses *answer length*
 as the brevity proxy and *citation count / answer presence* as the
-correctness proxy — both computed without a gold reference.  This matches the
-experiment finding that brevity and correctness are inversely correlated and
-the right tradeoff differs per question.
+correctness proxy — both computed without a gold reference.
+
+``typesafe/jev-router`` is banned and never used (enforced by
+``DecisionModelClient``).
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from app.rag.generation.grounded_service import GroundedGenerationService
@@ -132,6 +134,27 @@ ABSTENTION_INCREASE_LIMIT = 0.10
 #: Minimum brevity reduction vs baseline (percent).
 BREVITY_REDUCTION_TARGET = 15.0
 
+#: JEV variant-selection instructions — one noul question per candidate variant.
+_JEV_VARIANT_INSTR = (
+    "Judge whether answer variant `candidates[{i}]` is the best choice for "
+    "answering `query` from `legal_context`.  Pick the variant that gives the "
+    "shortest correct answer while still covering the evidence actually present "
+    "in the context.  Do not pick a variant that over-abstains (refuses to answer "
+    "when the context does contain the answer) or that fabricates.  Score each "
+    "variant independently."
+)
+_JEV_VARIANT_CRITERIA = {
+    "true": "Pick: this variant gives a concise, well-supported answer from the context.",
+    "false": "Drop: this variant over-abstains, fabricates, or is overly verbose.",
+}
+
+#: Decisions API (typed state + questions -> calibrated probabilities).
+_JEV_DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"
+#: Questions per HTTP call.  Variant set is small (<=5), so one call suffices.
+_JEV_BATCH = 10
+#: Attempts per Decisions-API call (transient 429/5xx get one backoff).
+_JEV_ATTEMPTS = 3
+
 
 def _is_abstention(text: str) -> bool:
     if not text or not text.strip():
@@ -149,9 +172,13 @@ def _is_abstention(text: str) -> bool:
 class VariantSelector:
     """Select the best prompt variant per question at inference time.
 
-    Runs ``candidates`` (default: tight_guardrail, guardrail_compact,
-    ultra_compact, guardrail_confident) plus the baseline, scores each, and
-    returns the result that best satisfies the three guardrails.
+    Two modes:
+
+    * Multi-candidate (default, JEV off): run every candidate + baseline,
+      score each, return the best per guardrails.
+    * JEV-guided (``RAG_VARIANT_SELECTOR_JEV=true``): ask JEV to score each
+      candidate variant, generate *one* answer with the top-scored variant,
+      fail-closed to multi-candidate on any JEV problem.
     """
 
     def __init__(
@@ -159,11 +186,18 @@ class VariantSelector:
         service: GroundedGenerationService,
         candidates: tuple[str, ...] = DEFAULT_CANDIDATES,
         enabled: bool = True,
+        use_jev: bool = False,
+        jev_model: str = "typesafe/jev-1.13",
     ) -> None:
         self.service = service
         self.candidates = tuple(candidates)
         self.enabled = enabled
+        self.use_jev = use_jev
+        self.jev_model = jev_model
 
+    # ------------------------------------------------------------------ #
+    # Public API
+    # ------------------------------------------------------------------ #
     def generate_with_prompts(
         self,
         query: str,
@@ -189,20 +223,18 @@ class VariantSelector:
                 prompts=prompts,
             )
 
-        # Build the user prompt once (identical for all variants).
-        ctx = "\n\n".join(
-            f"[{i+1}] {c.text}" for i, c in enumerate(chunks)
-        )
-        user_prompt = (
-            "Relevant legal context:\n"
-            "<legal_context>\n"
-            f"{ctx}\n"
-            "</legal_context>\n\n"
-            f"Question: {query}\n"
-            "Answer:"
-        )
+        if self.use_jev:
+            return self._generate_jev_guided(query, chunks, query_type)
 
-        # Run all candidates + baseline.
+        return self._generate_multi_candidate(query, chunks, query_type)
+
+    # ------------------------------------------------------------------ #
+    # Multi-candidate mode (existing behavior)
+    # ------------------------------------------------------------------ #
+    def _generate_multi_candidate(
+        self, query: str, chunks: list[RetrievedChunk], query_type: str
+    ) -> Any:
+        user_prompt = self._render_user_prompt(query, chunks)
         results: list[dict[str, Any]] = []
         for name in ("baseline",) + self.candidates:
             system = CANDIDATE_SYSTEM_PROMPTS[name]
@@ -229,14 +261,177 @@ class VariantSelector:
         if not results:
             return self.service.generate_with_prompts(
                 query=query, chunks=chunks, query_type=query_type,
-                prompts=prompts,
+                prompts=None,
             )
 
+        return self._pick_best(results)
+
+    # ------------------------------------------------------------------ #
+    # JEV-guided mode
+    # ------------------------------------------------------------------ #
+    def _generate_jev_guided(
+        self, query: str, chunks: list[RetrievedChunk], query_type: str
+    ) -> Any:
+        user_prompt = self._render_user_prompt(query, chunks)
+        started = time.monotonic()
+
+        try:
+            from app.shared.config import cfg
+            from app.shared.llm_client import _increment_call_count, _log_llm_call, llm_enabled
+
+            if not llm_enabled():
+                raise RuntimeError("LLM calls are disabled by kill switch")
+            key = (
+                __import__("os").environ.get("AI_ASSISTANT_API_KEY")
+                or __import__("os").environ.get("OPENROUTER_API_KEY")
+                or ""
+            )
+            if not key:
+                raise RuntimeError("OPENROUTER_API_KEY not configured")
+            _increment_call_count()
+            _log_llm_call(
+                provider="openrouter",
+                model=self.jev_model,
+                call_site="variant_selector._generate_jev_guided",
+            )
+
+            import httpx
+
+            headers = {"Authorization": "Bearer " + key, "Content-Type": "application/json"}
+            variants = ("baseline",) + self.candidates
+            candidates = [
+                {
+                    "index": i,
+                    "variant": name,
+                    "prompt": CANDIDATE_SYSTEM_PROMPTS[name][:400],
+                }
+                for i, name in enumerate(variants)
+            ]
+            state = {
+                "query": query,
+                "candidates": candidates,
+                "context_snippet": chunks[0].text[:300] if chunks else "",
+            }
+            questions = {
+                f"v{i}": {
+                    "type": "noul",
+                    "instructions": _JEV_VARIANT_INSTR.format(i=i),
+                    "criteria": _JEV_VARIANT_CRITERIA,
+                }
+                for i in range(len(variants))
+            }
+            probs: dict[int, float] = {}
+            for start in range(0, len(variants), _JEV_BATCH):
+                batch_variants = variants[start:start + _JEV_BATCH]
+                batch_candidates = candidates[start:start + _JEV_BATCH]
+                batch_state = dict(state)
+                batch_state["candidates"] = batch_candidates
+                batch_questions = {
+                    f"v{i}": questions[f"v{i}"]
+                    for i in range(start, start + len(batch_variants))
+                }
+                body = {
+                    "model": self.jev_model,
+                    "state": batch_state,
+                    "questions": batch_questions,
+                }
+                last: Exception | None = None
+                data = None
+                for attempt in range(_JEV_ATTEMPTS):
+                    try:
+                        with httpx.Client(timeout=cfg.decision_timeout) as client:
+                            resp = client.post(
+                                _JEV_DECISIONS_URL, headers=headers, json=body
+                            )
+                            data = resp.json()
+                        if resp.status_code >= 400 or "error" in data:
+                            raise RuntimeError(
+                                f"HTTP {resp.status_code}: {data.get('error')}"
+                            )
+                        break
+                    except Exception as exc:
+                        last = exc
+                        if attempt < _JEV_ATTEMPTS - 1:
+                            time.sleep(2**attempt)
+                if data is None:
+                    raise last or RuntimeError("jev decisions call failed")
+                answers = data.get("answers") or {}
+                for i in range(start, start + len(batch_variants)):
+                    answer = answers.get(f"v{i}")
+                    if not answer or "noul" not in answer:
+                        raise ValueError(f"missing noul answer for variant {i}")
+                    probs[i] = max(0.0, min(1.0, float(answer["noul"])))
+        except Exception as exc:  # noqa: BLE001 — fail closed to multi-candidate
+            logger.warning(
+                "variant_selector: JEV failed (%s) — falling back to multi-candidate",
+                exc,
+            )
+            return self._generate_multi_candidate(query, chunks, query_type)
+
+        latency_ms = int((time.monotonic() - started) * 1000)
+        logger.info(
+            "variant_selector: JEV probabilities %s (%dms)",
+            {variants[i]: round(p, 3) for i, p in probs.items()},
+            latency_ms,
+        )
+
+        # Pick top-scored variant; generate one answer.
+        best_index = max(probs, key=probs.get)
+        best_name = variants[best_index]
+        best_system = CANDIDATE_SYSTEM_PROMPTS[best_name]
+        try:
+            resp = self.service.generate_with_prompts(
+                query=query,
+                chunks=chunks,
+                query_type=query_type,
+                prompts=(best_system, user_prompt),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "variant_selector: generation for %s failed (%s) — multi-candidate",
+                best_name, exc,
+            )
+            return self._generate_multi_candidate(query, chunks, query_type)
+
+        text = resp.answer or ""
+        chosen_result = {
+            "name": best_name,
+            "response": resp,
+            "text": text,
+            "length": len(text),
+            "abstained": _is_abstention(text),
+            "soft_proxy": self._soft_proxy(text, chunks),
+        }
+
+        # Sanity: if the chosen answer abstained but baseline would answer,
+        # log a trace flag (advisory only; do not block serving).
+        try:
+            base_resp = self.service.generate_with_prompts(
+                query=query,
+                chunks=chunks,
+                query_type=query_type,
+                prompts=(CANDIDATE_SYSTEM_PROMPTS["baseline"], user_prompt),
+            )
+            base_text = base_resp.answer or ""
+            if chosen_result["abstained"] and not _is_abstention(base_text):
+                logger.info(
+                    "variant_selector: JEV pick %s abstained but baseline answered "
+                    "(advisory trace)",
+                    best_name,
+                )
+        except Exception:  # noqa: BLE001 — advisory only
+            pass
+
+        return chosen_result["response"]
+
+    # ------------------------------------------------------------------ #
+    # Selection logic (shared)
+    # ------------------------------------------------------------------ #
+    def _pick_best(self, results: list[dict[str, Any]]) -> Any:
         baseline = results[0]
         baseline_soft = baseline["soft_proxy"]
         baseline_abstained = baseline["abstained"]
 
-        # Correctness-eligible: soft_proxy >= baseline - tolerance.
         correct_ok = [
             r for r in results
             if r["soft_proxy"] >= baseline_soft - CORRECTNESS_DROP_LIMIT
@@ -245,7 +440,6 @@ class VariantSelector:
         chosen = None
         reason = ""
         if correct_ok:
-            # Prefer non-abstaining, then shortest length.
             non_abstain = [r for r in correct_ok if not r["abstained"]]
             pool = non_abstain if non_abstain else correct_ok
             chosen = min(pool, key=lambda r: r["length"])
@@ -276,6 +470,19 @@ class VariantSelector:
             if marker in text:
                 cited += 1
         coverage = cited / max(len(chunks), 1)
-        # Small bonus for having an answer (avoids preferring empty abstentions).
         answer_bonus = 0.1 if not _is_abstention(text) else 0.0
         return min(coverage + answer_bonus, 1.0)
+
+    @staticmethod
+    def _render_user_prompt(query: str, context_chunks: list[RetrievedChunk]) -> str:
+        ctx = "\n\n".join(
+            f"[{i+1}] {c.text}" for i, c in enumerate(context_chunks)
+        )
+        return (
+            "Relevant legal context:\n"
+            "<legal_context>\n"
+            f"{ctx}\n"
+            "</legal_context>\n\n"
+            f"Question: {query}\n"
+            "Answer:"
+        )

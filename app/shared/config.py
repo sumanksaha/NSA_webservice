@@ -440,6 +440,22 @@ _TABLE: tuple[Setting, ...] = (
         50,
         help="",
     ),
+    # --- Variant selector (JEV-guided per-question variant choice) ---
+    Setting(
+        "RAG_VARIANT_SELECTOR_JEV",
+        "variant_selector_jev",
+        bool,
+        False,
+        help="Use JEV decision model to pick the answer variant per question "
+        "(single generation call) instead of running all candidates.",
+    ),
+    Setting(
+        "RAG_VARIANT_SELECTOR_JEV_MODEL",
+        "variant_selector_jev_model",
+        str,
+        "typesafe/jev-1.13",
+        help="JEV model id for per-question variant selection.",
+    ),
     # --- Autonomous research (Phase 1+: corpus discovery + gap analysis) ---
     Setting(
         "RAG_TARGETED_RETRY_V2",
