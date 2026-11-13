@@ -1,6 +1,7 @@
 """Core inspection CRUD routes: index, list, create, get, update, delete."""
 
 import json
+import logging
 import re
 from datetime import UTC, datetime
 
@@ -16,6 +17,8 @@ from app.services.sync_orchestrator import sync_row
 from app.shared.context_derivers import CHECKLIST_FIELDS
 from app.utils.filters import parse_date
 from app.utils.fso_data import get_all_fso_names
+
+logger = logging.getLogger(__name__)
 
 
 def _apply_inspection_sorting(query, sort_by, sort_order):
@@ -156,6 +159,17 @@ def list_inspections():
 def create_inspection():
     """Create a new inspection record."""
     form_data = request.form.to_dict()
+    # Log the incoming payload so a "submit does nothing" report can be
+    # diagnosed from server logs (the client handler only ever surfaces an
+    # alert, and CSRF/auth failures return non-JSON bodies).
+    logger.info(
+        "create_inspection received: fso=%r date=%r purpose=%r sample_collected=%r keys=%s",
+        form_data.get("food_safety_officer_name"),
+        form_data.get("inspection_date"),
+        form_data.get("visit_purpose"),
+        form_data.get("sample_collected"),
+        sorted(form_data.keys()),
+    )
 
     # Phase 18 RBAC: an fso-role account always owns what it creates.
     from flask_login import current_user
