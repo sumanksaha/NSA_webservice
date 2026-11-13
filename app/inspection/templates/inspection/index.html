@@ -845,10 +845,30 @@ block content %}
     function toggleSampleBlock() {
         const sampleCollectedCheckbox = document.getElementById("sample_collected");
         const sampleDetailsBlock = document.getElementById("sampleDetailsBlock");
-        sampleDetailsBlock.style.display = sampleCollectedCheckbox.checked ? "block" : "none";
+        const shown = sampleCollectedCheckbox.checked;
+        sampleDetailsBlock.style.display = shown ? "block" : "none";
 
-        // Clear required fields when hiding the block
-        if (!sampleCollectedCheckbox.checked) {
+        // The four required sample fields live inside this block. When the
+        // block is hidden they must not participate in form validation or
+        // submission: browsers (Firefox/Safari) block form submission with no
+        // visible bubble for a required control that is not focusable, which
+        // made "Save Inspection" appear to do nothing. Disabling also excludes
+        // them from the submitted FormData, matching the route's optional handling.
+        const toggleRequired = ["sample_type", "sample_code", "collection_date", "sample_name", "price", "sample_status"];
+        toggleRequired.forEach(function (id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (shown) {
+                el.removeAttribute("disabled");
+                el.setAttribute("required", "");
+            } else {
+                el.setAttribute("disabled", "");
+                el.removeAttribute("required");
+            }
+        });
+
+        // Clear values when hiding the block
+        if (!shown) {
             document.getElementById("sample_type").value = "";
             document.getElementById("sample_code").value = "";
             document.getElementById("collection_date").value = "";
@@ -890,7 +910,24 @@ block content %}
                 body: formData,
             });
 
-            const data = await response.json();
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (parseError) {
+                // Non-JSON body — almost always a redirect (login 302) or a
+                // CSRF/HTML error page. Surface the status code instead of a
+                // cryptic "Unexpected token" alert so the failure is diagnosable.
+                const preview = await response.text().catch(function () { return ""; });
+                alert(
+                    "Failed to create inspection: server responded with HTTP " +
+                    response.status + " (expected JSON). " +
+                    (response.status === 403 || response.status === 302
+                        ? "Your session may have expired — please log in again."
+                        : "") +
+                    (process.env.NODE_ENV === "development" ? "\n" + preview.slice(0, 200) : "")
+                );
+                return;
+            }
 
             if (response.ok) {
                 alert(
@@ -906,6 +943,7 @@ block content %}
                 document.getElementById("ce_info").style.display = "none";
                 document.getElementById("conflict_warning").style.display = "none";
                 document.getElementById("compliance_deadline").value = "";
+                toggleSampleBlock();
             } else {
                 alert("Error: " + (data.error || "Failed to create inspection"));
             }
