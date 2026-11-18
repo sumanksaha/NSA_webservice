@@ -1030,6 +1030,68 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
         label = adj.case_number or str(case_id)
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            # Add the petition docx
+            zf.writestr(f"Adjudication_Petition_{label}.docx", petition_docx)
+            # Add the permission docx
+            zf.writestr(f"Permission_Letter_{label}.docx", permission_docx)
+
+        return send_file(
+            zip_buf,
+            as_attachment=True,
+            download_name=f"Adjudication_Documents_{label}.zip",
+            mimetype="application/zip",
+        )
+
+
+@adjudication_bp.route("/case/<int:case_id>/adoc/<doc_type>")
+@login_required
+def download_adoc(case_id: int, doc_type: str):  # type: ignore[return-value]
+    """Download Adjudication Adoc (source template) — same context as docx output.
+
+    Returns the raw .adoc template file rendered with the adjudication context.
+    The existing .docx download routes remain unchanged; use this to get the
+    AsciiDoc source rather than the compiled Word document.
+    """
+    from app.adjudication.adoc_renderer import render_adoc_to_docx
+
+    adj, error_resp = _rbac_check(case_id)
+    if error_resp:
+        return error_resp
+
+    form_data = adjudication_to_dict(adj)
+    context = _prepare_adjudication_context(form_data)
+    context["compilation_date"] = datetime.today().strftime("%d %B %Y")
+
+    # Photos for petition context (selection + embeds via the photo seam).
+    from app.shared.photo_selection import select_for_document
+
+    selection = select_for_document(adjudication_id=case_id)
+    context["adjudication"] = {"photos": selection.photos, "photo_embeds": selection.embeds}
+
+    # Map doc_type to the corresponding .adoc template name
+    adoc_map = {
+        "petition": "template_nonsample_petition.adoc",
+        "permission": "Legal_NonsampleAdjudication_Template.adoc",
+    }
+
+    if doc_type not in adoc_map:
+        return jsonify({"error": f"Unknown doc_type: {doc_type}"}), 400
+
+    adoc_template = adoc_map[doc_type]
+    adoc_path = Path(__file__).resolve().parent / "templates" / "adjudication" / adoc_template
+    if not adoc_path.exists():
+        return jsonify({"error": f"Adoc template not found: {adoc_path}"}), 404
+
+    adoc_source = adoc_path.read_text(encoding="utf-8")
+    rendered_adoc = render_template_string(adoc_source, **context)
+
+    download_name = f"Adjudication_{doc_type.capitalize()}_{adj.case_number or case_id}.adoc"
+    return send_file(
+        io.BytesIO(rendered_adoc.encode("utf-8")),
+        as_attachment=True,
+        download_name=download_name,
+        mimetype="text/x-asciidoc",
+    )
             zf.writestr(f"Adjudication_Petition_{label}.docx", petition_docx)
             zf.writestr(f"Permission_Letter_{label}.docx", permission_docx)
         zip_buf.seek(0)
