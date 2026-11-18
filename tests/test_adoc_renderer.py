@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 
+from app import app
 from app.shared import adoc_renderer
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -93,3 +94,47 @@ class TestPandocTimeout:
         )
 
         assert adoc_renderer._pandoc_asciidoc_to_docx("Title\n") is None
+
+
+class TestOutputFormat:
+    """render_adoc_to_docx gains an output_format parameter (Option A)."""
+
+    def _write_template(self, tmp_path: Path, name: str = "t.adoc", content: str = "Hello {{ who }}!") -> Path:
+        path = tmp_path / name
+        path.write_text(content, encoding="utf-8")
+        return path
+
+    def test_default_returns_docx_bytes(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        path = self._write_template(tmp_path, content="Hello {{ who }}!")
+        monkeypatch.setattr(
+            adoc_renderer,
+            "_pandoc_cmd",
+            lambda *args: [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'PKDOCX')"],
+        )
+        with app.app_context():
+            result = adoc_renderer.render_adoc_to_docx(tmp_path, "t.adoc", {"who": "World"})
+        assert result == b"PKDOCX"
+
+    def test_adoc_format_returns_rendered_string(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        path = self._write_template(tmp_path, content="Title\n\nHello {{ who }}!")
+        monkeypatch.setattr(
+            adoc_renderer,
+            "_pandoc_cmd",
+            lambda *args: [sys.executable, "-c", "raise SystemExit(1)"],
+        )
+        with app.app_context():
+            result = adoc_renderer.render_adoc_to_docx(tmp_path, "t.adoc", {"who": "World"}, output_format="adoc")
+        assert isinstance(result, str)
+        assert "Hello World!" in result
+        assert "Title" in result
+
+    def test_invalid_format_raises_value_error(self, tmp_path: Path):
+        path = self._write_template(tmp_path)
+        with app.app_context():
+            with pytest.raises(ValueError, match="Unknown output_format"):
+                adoc_renderer.render_adoc_to_docx(tmp_path, "t.adoc", {}, output_format="pdf")
+
+    def test_missing_template_raises(self, tmp_path: Path):
+        with app.app_context():
+            with pytest.raises(FileNotFoundError):
+                adoc_renderer.render_adoc_to_docx(tmp_path, "missing.adoc", {}, output_format="adoc")

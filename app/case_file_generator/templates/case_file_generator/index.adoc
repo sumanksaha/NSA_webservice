@@ -1,3 +1,5 @@
+{% from "_adoc_download_buttons.html" import adoc_download %}
+
 # 
 
 * **Original HTML Template:** See `app\case_file_generator\templates\case_file_generator\index.html`
@@ -32,6 +34,8 @@ toc::
                            class="btn btn-primary btn-sm" title="Download both as Word ZIP">
                             <i class="fa-solid fa-file-zipper"></i> Word ZIP
                         </a>
+                        {{ adoc_download(url=url_for('case_file_generator.download_adoc', case_id=c.id, doc_type='prohibition_order'), label='Prohibition Order', title='Download Prohibition Order as .adoc') }}
+                        {{ adoc_download(url=url_for('case_file_generator.download_adoc', case_id=c.id, doc_type='advocate_engagement'), label='Advocate Engagement', title='Download Advocate Engagement as .adoc') }}
                         <button type="button" class="btn btn-secondary btn-sm js-copy-letter"
                                 data-url="{{ url_for('case_file_generator.copy_letter', case_id=c.id, doc_type='petition') }}"
                                 title="Copy Petition letter body to clipboard for Gmail">

@@ -53,27 +53,47 @@ def _pandoc_cmd(*args: str) -> list[str]:
     return [pandoc, *args]
 
 
-def render_adoc_to_docx(template_dir: Path | str, template_name: str, context: dict) -> bytes:
-    """Render ``<template_dir>/<template_name>`` with ``context`` and return DOCX bytes.
-
-    Raises:
-        FileNotFoundError: if the template does not exist.
-
-    """
+def _render_source(template_dir: Path | str, template_name: str, context: dict) -> str:
+    """Load the .adoc template and render it with *context* via Jinja2."""
     adoc_path = Path(template_dir) / template_name
     if not adoc_path.exists():
         raise FileNotFoundError(f"Adoc template not found: {adoc_path}")
-
     source = adoc_path.read_text(encoding="utf-8")
-
     from flask import render_template_string
 
-    rendered = render_template_string(source, **context)
+    return render_template_string(source, **context)
 
-    docx_bytes = _pandoc_asciidoc_to_docx(rendered)
-    if docx_bytes:
-        return docx_bytes
-    return _fallback_docx_from_adoc(rendered)
+
+def render_adoc_to_docx(
+    template_dir: Path | str, template_name: str, context: dict, output_format: str = "docx"
+) -> bytes | str:
+    """Render ``<template_dir>/<template_name>`` with ``context`` and return DOCX bytes.
+
+    Args:
+        template_dir: directory containing the .adoc template
+        template_name: name of the .adoc file
+        context: dict passed to Jinja2 render
+        output_format: "docx" or "adoc"
+
+    Returns:
+        bytes: DOCX content when output_format="docx"
+        str: rendered AsciiDoc when output_format="adoc"
+
+    Raises:
+        FileNotFoundError: if the template does not exist.
+        ValueError: if output_format is not "docx" or "adoc".
+
+    """
+    rendered = _render_source(template_dir, template_name, context)
+
+    if output_format == "adoc":
+        return rendered
+    if output_format == "docx":
+        docx_bytes = _pandoc_asciidoc_to_docx(rendered)
+        if docx_bytes:
+            return docx_bytes
+        return _fallback_docx_from_adoc(rendered)
+    raise ValueError(f"Unknown output_format: {output_format}. Use 'docx' or 'adoc'")
 
 
 def _pandoc_asciidoc_to_docx(rendered_adoc: str) -> bytes | None:
