@@ -1,3 +1,5 @@
+{% from "_adoc_download_buttons.html" import adoc_download %}
+
 # 
 
 * **Original HTML Template:** See `app\adjudication\templates\adjudication\index.html`
@@ -32,6 +34,8 @@ toc::
                            class="btn btn-primary btn-sm" title="Download both as Word ZIP">
                             <i class="fa-solid fa-file-zipper"></i> Word ZIP
                         </a>
+                        {{ adoc_download(url=url_for('adjudication.download_adoc', case_id=c.id, doc_type='petition'), label='Petition', title='Download Petition as .adoc') }}
+                        {{ adoc_download(url=url_for('adjudication.download_adoc', case_id=c.id, doc_type='permission'), label='Permission', title='Download Permission Letter as .adoc') }}
                         <button type="button" class="btn btn-secondary btn-sm js-copy-letter"
                                 data-url="{{ url_for('adjudication.copy_letter', case_id=c.id, doc_type='petition') }}"
                                 title="Copy Petition letter body to clipboard for Gmail">

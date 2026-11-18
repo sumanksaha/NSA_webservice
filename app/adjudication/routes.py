@@ -17,8 +17,19 @@ import io
 import json
 import zipfile
 from datetime import UTC, datetime
+from pathlib import Path
 
-from flask import Blueprint, abort, current_app, jsonify, make_response, render_template, request, send_file
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    jsonify,
+    make_response,
+    render_template,
+    render_template_string,
+    request,
+    send_file,
+)
 from flask_login import login_required
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -1092,16 +1103,6 @@ def download_adoc(case_id: int, doc_type: str):  # type: ignore[return-value]
         download_name=download_name,
         mimetype="text/x-asciidoc",
     )
-            zf.writestr(f"Adjudication_Petition_{label}.docx", petition_docx)
-            zf.writestr(f"Permission_Letter_{label}.docx", permission_docx)
-        zip_buf.seek(0)
-        return send_file(
-            zip_buf,
-            as_attachment=True,
-            download_name=f"Adjudication_{label}_Word.zip",
-            mimetype="application/zip",
-        )
-    return jsonify({"error": f"Unknown doc_type: {doc_type}"}), 400
 
 
 _ADJUDICATION_PETITION_REQUIRED: dict[str, str] = {

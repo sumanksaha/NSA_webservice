@@ -1,0 +1,5 @@
+{% macro adoc_download(url, label, title) -%}
+<a href="{{ url }}" class="btn btn-secondary btn-sm" title="{{ title }}">
+    <i class="fa-solid fa-file-powerline"></i> {{ label }}
+</a>
+{%- endmacro %}

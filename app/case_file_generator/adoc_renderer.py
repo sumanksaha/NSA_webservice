@@ -71,6 +71,16 @@ def render_docx(doc_type: str, context: dict) -> bytes:
     return docx_bytes
 
 
+def render_adoc(doc_type: str, context: dict) -> str:
+    """Render a case-file .adoc template to AsciiDoc source (str).
+
+    Uses the same template and context as ``render_docx`` but returns the
+    Jinja2-rendered AsciiDoc instead of converting to DOCX.
+    """
+    template_name = ADOC_TEMPLATES[doc_type]
+    return render_adoc_to_docx(TEMPLATE_DIR, template_name, context, output_format="adoc")
+
+
 def split_landscape_first_page(docx_bytes: bytes) -> bytes:
     """Make page 1 a landscape section; all following pages stay portrait.
 

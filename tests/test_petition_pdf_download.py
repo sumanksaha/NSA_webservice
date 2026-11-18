@@ -159,6 +159,34 @@ class TestCaseFilePetitionPdf:
                 db.session.delete(db.session.get(CaseFile, case_id))
                 db.session.commit()
 
+    def test_retailer_cum_manufacturer_blank_batch_mfr_expiry_still_returns_pdf(self, client):
+        """Retailer-cum-manufacturer cases need no batch / mfr / expiry; PDF must still generate."""
+        from app.extensions import db
+
+        with client.application.app_context():
+            case = _make_case_file(
+                db,
+                retailer_cum_manufacturer=True,
+                batch_no="",
+                packet_count=1,
+                mfg_date=None,
+                expiry_date=None,
+                manufacturer_fssai="",
+                manufacturer_name="",
+                manufacturer_fbo_name="",
+                manufacturer_address="",
+            )
+            case_id = case.id
+        try:
+            resp = client.get(f"/case_file_generator/case/{case_id}/pdf/petition")
+            assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.get_data(as_text=True)[:300]}"
+            assert resp.content_type == "application/pdf", f"Expected PDF, got {resp.content_type}"
+            assert resp.data[:4] == b"%PDF", "Response body must be a PDF document"
+        finally:
+            with client.application.app_context():
+                db.session.delete(db.session.get(CaseFile, case_id))
+                db.session.commit()
+
     def test_unknown_case_returns_json_404(self, client):
         resp = client.get("/case_file_generator/case/999999/pdf/petition")
         assert resp.status_code == 404

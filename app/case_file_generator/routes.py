@@ -46,7 +46,7 @@ from app.utils.filters import form_date, format_date_indian, parse_date
 from app.utils.lookup import lookup_fssai
 from app.utils.qstash_client import make_dedup_key, publish_task
 
-from .adoc_renderer import render_docx
+from .adoc_renderer import render_adoc, render_docx
 
 case_file_generator_bp = Blueprint("case_file_generator", __name__, template_folder="templates", static_folder="static")
 
@@ -1172,6 +1172,46 @@ def download_unsafe_file_docx(case_id: int):
     )
 
 
+def _prepare_prohibition_order_context(case_id: int):
+    """Prepare prohibition-order context; returns (case, case_data, error_response).
+
+    error_response is None on success. Shared by the DOCX and Adoc prohibition-order
+    download paths so they cannot drift on visibility, aliasing, quantity derivation,
+    or the retailer-cum-manufacturer gate.
+    """
+    case, case_data, error_response = _prepare_prohibition_order_context(case_id)
+    if error_response is not None:
+        response, status = error_response
+        return response, status
+
+    case_data.setdefault("fso_name", case_data.get("food_safety_officer_name", ""))
+    case_data.setdefault("sample_name", case_data.get("product_name", ""))
+
+    case_data["per_packet_sample_quantity"] = _compute_per_packet_sample_quantity(
+        case_data.get("sample_quantity"),
+        case_data.get("packet_count"),
+    )
+
+    if case_data.get("retailer_cum_manufacturer"):
+        return (
+            case,
+            None,
+            (
+                jsonify(
+                    {
+                        "error": "Prohibition order cannot be issued for prepared/loose "
+                        "food (retailer-cum-manufacturer). The product has no separate "
+                        "manufacturer and no batch/manufacturing/expiry details. "
+                        "Download the Prayer to the Designated Officer instead.",
+                    },
+                ),
+                403,
+            ),
+        )
+
+    return case, case_data, None
+
+
 @case_file_generator_bp.route("/case/<int:case_id>/docx/prohibition_order")
 @login_required
 def download_prohibition_order_docx(case_id: int):
@@ -1183,43 +1223,14 @@ def download_prohibition_order_docx(case_id: int):
     # prohibition order issued — the endpoint returns 403 and invites the user to
     # download the Prayer instead. The letter repeats the first paragraph of the
     # Prayer (the sample description) so that it is self-contained.
-    case = CaseFile.query.get_or_404(case_id)
-    if not _case_visible_to_current_user(case_id, "case_file"):
-        return jsonify({"error": "Case not found"}), 404
-
-    form_data = case_file_to_dict(case)
-    case_data = process_form_data(form_data)
+    case, case_data, error_response = _prepare_prohibition_order_context(case_id)
+    if error_response is not None:
+        response, status = error_response
+        return response, status
 
     # Unsafe_file.adoc / Prohibition_order.adoc template variables that differ
     # from the canonical CaseFile column names — alias them so the .adoc renders
     # from UI-entered data.
-    case_data.setdefault("fso_name", case_data.get("food_safety_officer_name", ""))
-    case_data.setdefault("sample_name", case_data.get("product_name", ""))
-
-    # Per-packet sample quantity is derived (not a UI field): sample_quantity /
-    # packet_count, formatted for the
-    # "(per_packet X packet_count = sample_quantity)" equation in the letter.
-    case_data["per_packet_sample_quantity"] = _compute_per_packet_sample_quantity(
-        case_data.get("sample_quantity"),
-        case_data.get("packet_count"),
-    )
-
-    # A prohibition order is issued only to a separate manufacturer. Prepared/
-    # loose food (retailer-cum-manufacturer) has no separate manufacturer and no
-    # batch/manufacturing/expiry details, so no prohibition order can be issued.
-    if case_data.get("retailer_cum_manufacturer"):
-        return (
-            jsonify(
-                {
-                    "error": "Prohibition order cannot be issued for prepared/loose "
-                    "food (retailer-cum-manufacturer). The product has no separate "
-                    "manufacturer and no batch/manufacturing/expiry details. "
-                    "Download the Prayer to the Designated Officer instead.",
-                },
-            ),
-            403,
-        )
-
     docx_bytes = render_docx("prohibition_order", case_data)
 
     buf = io.BytesIO(docx_bytes)
@@ -1229,6 +1240,55 @@ def download_prohibition_order_docx(case_id: int):
         as_attachment=True,
         download_name=f"Prohibition_Order_{case.case_number or case_id}.docx",
         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+
+@case_file_generator_bp.route("/case/<int:case_id>/adoc/<doc_type>")
+@login_required
+def download_adoc(case_id: int, doc_type: str):
+    """Download a case-file document as raw AsciiDoc (.adoc) source.
+
+    ``doc_type`` selects the template (``prohibition_order`` or
+    ``advocate_engagement``). Returns the Jinja2-rendered AsciiDoc rather than
+    the compiled Word document; same context and gating as the DOCX routes.
+    """
+    case = CaseFile.query.get_or_404(case_id)
+    if not _case_visible_to_current_user(case_id, "case_file"):
+        return jsonify({"error": "Case not found"}), 404
+
+    adoc_map = {
+        "prohibition_order": "prohibition_order",
+        "advocate_engagement": "advocate_engagement",
+    }
+    if doc_type not in adoc_map:
+        return jsonify({"error": f"Unknown doc_type: {doc_type}"}), 400
+    if doc_type == "prohibition_order":
+        case, case_data, error_response = _prepare_prohibition_order_context(case_id)
+        if error_response is not None:
+            response, status = error_response
+            return response, status
+        adoc_source = render_adoc("prohibition_order", case_data)
+        download_name = f"Prohibition_Order_{case.case_number or case_id}.adoc"
+    else:
+        if not case.is_unsafe:
+            return jsonify({"error": "Advocate engagement letter only available for unsafe cases"}), 403
+        access = check_generation_allowed(
+            case_type="case_file",
+            doc_type="advocate_engagement",
+            authorization_date=case.authorization_date,
+            retailer_receive=case.retailer_report_receive_date,
+            manufacturer_receive=case.manufacturer_report_receive_date,
+        )
+        if not access.allowed:
+            return jsonify(access.payload()), access.status
+        adoc_source = render_adoc("advocate_engagement", {"case_data": case_data})
+        download_name = f"Advocate_Engagement_{case.case_number or case_id}.adoc"
+
+    return send_file(
+        io.BytesIO(adoc_source.encode("utf-8")),
+        as_attachment=True,
+        download_name=download_name,
+        mimetype="text/x-asciidoc",
     )
 
 
@@ -1329,6 +1389,9 @@ def download_petition_pdf(case_id: int):
     case_data = process_form_data(form_data)
 
     missing = missing_required_fields(_REQUIRED_FIELDS, case_data)
+    if _is_retailer_cum_manufacturer(case_data):
+        for _field in _RCM_EXEMPT_FIELDS:
+            missing.pop(_field, None)
     if missing:
         return (
             jsonify({
