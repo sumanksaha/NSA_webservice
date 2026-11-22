@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture Review</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; }
+    h1, h2, h3 { color: #1f2937; }
+    .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; margin: 1rem 0; background: #f8fafc; }
+    .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem; font-weight: 500; background: #d1d5db; color: #1f2937; }
+    .friction { background: #fef3c7; border-left: 3px solid #f59e0b; margin: 1rem 0; padding: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Architecture Review</h1>
+  <p>NSA Webservice Architecture Friction Points</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+    <div class="card">
+      <h3>1. RAG Query-Type Registry Integration</h3>
+      <p><strong>Problem:</strong> Five independent query-type vocabularies previously existed with no canonical mapping. ADR-0017 created the registry, but ad-hoc .lower()/ .replace() conversions in consumers still cause boundary failures.</p>
+      <p><strong>Solution:</strong> Enforce registry-resolve-first policy; add compile-time assertions for alias uniqueness.</p>
+      <p><strong>Benefit:</strong> Single source of truth eliminates degraded evaluation entries.</p>
+    </div>
+    <div class="card">
+      <h3>2. Qdrant Filter Seam Consolidation</h3>
+      <p><strong>Problem:</strong> Filter construction logic is split between build_filter() (module-level) and QdrantStore._query_filters() (method). Some callers bypass the seam.</p>
+      <p><strong>Solution:</strong> Deprecate _query_filters in favor of build_filter; add a single registration point for payload index fields.</p>
+      <p><strong>Benefit:</strong> One adapter = one seam; fewer bugs from inconsistent filter shapes.</p>
+    </div>
+    <div class="card">
+      <h3>3. Photo Scoring Threshold Optimization</h3>
+      <p><strong>Problem:</strong> GATE_THRESHOLD = 0.50 in photo_scoring.py. Measured separation between premises and non-premises images is +0.983.</p>
+      <p><strong>Solution:</strong> Make threshold configurable via PHOTO_SCORING_THRESHOLD with evidence-based default.</p>
+      <p><strong>Benefit:</strong> Better balance between scoring valid premises photos and suppressing non-photo inputs.</p>
+    </div>
+  </div>
+  <div class="card">
+    <h3>4. Inspection Sample Collection Deepening</h3>
+    <p><strong>Problem:</strong> Sample collection is a conditional block in the inspection UI with validation spread across sample_utils.py, routes.py, and form handling.</p>
+    <p><strong>Solution:</strong> Extract sample orchestration into a dedicated service layer with a single seam InspectionSampleService.</p>
+    <p><strong>Benefit:</strong> Locality: all sample logic in one place; easier testing; clearer seams for future features.</p>
+  </div>
+  <div class="card">
+    <h3>5. Checklist Polarity Enforcement</h3>
+    <p><strong>Problem:</strong> The 12-item checklist has dual polarity: 10 items are violations when stored "no", but artificial_colour and Expired_item are violations when stored "yes". This is the "single most error-prone fact" (CONTEXT.md).</p>
+    <p><strong>Solution:</strong> Add compile-time assertion that all checklist reasoning goes through derive_violations(); add new-module guard for inverted-field awareness.</p>
+    <p><strong>Benefit:</strong> Prevents new code from assuming uniform "no" polarity; makes inversion explicit.</p>
+  </div>
+  <div class="card">
+    <h2>Top Recommendation: Qdrant Filter Seam Consolidation</h2>
+    <p><strong>Why first:</strong> This is the foundation that enables cleaner testability and safer Qdrant version upgrades. The seam already exists (build_filter()) but is not fully embraced.</p>
+    <p><strong>Estimated effort:</strong> 2-3 days — consolidate _query_filters calls, add index field registration, update documentation.</p>
+    <p><strong>Risk:</strong> Low — the alternative is maintaining two code paths, which is the current higher-risk state.</p>
+  </div>
+</body>
+</html>

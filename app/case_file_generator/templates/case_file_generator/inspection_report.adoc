@@ -1,0 +1,60 @@
+
+= Inspection Report 
+:branch: Br X
+:date: 14/11/2026
+:icons: font
+:base_font_family: Noto Serif
+:pdf-page-size: A4
+Office of the Food Safety Officer, {branch}, Kolkata Municipal Corporation
+
+[.text-right]
+Date: {date}
+
+
+
+[.recipient]
+
+_To,_ +
+ The Designated Officer +
+*Food Cell, Kolkata Municipal Corporation*
+
+_Through Executive Health Officer, Br X_
+
+
+
+
+[.subject]
+*Subject: Inspection Report in respect of China Town at [Raja S.C. Mullick Road]*
+[.body]
+
+20&deg; C
+
+[.small]
+The food safety team will ensure that the business meet its requirment and work accordingly.
+
+IMPORTANT: This is an important information
+
+TIP: Verify the relevent records before completing the inspection
+
+WARNING: This is the definition
+
+
+
+[.inspection-note]
+====
+*INSPECTION OBSERVATION*
+
+The required records were not produced during the inspection 
+====
+
+[.sender]
+====
+*Copy Forwarded to*
+
+. The head of the Department
+. The DO
+====
+
+----
+The inspection notice
+----

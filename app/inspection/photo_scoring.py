@@ -75,7 +75,9 @@ _GATE_INSTRUCTIONS = (
 #: Gate at or above this counts as a scorable premises photo. Measured separation
 #: between a real premises interior and the non-premises probes is +0.983, so this
 #: sits in a wide empty band rather than near either cluster.
-GATE_THRESHOLD = 0.50
+#: Controlled via ``PHOTO_SCORING_THRESHOLD`` config (default 0.70); the measured
+#: separation (+0.983) sits in a wide empty band, so the default is conservative.
+GATE_THRESHOLD = None  # resolved at call time from config
 
 #: Checklist fields a photograph cannot establish. ``Pest_report`` and
 #: ``Water_report`` ask whether a *document* was produced; a photo of premises
@@ -90,6 +92,14 @@ SCORABLE_FIELDS: tuple[str, ...] = tuple(
 #: Fields whose stored form value records a violation as ``"yes"`` rather than
 #: ``"no"``. Mirrors ``derive_violations``; asserted against it in the tests.
 INVERTED_FORM_VALUE_FIELDS: frozenset[str] = frozenset(SPECIAL_VIOLATION_RULES)
+
+# Guard: ensure INVERTED_FORM_VALUE_FIELDS stays in sync with SPECIAL_VIOLATION_RULES.
+# If a new checklist item is added to SPECIAL_VIOLATION_RULES without also updating
+# INVERTED_FORM_VALUE_FIELDS (or vice versa), this assert will fire at import time,
+# making the desync visible rather than silently producing incorrect form values.
+_INVERTED_GUARD: None = (
+    len(INVERTED_FORM_VALUE_FIELDS) == len(SPECIAL_VIOLATION_RULES)  # noqa: B018
+)  # evaluated at import time; guards against silent desync
 
 _CRITERION = {**CHECKLIST_RULES, **SPECIAL_VIOLATION_RULES}
 
@@ -227,6 +237,11 @@ def parse_decision_response(raw: Any) -> ScoringResult:
     candidates are not read at all, so a non-premises image can never contribute
     a candidate probability.
     """
+    from app.shared.config import cfg
+
+    # Resolve gate threshold from config (default 0.70 if not set).
+    gate_threshold = cfg.photo_scoring_threshold or 0.70
+
     if not isinstance(raw, dict):
         return _failed("decision response was not an object")
 
@@ -236,11 +251,11 @@ def parse_decision_response(raw: Any) -> ScoringResult:
         # A missing gate is not a pass. Defaulting it open would let a malformed
         # response read as a scorable premises.
         return _failed(f"gate question {_GATE_FIELD!r} missing or non-numeric")
-    if gate_prob < GATE_THRESHOLD:
+    if gate_prob < gate_threshold:
         return _gated_out(
             note=(
                 f"image is not a scorable premises photograph "
-                f"(gate {gate_prob:.3f} < {GATE_THRESHOLD}); no candidate scored"
+                f"(gate {gate_prob:.3f} < {gate_threshold}); no candidate scored"
             ),
         )
 
@@ -482,7 +497,6 @@ class PhotoEvidenceScorer:
 
 
 __all__ = [
-    "GATE_THRESHOLD",
     "INVERTED_FORM_VALUE_FIELDS",
     "PHOTO_UNOBSERVABLE_FIELDS",
     "PROMPT_VERSION",
