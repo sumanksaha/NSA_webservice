@@ -604,31 +604,26 @@ class QdrantStore:
     def _query_filters(self, filters: dict[str, Any] | None) -> dict[str, Any] | None:
         """Drop flat filter keys this collection has no payload index for.
 
+        Pre-shaped filters (``must``/``should``/``must_not``) pass through
+        unchanged.  Flat ``{field: value}`` dicts are pruned to only those
+        keys that the collection's payload schema indexes; unindexed keys
+        would cause Qdrant to return HTTP 400.
+
         One stale/unknown key otherwise costs the entire query: Qdrant answers
         HTTP 400 and the retriever reports an empty pool.  Observed live
-        2026-11-06 — ``section_numbers`` (a ``QueryParser`` artefact that no
-        collection has as a payload field) 400'd every section lookup on the
+        2026-11-06 — ``section_numbers`` 400'd every section lookup on the
         five non-FSSAI collections, and ``clause_number`` did the same before
         its index existed.
-
-        Pre-shaped filters (``must``/``should``/``must_not``) are left alone:
-        their owner (:mod:`app.rag.retrieval.section_scope`) builds them from
-        fields that are indexed everywhere.
         """
-        if not filters or any(k in filters for k in ("must", "should", "must_not")):
+        if not filters:
+            return {}
+        # Pass pre-shaped filters through unchanged.
+        if any(k in filters for k in ("must", "should", "must_not")):
             return filters
+
+        # Check which flat keys this collection's payload schema indexes.
         indexed = self.payload_index_fields()
-        if not indexed:
-            return filters
-        unknown = sorted(k for k in filters if k not in indexed)
-        if not unknown:
-            return filters
-        logger.warning(
-            "dropping unindexed payload filter key(s) %s for collection %s (indexed: %s)",
-            unknown,
-            self.collection_name,
-            sorted(indexed),
-        )
+        # Keep only the keys that are indexed; drop everything else.
         return {k: v for k, v in filters.items() if k in indexed}
 
     def upsert_points(self, points: list[Point]) -> int:
