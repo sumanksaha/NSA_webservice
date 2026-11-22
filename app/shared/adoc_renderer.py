@@ -89,9 +89,9 @@ def render_adoc_to_docx(
     if output_format == "adoc":
         return rendered
     if output_format == "docx":
-        docx_bytes = _pandoc_asciidoc_to_docx(rendered)
-        if docx_bytes:
-            return docx_bytes
+        # Use the fallback renderer which properly handles AsciiDoc roles
+        # ([.justify], [.header], [.center], [.right], [.signature]) as Word
+        # paragraph alignment. Pandoc drops these role attributes.
         return _fallback_docx_from_adoc(rendered)
     raise ValueError(f"Unknown output_format: {output_format}. Use 'docx' or 'adoc'")
 

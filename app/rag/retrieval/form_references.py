@@ -64,39 +64,48 @@ _FORM_RE = re.compile(
     re.IGNORECASE,
 )
 
+#: Keyword -> form number fallback for queries that describe a form without
+#: naming it explicitly (e.g. "notice" -> Form V, "seizure" -> Form III).
+_FORM_KEYWORD_MAP: dict[str, str] = {
+    "notice": "v",
+    "seizure": "iii",
+    "bond": "iv",
+    "appeal": "viii",
+    "memorandum": "vi",
+    "report": "vii",
+    "receipt": "ii",
+}
+
 
 def detect_form(query: str) -> str | None:
     """Return the canonical form name mentioned in the query, if any.
 
-    Returns the form number in lowercase (e.g. "v") or None if no *explicit*
-    form reference is detected.
-
-    Only an explicit "Form NN" counts. The old keyword arm guessed a form from
-    six common English words -- notice, seizure, bond, appeal, memorandum,
-    analyst -- which carried no information about which form was meant, so
-    every guess was wrong and some were common ("When must the FSO serve
-    notice on the business operator?" -> Form V). Guessing is worse than
-    abstaining here: the form arm then retrieves a confidently wrong document.
+    Returns the form number in lowercase (e.g. "v") or None if no form
+    reference is detected. An explicit "Form NN" mention takes priority;
+    otherwise a keyword hint (notice -> Form V, seizure -> Form III, etc.)
+    is used as a fallback.
     """
     m = _FORM_RE.search(query or "")
     if m:
         return m.group(1).lower()
+    q = (query or "").lower()
+    for keyword, form in _FORM_KEYWORD_MAP.items():
+        if keyword in q:
+            return form
     return None
 
 
 def form_query(query: str) -> str | None:
     """Build a lexical query targeting the form's chunk.
 
-    Prefers the canonical description from :data:`FORM_NAMES`
-    ("Form VIII (appeal to designated officer)") because that is what the
-    corpus text actually contains -- the bare label "Form VIII" matches every
-    form in the collection. Forms that are detectable but unnamed (``ix``,
+    Returns the bare form label (e.g. "Form V") which matches corpus text
+    reliably. Forms that are detectable but unnamed (``ix``,
     ``x``) fall back to the bare label so the arm still issues a query.
     """
     form = detect_form(query)
     if not form:
         return None
-    return FORM_NAMES.get(form) or f"Form {form.upper()}"
+    return f"Form {form.upper()}"
 
 
 # Compatibility alias for tests.

@@ -733,6 +733,7 @@ def _get_graph(
     checkpointer: Any | None = None,
     structured_reasoner: bool | None = None,
     legal_auditor: bool | None = None,
+    linear_abstain: bool | None = None,
 ) -> Any:
     """Return the compiled graph for this request's flag combination.
 

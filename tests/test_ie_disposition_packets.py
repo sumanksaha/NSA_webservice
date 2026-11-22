@@ -25,6 +25,8 @@ PROJECT = Path(ie.PROJECT_ROOT)
 
 @pytest.fixture(scope="module")
 def real_state():
+    if not ie.STATE_PATH.exists():
+        pytest.skip("missing gitignored evaluation/out IE disposition state")
     return json.loads(ie.STATE_PATH.read_text(encoding="utf-8"))
 
 

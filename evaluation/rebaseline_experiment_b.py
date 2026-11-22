@@ -180,7 +180,7 @@ def build_baseline(out_path: Path = BASELINE) -> dict[str, Any]:
     from evaluation.build_references_v4 import verify_bundle
     from evaluation.calibrate_abstention import load_lexicon
     from evaluation.evaluator_v4 import apply_rule, soft_v4
-    from evaluation.experiment_b_topk_eval import token_overlap
+    from evaluation.text_overlap import token_overlap
 
     verdict = verify_bundle()
     if not verdict.get("ok"):

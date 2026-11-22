@@ -623,6 +623,8 @@ class QdrantStore:
 
         # Check which flat keys this collection's payload schema indexes.
         indexed = self.payload_index_fields()
+        if not indexed:
+            return filters
         # Keep only the keys that are indexed; drop everything else.
         return {k: v for k, v in filters.items() if k in indexed}
 

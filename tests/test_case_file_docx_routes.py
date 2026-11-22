@@ -1,6 +1,6 @@
 """TDD tests for case-file (sample adjudication) DOCX download.
 
-Seam: routes.py download endpoints (/docx/petition, /docx/permission, /docx/zip).
+Seam: routes.py download endpoints (/docx/petition, /docx/permission).
 
 Mirrors tests/test_adjudication_docx_routes.py: the sample-track routes must
 render the ADR-001 .adoc templates (not the old boilerplate word_converter)
@@ -234,68 +234,18 @@ class TestPermissionDocxDownload:
         assert not placeholders, f"Permission DOCX contains unsubstituted placeholders: {placeholders}"
 
 
-# ── ZIP with both DOCX ───────────────────────────────────────────────────
-
-
-class TestBothDocxZip:
-    """Seam: GET /case_file_generator/case/<id>/docx/zip"""
-
-    def test_returns_200(self, client, case_file):
-        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/zip")
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-
-    def test_returns_zip_mimetype(self, client, case_file):
-        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/zip")
-        assert response.content_type == "application/zip", f"Expected application/zip, got {response.content_type}"
-
-    def test_zip_contains_petition_docx(self, client, case_file):
-        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/zip")
-        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
-            names = zf.namelist()
-        petition_files = [n for n in names if "Petition" in n and n.endswith(".docx")]
-        assert petition_files, f"No Petition .docx in ZIP. Contents: {names}"
-
-    def test_zip_contains_permission_docx(self, client, case_file):
-        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/zip")
-        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
-            names = zf.namelist()
-        permission_files = [n for n in names if "Permission" in n and n.endswith(".docx")]
-        assert permission_files, f"No Permission .docx in ZIP. Contents: {names}"
-
-    def test_zip_petition_docx_no_placeholders(self, client, case_file):
-        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/zip")
-        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
-            names = [n for n in zf.namelist() if "Petition" in n and n.endswith(".docx")]
-            assert names, "No petition docx found"
-            with zf.open(names[0]) as f:
-                docx_bytes = f.read()
-        text = _extract_docx_text(docx_bytes)
-        placeholders = _brace_placeholders(text)
-        assert not placeholders, f"ZIP petition DOCX has unsubstituted placeholders: {placeholders}"
-
-    def test_zip_permission_docx_no_placeholders(self, client, case_file):
-        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/zip")
-        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
-            names = [n for n in zf.namelist() if "Permission" in n and n.endswith(".docx")]
-            assert names, "No permission docx found"
-            with zf.open(names[0]) as f:
-                docx_bytes = f.read()
-        text = _extract_docx_text(docx_bytes)
-        placeholders = _brace_placeholders(text)
-        assert not placeholders, f"ZIP permission DOCX has unsubstituted placeholders: {placeholders}"
-
-
-# ── Unsafe File DOCX (prohibition order) ─────────────────────────────────
-
+# ── Unsafe File DOCX (prayer/sanction) ────────────────────────────────────
 
 class TestUnsafeFileDocxDownload:
     """Seam: GET /case_file_generator/case/<id>/docx/unsafe_file
 
-    The Unsafe_file.adoc template is the prohibition-order document for a sample
-    found UNSAFE. It is wired into the sample-adjudication UI as a new per-case
-    option and must render from CaseFile data entered via that UI (with the
-    fso_name / sample_name aliases resolved by the route).
+    The Unsafe_file.adoc template is the prayer/sanction document for a sample
+    found UNSAFE. The prohibition order is a separate document served from
+    /docx/prohibition_order and must not be embedded here. The prayer is wired
+    into the sample-adjudication UI and renders from CaseFile data entered via
+    that UI (with the fso_name / sample_name aliases resolved by the route).
     """
+
 
     def test_returns_200(self, client, case_file):
         response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
@@ -331,11 +281,6 @@ class TestUnsafeFileDocxDownload:
         response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
         text = _extract_docx_text(response.data)
         assert "TDD Product" in text, "Unsafe File DOCX must contain the sample_name (product_name)"
-
-    def test_docx_contains_prohibition_reference(self, client, case_file):
-        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
-        text = _extract_docx_text(response.data)
-        assert "36(3)(b)" in text, "Unsafe File DOCX must reference Section 36(3)(b)"
 
     def test_docx_no_literal_brace_placeholders(self, client, case_file):
         """REGRESSION: docx must not contain unsubstituted {field_name} tokens."""
@@ -385,9 +330,15 @@ class TestUnsafeFileDocxDownload:
         assert "Remarks" in text, "14-column table Remarks must render"
         # Verify no letterhead table on page 1
         assert "OFFICE OF THE DESIGNATED OFFICER" not in text, "letterhead table must not be on page 1"
-        assert "PROHIBITION ORDER UNDER SEC 36(3)(b)" not in text, (
-            "prohibition order subject must not be on page 1 (moved to body)"
-        )
+        assert "36(3)(b)" not in text, "Section 36(3)(b) belongs to the separate prohibition-order letter"
+
+    def test_docx_does_not_embed_prohibition_order(self, client, case_file):
+        """The UNSAFE prayer must not carry the separately generated order."""
+        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/unsafe_file")
+        text = _extract_docx_text(response.data)
+        assert "Draft prohibition order" not in text
+        assert "Prohibition of Sale of Unsafe Food in respect of Sample No" not in text
+        assert "are hereby directed to stop sale" not in text
 
     def test_docx_14_column_table_fill_rules(self, client, case_file):
         """Fill rules: Packed state (separate FBOs), report dates, Sec 46(4)
@@ -534,7 +485,7 @@ class TestUnsafeFileDocxDownload:
 
 
 class TestUnsafeCaseDocumentGating:
-    """Unsafe cases serve only the prohibition order.
+    """Unsafe cases serve the prayer and prohibition order separately.
 
     Petition, permission, both-ZIP and petition-PDF endpoints must 403, and
     the case list must stop offering those buttons — none of these guards can
@@ -557,12 +508,6 @@ class TestUnsafeCaseDocumentGating:
     def test_permission_docx_forbidden(self, client, case_file):
         self._mark_unsafe(case_file)
         response = client.get(f"/case_file_generator/case/{case_file.id}/docx/permission")
-        assert response.status_code == 403
-        assert b"not available for unsafe cases" in response.data
-
-    def test_both_zip_forbidden(self, client, case_file):
-        self._mark_unsafe(case_file)
-        response = client.get(f"/case_file_generator/case/{case_file.id}/docx/zip")
         assert response.status_code == 403
         assert b"not available for unsafe cases" in response.data
 

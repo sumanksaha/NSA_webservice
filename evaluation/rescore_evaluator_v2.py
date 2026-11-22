@@ -46,7 +46,7 @@ OVERLAY = ROOT / "evaluation" / "evaluator_v2_overlay.json"
 
 # Unchanged scoring primitives (spec: evaluator stack frozen except the reference side)
 from evaluation.abstention_rule import abstain_credit
-from evaluation.experiment_b_topk_eval import token_overlap
+from evaluation.text_overlap import token_overlap
 
 _AbstainRe = re.compile(
     r"\b(i (do not|cannot|dont|can't|can not)|cannot (find|answer|determine|locate)|"

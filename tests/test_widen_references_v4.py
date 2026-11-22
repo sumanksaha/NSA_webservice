@@ -32,8 +32,12 @@ def real_ctx():
 # ---------------------------------------------------------------- packets ---
 
 
-def test_packets_exist_for_exactly_the_widen_qids():
-    state = json.loads(w4.STATE_PATH.read_text(encoding="utf-8"))
+def test_packets_exist_for_exactly_the_widen_qids(tmp_path, monkeypatch):
+    packet_dir = tmp_path / "packets"
+    state_path = tmp_path / "drafts_state.json"
+    monkeypatch.setattr(w4, "STATE_PATH", state_path)
+    built = w4.build_packets(out_dir=packet_dir, qids=WIDEN_QIDS, state_path=state_path)
+    state = {"packets": built["state"]}
     assert set(state["packets"]) == set(WIDEN_QIDS)
     for qid, rec in state["packets"].items():
         assert Path(rec["packet"]).is_file(), f"packet missing: {qid}"

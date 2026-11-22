@@ -15,6 +15,7 @@ Backward-compatible imports preserved for callers (tests, renderers, etc.).
 import io
 import re
 from datetime import date, datetime
+from functools import partial
 
 from flask import Blueprint, current_app, jsonify, render_template, request, send_file
 from flask_login import login_required
@@ -159,15 +160,29 @@ def _generation_gate_info(retailer_receive, manufacturer_receive) -> dict:
     }
 
 
-def validate_case_file_form(form_data: dict) -> dict[str, str]:
+def validate_case_file_form(form_data: dict, require_fields: bool = True) -> dict[str, str]:
     rcm = _is_retailer_cum_manufacturer(form_data)
     errors: dict[str, str] = {}
 
-    # Partial entry allowed: no field is hard-required for saving a draft.
-    # Required-field enforcement removed so case details can be saved with
-    # any subset of data entered. Date/format/ordering checks below still
-    # apply to whatever values are provided.
-    pass
+    if require_fields:
+        # ``authorization_date`` is issued after first data entry and is
+        # deliberately not required here. RCM cases have no separate
+        # manufacturer, batch, or mfg/expiry data.
+        standard_required = tuple(
+            field
+            for field in _REQUIRED_FIELDS
+            if field != "authorization_date" and field not in _RCM_EXEMPT_FIELDS
+        )
+        for field in standard_required:
+            value = _lookup_field(form_data, field)
+            if value is None or (isinstance(value, str) and not value.strip()):
+                errors[field] = f"{_REQUIRED_FIELDS[field]} is required."
+
+        if not rcm:
+            for field in sorted(_RCM_EXEMPT_FIELDS):
+                value = _lookup_field(form_data, field)
+                if value is None or (isinstance(value, str) and not value.strip()):
+                    errors[field] = f"{_REQUIRED_FIELDS.get(field, field)} is required."
 
     # --- Numeric validations ---
     packet_count = form_data.get("packet_count", "")
@@ -579,7 +594,7 @@ _manager = DocumentCaseManager(
     case_type="case_file",
     model_to_dict_fn=case_file_to_dict,
     process_form_fn=_process_case_file_form,
-    validate_form_fn=validate_case_file_form,
+    validate_form_fn=partial(validate_case_file_form, require_fields=False),
     apply_update_fn=apply_case_file_update,
     form_dict_fn=case_file_form_dict,
     sheets_module="sample",
@@ -792,6 +807,54 @@ def generate_case_file_route():
         }),
         200,
     )
+
+
+@case_file_generator_bp.route("/save_case_file", methods=["POST"])
+def save_case_file_route():
+    """Persist a case file from partially entered data, without generating docs."""
+    from flask_login import current_user
+
+    from app.shared.rbac import scoped_officer_name
+
+    form_data = request.form.to_dict()
+    scope = scoped_officer_name(current_user)
+    if scope:
+        form_data["food_safety_officer_name"] = scope
+
+    errors = validate_case_file_form(form_data, require_fields=False)
+    if errors:
+        return jsonify({"error": "Please correct the highlighted fields below.", "errors": errors}), 400
+
+    case_id = _safe_int(form_data.get("case_id"))
+    if case_id:
+        if not _case_visible_to_current_user(case_id, "case_file"):
+            return jsonify({"error": f"Case with id {case_id} not found"}), 404
+        case = db.session.get(CaseFile, case_id)
+        if case.is_archived:
+            return jsonify({"error": "Case is archived. Unarchive it before editing."}), 409
+        merged = case_file_form_dict(case)
+        merged.update({k: v for k, v in form_data.items() if k != "csrf_token"})
+        apply_case_file_update(case, merged)
+    else:
+        case = _process_case_file_form(form_data)
+        db.session.add(case)
+    case.synced_at = None
+
+    try:
+        db.session.commit()
+    except StaleDataError:
+        db.session.rollback()
+        return jsonify({"error": "This case file was modified by another user. Please reload and try again."}), 409
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.error("Draft case file save failed: %s", exc)
+        return jsonify({"error": f"Could not save the case file: {exc}"}), 500
+
+    return jsonify({
+        "message": "Case data saved",
+        "case_file_id": case.id,
+        "case_number": case.case_number,
+    }), 200
 
 
 @case_file_generator_bp.route("/lookup_sample", methods=["GET"])
@@ -1303,62 +1366,6 @@ def download_adoc(case_id: int, doc_type: str):
         as_attachment=True,
         download_name=download_name,
         mimetype="text/x-asciidoc",
-    )
-
-
-@case_file_generator_bp.route("/case/<int:case_id>/docx/zip")
-@login_required
-def download_both_docx(case_id: int):
-    """Download both Petition + Permission Letter as a single ZIP of .docx files.
-
-    Unsafe cases are rejected with 403 — petition and permission files are not
-    generated for them; the prohibition-order file has its own endpoint
-    (``download_unsafe_file_docx``).
-    """
-    case = CaseFile.query.get_or_404(case_id)
-    if not _case_visible_to_current_user(case_id, "case_file"):
-        return jsonify({"error": "Case not found"}), 404
-
-    if case.is_unsafe:
-        return (
-            jsonify(
-                {
-                    "error": "Petition/permission not available for unsafe cases; download the unsafe file instead",
-                },
-            ),
-            403,
-        )
-
-    access = check_generation_allowed(
-        case_type="case_file",
-        doc_type="both",
-        authorization_date=case.authorization_date,
-        retailer_receive=case.retailer_report_receive_date,
-        manufacturer_receive=case.manufacturer_report_receive_date,
-    )
-    if not access.allowed:
-        return jsonify(access.payload()), access.status
-
-    import io as _io
-    import zipfile
-
-    form_data = case_file_to_dict(case)
-    case_data = process_form_data(form_data)
-
-    petition_docx = render_docx("petition", case_data)
-    permission_docx = render_docx("permission", case_data)
-
-    label = case.case_number or str(case_id)
-    zip_buf = _io.BytesIO()
-    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(f"Petition_{label}.docx", petition_docx)
-        zf.writestr(f"Permission_Letter_{label}.docx", permission_docx)
-    zip_buf.seek(0)
-    return send_file(
-        zip_buf,
-        as_attachment=True,
-        download_name=f"Case_File_{label}_Word.zip",
-        mimetype="application/zip",
     )
 
 

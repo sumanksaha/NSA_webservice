@@ -1021,37 +1021,7 @@ def download_docx(case_id: int, doc_type: str):  # type: ignore[return-value]
             download_name=download_name,
             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
-    if doc_type == "zip":
-        if str(adj.pre_authorization or "no").strip().lower() == "yes":
-            return (
-                jsonify({
-                    "error": "Pre-authorization cases have no petition — download the permission letter instead."
-                }),
-                400,
-            )
-        access = check_generation_allowed(
-            case_type="adjudication",
-            doc_type="both",
-            authorization_date=adj.authorization_date,
-        )
-        if not access.allowed:
-            return jsonify(access.payload()), access.status
-        petition_docx = render_adoc_to_docx("template_nonsample_petition.adoc", context)
-        permission_docx = render_adoc_to_docx("Legal_NonsampleAdjudication_Template.adoc", context)
-        label = adj.case_number or str(case_id)
-        zip_buf = io.BytesIO()
-        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            # Add the petition docx
-            zf.writestr(f"Adjudication_Petition_{label}.docx", petition_docx)
-            # Add the permission docx
-            zf.writestr(f"Permission_Letter_{label}.docx", permission_docx)
-
-        return send_file(
-            zip_buf,
-            as_attachment=True,
-            download_name=f"Adjudication_Documents_{label}.zip",
-            mimetype="application/zip",
-        )
+    abort(404)
 
 
 @adjudication_bp.route("/case/<int:case_id>/adoc/<doc_type>")

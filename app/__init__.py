@@ -301,7 +301,6 @@ def create_app(db_uri: str | None = None):
         "adjudication.lookup_fssai_route",
         "inspection.lookup_ce_route",
         "inspection.lookup_fssai_route",
-        "sample.lookup_retailer",
         "bill_generator.lookup_fbo_issues",
         "adjudication.lookup_fbo_issues",
         # QStash webhook — authenticated by Upstash-Signature, not session

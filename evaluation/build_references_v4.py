@@ -131,7 +131,7 @@ def build_bundle(out_path: Path = BUNDLE_PATH) -> dict[str, Any]:
             if len(add) > MAX_ADD_CHARS:
                 reasons.append(f"add too long (>{MAX_ADD_CHARS} chars)")
             if add and conclusions:
-                from evaluation.experiment_b_topk_eval import token_overlap
+                from evaluation.text_overlap import token_overlap
 
                 ov = token_overlap(add, conclusions[0]).get("correctness", 0.0)
                 if ov > V1_DUP_MAX_OVERLAP:

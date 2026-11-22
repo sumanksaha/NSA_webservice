@@ -199,15 +199,6 @@ class TestCaseFileEditArchive:
         resp = client.put(f"/case_file_generator/case/{case_id}", data=data)
         assert resp.status_code == 400
 
-    def test_put_validates_required_fields(self, client):
-        _login(client)
-        with client.application.app_context():
-            case_id = _seed_case_file()
-        data = dict(CASE_FILE_FORM, product_name="")
-        resp = client.put(f"/case_file_generator/case/{case_id}", data=data)
-        assert resp.status_code == 400
-        assert "product_name" in resp.get_json()["errors"]
-
     def test_put_rcm_blanks_manufacturer_fields(self, client):
         """Switching a case to RCM must blank manufacturer identity, batch,
         mfg/expiry, and the manufacturer report date — even when the form

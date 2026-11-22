@@ -187,6 +187,70 @@ class TestCaseFileWitnessName:
             assert db.session.get(CaseFile, case_id).witness_name == "Late Added Witness"
 
 
+class TestPartialCaseFileSave:
+    def test_save_case_file_accepts_partial_data_without_generating_pdf(self, client, monkeypatch):
+        """A draft can be persisted before every legal date is known."""
+        _login(client)
+        pdf = mock.Mock()
+        monkeypatch.setattr("app.case_file_generator.tasks.generate_case_file_pdf", pdf)
+
+        resp = client.post(
+            "/case_file_generator/save_case_file",
+            data={"product_name": "Partially Entered Product"},
+        )
+
+        assert resp.status_code == 200, resp.get_data(as_text=True)
+        body = resp.get_json()
+        assert body["message"] == "Case data saved"
+        pdf.assert_not_called()
+
+        with client.application.app_context():
+            case = CaseFile.query.one()
+            assert case.product_name == "Partially Entered Product"
+            assert case.inspection_date is None
+            assert case.sample_submission_date is None
+            assert case.do_receipt_date is None
+
+    def test_create_form_offers_partial_save(self, client):
+        """The create form allows an incomplete submit via Save Draft."""
+        _login(client)
+        html = client.get("/case_file_generator/").get_data(as_text=True)
+        assert 'id="caseDraftBtn"' in html
+        assert "novalidate" in html
+
+    def test_save_case_file_rejects_invalid_partial_values(self, client):
+        _login(client)
+
+        resp = client.post(
+            "/case_file_generator/save_case_file",
+            data={"packet_count": "not-an-integer"},
+        )
+
+        assert resp.status_code == 400
+        assert "packet_count" in resp.get_json()["errors"]
+
+    def test_save_case_file_updates_existing_draft(self, client):
+        _login(client)
+        first = client.post(
+            "/case_file_generator/save_case_file",
+            data={"food_safety_officer_name": "Original Officer"},
+        )
+        assert first.status_code == 200, first.get_data(as_text=True)
+        with client.application.app_context():
+            case_id = CaseFile.query.one().id
+
+        resp = client.post(
+            "/case_file_generator/save_case_file",
+            data={"case_id": str(case_id), "product_name": "Added Later"},
+        )
+        assert resp.status_code == 200, resp.get_data(as_text=True)
+
+        with client.application.app_context():
+            case = db.session.get(CaseFile, case_id)
+            assert case.product_name == "Added Later"
+            assert case.food_safety_officer_name == "Original Officer"
+
+
 class TestAdjudicationCreatePersistsCeFields:
     def test_generate_all_persists_trade_license_details(self, client, monkeypatch):
         """KMC trade-license details entered on the create form must reach

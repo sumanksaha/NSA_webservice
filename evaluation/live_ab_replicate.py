@@ -66,7 +66,7 @@ def baseline_reference(qids: list[str]) -> dict[str, Any]:
     from evaluation.build_references_v4 import verify_bundle
     from evaluation.calibrate_abstention import load_lexicon
     from evaluation.evaluator_v4 import apply_rule, soft_v4
-    from evaluation.experiment_b_topk_eval import token_overlap
+    from evaluation.text_overlap import token_overlap
 
     bundle = json.loads((PROJECT_ROOT / "evaluation" / "evaluator_v4_references.json").read_text(encoding="utf-8"))
     bans_by_qid = {
@@ -121,6 +121,23 @@ def run_live(cohorts: dict[str, list[str]], opt_in: tuple[bool, int] | None = No
         )
         return 2
 
+    done = set()
+    if AB_CKPT.exists():
+        for line in AB_CKPT.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                rec = json.loads(line)
+                done.add((rec["replicate"], rec["question_id"]))
+
+    tasks = [
+        (rep, qid)
+        for rep in REPLICATES
+        for qid in cohorts["calibration"] + cohorts["holdout"]
+        if (rep, qid) not in done
+    ]
+    print(f"live A/B: {len(tasks)} calls ({len(done)}/60 checkpointed) | budget={budget} | K={ARM_K}", flush=True)
+    if not tasks:
+        return 0
+
     from evaluation.experiment_b_topk_eval import (
         _attach_ce_ranked,
         _llm_task,
@@ -141,21 +158,6 @@ def run_live(cohorts: dict[str, list[str]], opt_in: tuple[bool, int] | None = No
     questions = {q.question_id: q for q in load_questions()}
     gold_index = _load_gold_index(payload_index, family_map)
     client = _make_client(False)
-
-    done = set()
-    if AB_CKPT.exists():
-        for line in AB_CKPT.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                rec = json.loads(line)
-                done.add((rec["replicate"], rec["question_id"]))
-
-    tasks = [
-        (rep, qid)
-        for rep in REPLICATES
-        for qid in cohorts["calibration"] + cohorts["holdout"]
-        if (rep, qid) not in done
-    ]
-    print(f"live A/B: {len(tasks)} calls ({len(done)}/60 checkpointed) | budget={budget} | K={ARM_K}", flush=True)
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
     import threading
@@ -196,7 +198,7 @@ def score(cohorts: dict[str, list[str]] | None = None) -> int:
     from evaluation.build_references_v4 import verify_bundle
     from evaluation.calibrate_abstention import load_lexicon
     from evaluation.evaluator_v4 import apply_rule, soft_v4
-    from evaluation.experiment_b_topk_eval import token_overlap
+    from evaluation.text_overlap import token_overlap
     from evaluation.grading import grade_answer
     from evaluation.measure_component_rule_identity import evidence_texts_for, load_payload_index
     from evaluation.benchmark import load_questions as load_benchmark

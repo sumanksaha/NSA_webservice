@@ -19,6 +19,7 @@
         id="editCaseFileForm"
         action="{{ url_for('case_file_generator.update_case', case_id=case_id) }}"
         method="post"
+        novalidate
     >
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
@@ -284,6 +285,9 @@
             <button type="submit" class="btn btn-primary btn-lg" {% if is_archived %}disabled{% endif %}>
                 <i class="fa-solid fa-save"></i> Save Changes
             </button>
+            <button type="button" class="btn btn-secondary btn-lg js-validate-case" data-case-id="{{ case_id }}" data-case-type="case_file">
+                <i class="fa-solid fa-clipboard-check"></i> Validate
+            </button>
             <a href="{% if is_archived %}{{ url_for('case_file_generator.index', include_archived=1) }}{% else %}{{ url_for('case_file_generator.index') }}{% endif %}" class="btn btn-secondary btn-lg">
                 <i class="fa-solid fa-xmark"></i> Cancel
             </a>
@@ -294,9 +298,20 @@
             {% endif %}
         </div>
         <div id="edit-status" class="form-hint" style="margin-top: 0.5rem"></div>
+        <span id="editor-val-status" class="form-hint"></span>
+        <div id="editor-val-drawer" class="mt--md" style="display: none"></div>
     </form>
 </div>
 {% endblock %} {% block extra_js %}
+<script src="{{ url_for('static', filename='js/validation_drawer.js') }}"></script>
+<script>
+    ValidationDrawer.initRowButtons({
+        buttonsSelector: ".js-validate-case",
+        drawerId: "editor-val-drawer",
+        statusId: "editor-val-status",
+        endpoint: '{{ url_for("validation.validate") }}',
+    });
+</script>
 <script>
     document.getElementById("editCaseFileForm").addEventListener("submit", async function (e) {
         e.preventDefault();

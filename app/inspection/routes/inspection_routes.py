@@ -11,7 +11,7 @@ from sqlalchemy.orm.exc import StaleDataError
 from app.extensions import db
 from app.inspection import inspection_bp
 from app.inspection.code_generation import calculate_compliance_deadline, generate_inspection_code
-from app.models import FSO, Inspection, Sample
+from app.models import FSO, CaseFile, Inspection, Sample
 from app.sample.sample_utils import sample_to_sync_row, validate_sample_code, validate_sample_status
 from app.services.sync_orchestrator import sync_row
 from app.shared.context_derivers import CHECKLIST_FIELDS
@@ -260,11 +260,14 @@ def create_inspection():
     submission_date = parse_date(submission_date_raw) if submission_date_raw else None
 
     if sample_collected:
-        if not sample_type or sample_type not in ("enforcement", "surveillance"):
-            return jsonify({"error": "sample_type must be 'enforcement' or 'surveillance'"}), 400
-        code_error = validate_sample_code(sample_code, sample_type)
+        # Validate sample_code first (it works even when sample_type is unset —
+        # it then checks both enforcement and surveillance patterns), so code
+        # errors are reported before sample_type errors.
+        code_error = validate_sample_code(sample_code, sample_type or None)
         if code_error:
             return jsonify({"error": code_error}), 400
+        if not sample_type or sample_type not in ("enforcement", "surveillance"):
+            return jsonify({"error": "sample_type must be 'enforcement' or 'surveillance'"}), 400
         if not collection_date:
             return jsonify({"error": "collection_date is required when sample_collected is true"}), 400
         if not sample_name:
@@ -569,11 +572,14 @@ def update_inspection(inspection_id):
         new_submission_date = parse_date(sdr) if sdr else None
 
     if new_sample_collected:
-        if not new_sample_type or new_sample_type not in ("enforcement", "surveillance"):
-            return jsonify({"error": "sample_type must be 'enforcement' or 'surveillance'"}), 400
-        code_error = validate_sample_code(new_sample_code, new_sample_type)
+        # Validate sample_code first (it works even when sample_type is unset —
+        # it then checks both enforcement and surveillance patterns), so code
+        # errors are reported before sample_type errors.
+        code_error = validate_sample_code(new_sample_code, new_sample_type or None)
         if code_error:
             return jsonify({"error": code_error}), 400
+        if not new_sample_type or new_sample_type not in ("enforcement", "surveillance"):
+            return jsonify({"error": "sample_type must be 'enforcement' or 'surveillance'"}), 400
         if not new_collection_date:
             return jsonify({"error": "collection_date is required when sample_collected is true"}), 400
         if not new_sample_name:
@@ -1009,6 +1015,9 @@ def update_sample_details(inspection_id):
             current_app.logger.warning(f"Sample sync failed (non-fatal): {e}")
 
         return jsonify({"message": "Sample details updated successfully"}), 200
+    except StaleDataError:
+        db.session.rollback()
+        return jsonify({"error": "Conflict: sample was modified by another user."}), 409
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to update sample details: {e!s}"}), 500
@@ -1062,11 +1071,19 @@ def samples_list():
 
     paginated = query.paginate(page=page, per_page=per_page, error_out=False)
 
+    sample_ids = [s.id for s in paginated.items]
+    sample_case_map: dict[int, int] = {}
+    if sample_ids:
+        sample_case_map = dict(
+            db.session.query(CaseFile.sample_id, CaseFile.id).filter(CaseFile.sample_id.in_(sample_ids)).all(),
+        )
+
     fso_names = get_all_fso_names()
 
     return render_template(
         "inspection/samples.html",
         samples=paginated.items,
+        sample_case_map=sample_case_map,
         pagination=paginated,
         fso_names=fso_names,
         filter_fso=filter_fso,
@@ -1076,3 +1093,26 @@ def samples_list():
         sort_by=sort_by,
         sort_order=sort_order,
     )
+
+
+@inspection_bp.route("/samples/<int:sample_id>")
+def sample_detail(sample_id: int):
+    """Sample detail JSON for the audit view, including its linked case timeline."""
+    sample = db.session.get(Sample, sample_id)
+    if not sample:
+        return jsonify({"error": f"Sample with id {sample_id} not found"}), 404
+
+    linked_case = CaseFile.query.filter_by(sample_id=sample.id).first()
+    case_id = linked_case.id if linked_case else None
+
+    return jsonify({
+        "id": sample.id,
+        "case_id": case_id,
+        "timeline_url": f"/timeline/case/{case_id}?kind=case_file" if case_id else None,
+        "sample_code": sample.sample_code,
+        "sample_name": sample.sample_name,
+        "sample_type": sample.sample_type,
+        "fso_name": sample.fso_name,
+        "collection_date": sample.collection_date.isoformat() if sample.collection_date else None,
+        "submission_date": sample.submission_date.isoformat() if sample.submission_date else None,
+    })

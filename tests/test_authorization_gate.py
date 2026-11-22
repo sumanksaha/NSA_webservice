@@ -156,7 +156,6 @@ class TestPetitionAuthorizationGate:
             for url in (
                 f"/case_file_generator/case/{case.id}/pdf/petition",
                 f"/case_file_generator/case/{case.id}/docx/petition",
-                f"/case_file_generator/case/{case.id}/docx/zip",
                 f"/case_file_generator/case/{case.id}/copy-letter/petition",
             ):
                 resp = client.get(url)
@@ -312,7 +311,6 @@ class TestAdjudicationAuthorizationGate:
             for url in (
                 f"/adjudication/case/{adj.id}/pdf/petition",
                 f"/adjudication/case/{adj.id}/docx/petition",
-                f"/adjudication/case/{adj.id}/docx/zip",
                 f"/adjudication/case/{adj.id}/copy-letter/petition",
             ):
                 resp = client.get(url)
@@ -382,7 +380,6 @@ class TestAdjudicationAuthorizationGate:
             for url in (
                 f"/adjudication/case/{adj.id}/pdf/petition",
                 f"/adjudication/case/{adj.id}/docx/petition",
-                f"/adjudication/case/{adj.id}/docx/zip",
                 f"/adjudication/case/{adj.id}/copy-letter/petition",
             ):
                 resp = client.get(url)

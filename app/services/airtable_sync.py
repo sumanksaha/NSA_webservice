@@ -40,6 +40,9 @@ AIRTABLE_FIELD_MAP = SHEET_COLUMNS
 # Threshold for base rotation: Airtable free tier = 1,200 records/base.
 BASE_ROTATION_THRESHOLD = 1100
 
+_API_KEY_PLACEHOLDER = "your-airtable-personal-access-token-here"
+_BASE_ID_PLACEHOLDER = "your-airtable-base-id-here"
+
 # Thread-local storage for pyairtable client
 _thread_local = threading.local()
 
@@ -49,6 +52,22 @@ def _env(key: str) -> str | None:
     import os
 
     return os.environ.get(key)
+
+
+def _api_key() -> str | None:
+    """Return the configured key, or None when unset or an .env.example placeholder."""
+    value = current_app.config.get("AIRTABLE_API_KEY") or _env("AIRTABLE_API_KEY")
+    if not value or value == _API_KEY_PLACEHOLDER:
+        return None
+    return value
+
+
+def _primary_base_id() -> str | None:
+    """Return the primary base ID, or None when unset or an .env.example placeholder."""
+    value = current_app.config.get("AIRTABLE_BASE_ID") or _env("AIRTABLE_BASE_ID")
+    if not value or value == _BASE_ID_PLACEHOLDER:
+        return None
+    return value
 
 
 def _get_client():
@@ -61,7 +80,7 @@ def _get_client():
     if cached is not None:
         return cached
 
-    api_key = current_app.config.get("AIRTABLE_API_KEY") or _env("AIRTABLE_API_KEY")
+    api_key = _api_key()
     if not api_key:
         logger.debug("AIRTABLE_API_KEY not configured - Airtable sync disabled")
         return None
@@ -97,7 +116,7 @@ def _get_base_id(module: str) -> str | None:
     base is near capacity and ``schema.bases:write`` scope is available,
     a new base is created and its ID is returned.
     """
-    primary_base = current_app.config.get("AIRTABLE_BASE_ID") or _env("AIRTABLE_BASE_ID")
+    primary_base = _primary_base_id()
     if not primary_base:
         logger.debug("AIRTABLE_BASE_ID not configured - Airtable sync disabled")
         return None
@@ -118,14 +137,42 @@ def _get_base_id(module: str) -> str | None:
     return primary_base
 
 
+def _iter_records(table):
+    """Yield individual records from pyairtable 1.x/2.x/3.x iteration styles."""
+    iterate = getattr(table, "iterate", None)
+    items = iterate(page_size=100) if iterate else table.iter_all(page_size=100)
+    for item in items:
+        if isinstance(item, dict):
+            yield item
+        else:
+            yield from item
+
+
+def _record_id(result) -> str | None:
+    """Extract the created record ID from a dict, legacy list, or record object."""
+    if isinstance(result, dict):
+        return result.get("id")
+    if isinstance(result, (list, tuple)):
+        for item in result:
+            if isinstance(item, dict):
+                item_id = item.get("id")
+                if isinstance(item_id, str):
+                    return item_id
+        return None
+    record_id = getattr(result, "id", None)
+    return record_id if isinstance(record_id, str) else None
+
+
 def _base_near_capacity(client, base_id: str, module: str) -> bool:
     """Check whether *base_id* has >= BASE_ROTATION_THRESHOLD records."""
     table_name = AIRTABLE_TABLE_MAP.get(module)
     if not table_name:
         return False
     try:
-        table = client.table(base_id, table_name)
-        return any(count >= BASE_ROTATION_THRESHOLD for count, _ in enumerate(table.iterate(page_size=100), start=1))
+        for count, _ in enumerate(_iter_records(client.table(base_id, table_name)), 1):
+            if count >= BASE_ROTATION_THRESHOLD:
+                return True
+        return False
     except Exception as e:
         logger.debug("Capacity check failed for base %s: %s", base_id, e)
         return False
@@ -135,18 +182,51 @@ def _build_table_fields(module: str) -> list[dict]:
     """Build Airtable field spec list for table creation (base rotation)."""
     cols = AIRTABLE_FIELD_MAP.get(module, [])
     type_hints = {"sample_id": "number"}
-    fields = []
-    for col in cols:
-        ftype = type_hints.get(col, "text")
-        fields.append({"name": col, "type": ftype, "options": {}})
-    return fields
+    return [{"name": col, "type": type_hints.get(col, "text")} for col in cols]
+
+
+def _create_table(client, base_id: str, module: str):
+    """Create the mapped table in *base_id* and return it."""
+    table_name = AIRTABLE_TABLE_MAP.get(module, module)
+    return client.base(base_id).create_table(table_name, _build_table_fields(module))
+
+
+def _ensure_table(client, base_id: str, module: str):
+    """Return the mapped table, creating it when the schema lookup fails."""
+    table_name = AIRTABLE_TABLE_MAP.get(module, module)
+    try:
+        table = client.table(base_id, table_name)
+        if table is not None:
+            table.schema(force=False)
+            return table
+    except Exception as e:
+        logger.debug("Table %s missing in base %s: %s", table_name, base_id, e)
+    return _create_table(client, base_id, module)
+
+
+def _known_base_ids(client=None) -> list[str]:
+    """Return the primary base plus every rotated base recorded in the DB."""
+    base_ids: list[str] = []
+    primary = _primary_base_id()
+    if primary:
+        base_ids.append(primary)
+    try:
+        from app.extensions import db
+        from app.models import AirtableBaseMap
+
+        for (base_id,) in db.session.query(AirtableBaseMap.airtable_base_id).distinct().all():
+            if base_id and base_id not in base_ids:
+                base_ids.append(base_id)
+    except Exception as e:
+        logger.debug("Could not enumerate rotated Airtable bases: %s", e)
+    return base_ids
 
 
 def _rotate_base(module: str) -> str | None:
     """Create a new Airtable base for *module* and return its ID."""
     import httpx
 
-    api_key = current_app.config.get("AIRTABLE_API_KEY") or _env("AIRTABLE_API_KEY")
+    api_key = _api_key()
     if not api_key:
         return None
 
@@ -179,7 +259,7 @@ def _rotate_base(module: str) -> str | None:
         )
         if resp.status_code == 200:
             new_base_id = resp.json().get("id")
-            if new_base_id:
+            if isinstance(new_base_id, str):
                 logger.info("Created new Airtable base %s for module %s", new_base_id, module)
                 return new_base_id
         logger.warning("Airtable base creation failed (status %d)", resp.status_code)
@@ -246,16 +326,22 @@ def sync_to_airtable(module: str, row_dict: dict, db_record_id: int | None = Non
     cols = AIRTABLE_FIELD_MAP.get(module, [])
     fields = {}
     for c in cols:
-        v = row_dict.get(c, "")
-        v = _escape_formula(v)
+        v = _escape_formula(row_dict.get(c, ""))
         if v != "" and v is not None:
-            fields[c] = v
+            fields[c] = str(v)
 
     try:
-        table = client.table(base_id, table_name)
-        result = table.create(fields)
-        airtable_record_id = result.get("id") if isinstance(result, dict) else None
+        table = _ensure_table(client, base_id, module)
+        try:
+            result = table.create(fields)
+        except Exception as e:
+            if "UNKNOWN_FIELD_NAME" not in str(e):
+                raise
+            known = {f["name"] if isinstance(f, dict) else f.name for f in table.schema(force=True).fields}
+            fields = {k: v for k, v in fields.items() if k in known}
+            result = table.create(fields)
 
+        airtable_record_id = _record_id(result)
         if db_record_id is not None and airtable_record_id:
             _track_airtable_sync(db_record_id, module, airtable_record_id, base_id)
 
@@ -285,22 +371,23 @@ def export_airtable_all_bases_to_r2() -> str | None:
     if client is None:
         return None
 
-    base_id = current_app.config.get("AIRTABLE_BASE_ID") or _env("AIRTABLE_BASE_ID")
-    if not base_id:
+    base_ids = _known_base_ids(client)
+    if not base_ids:
         return None
 
     rows: list[dict] = []
 
-    for module, table_name in AIRTABLE_TABLE_MAP.items():
-        try:
-            table = client.table(base_id, table_name)
-            for record in table.iterate(page_size=100):
-                row = {"module": module, "base_id": base_id}
-                for k, v in record.get("fields", {}).items():
-                    row[k] = v if v is not None else ""
-                rows.append(row)
-        except Exception as e:
-            logger.warning("Airtable export failed for %s: %s", module, e)
+    for base_id in base_ids:
+        for module, table_name in AIRTABLE_TABLE_MAP.items():
+            try:
+                table = client.table(base_id, table_name)
+                for record in _iter_records(table):
+                    row = {"module": module, "base_id": base_id, "table": table_name}
+                    for k, v in record.get("fields", {}).items():
+                        row[k] = v if v is not None else ""
+                    rows.append(row)
+            except Exception as e:
+                logger.warning("Airtable export failed for %s in base %s: %s", module, base_id, e)
 
     if not rows:
         return None
@@ -348,7 +435,4 @@ def export_airtable_all_bases_to_r2() -> str | None:
 
 def is_configured() -> bool:
     """Return True if Airtable API key and base ID are configured."""
-    return bool(
-        (current_app.config.get("AIRTABLE_API_KEY") or _env("AIRTABLE_API_KEY"))
-        and (current_app.config.get("AIRTABLE_BASE_ID") or _env("AIRTABLE_BASE_ID")),
-    )
+    return bool(_api_key() and _primary_base_id())

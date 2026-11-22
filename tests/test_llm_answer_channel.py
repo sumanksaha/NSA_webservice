@@ -133,7 +133,7 @@ def test_budgets_come_from_the_config_seam(monkeypatch, captured):
 
 def test_default_budget_leaves_room_for_the_answer(captured):
     defaults = {s.key: s.default for s in cfg.table()}
-    assert defaults["RAG_LLM_MAX_TOKENS"] == 4096
+    assert defaults["RAG_LLM_MAX_TOKENS"] == 8192
     assert defaults["RAG_LLM_REASONING_MAX_TOKENS"] == 1024
     _client().call("s", "u")
     assert captured["max_tokens"] == cfg.llm_max_tokens

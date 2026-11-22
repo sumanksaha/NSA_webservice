@@ -65,7 +65,7 @@ def disposition_one(
 ) -> dict[str, Any]:
     """Exactly one cause class per call — the cascade order is the evidence order."""
     from evaluation.calibrate_abstention import matched_phrases, load_lexicon
-    from evaluation.experiment_b_topk_eval import token_overlap
+    from evaluation.text_overlap import token_overlap
 
     q = None
     evidence: dict[str, Any] = {
@@ -195,7 +195,7 @@ def main() -> int:
         v4 = None
         if graded:
             from evaluation.evaluator_v4 import apply_rule
-            from evaluation.experiment_b_topk_eval import token_overlap as _tok
+            from evaluation.text_overlap import token_overlap as _tok
 
             answer_bans = set((bans_by_qid.get(qid) or {}).get("banned_phrases") or [])
             should_abstain = bool(bundle_rec.get("expected_abstain"))

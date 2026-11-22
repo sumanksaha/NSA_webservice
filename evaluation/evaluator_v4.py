@@ -86,7 +86,7 @@ def build_rows() -> list[dict[str, Any]]:
     from evaluation.benchmark import load_questions
     from evaluation.resolution import FamilyMap
     from evaluation.calibrate_abstention import load_lexicon, matched_phrases
-    from evaluation.experiment_b_topk_eval import token_overlap
+    from evaluation.text_overlap import token_overlap
 
     bundle = load_bundle()
     bundle_questions = bundle["questions"]

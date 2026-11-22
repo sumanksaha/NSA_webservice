@@ -129,7 +129,8 @@ def test_parse_reads_a_gated_in_response():
 
 def test_gate_blocks_a_non_premises_image():
     """The measured failure mode: a noul must answer, so the gate supplies abstention."""
-    from app.inspection.photo_scoring import GATE_THRESHOLD, parse_decision_response
+    from app.inspection.photo_scoring import parse_decision_response
+    from app.shared.config import cfg
 
     # The model "finds" a violation, but the gate says this is not a premises photo.
     result = parse_decision_response(_answers(gate=0.001, clean_premise=0.91))
@@ -139,13 +140,14 @@ def test_gate_blocks_a_non_premises_image():
     assert result.suggested_fields(0.70) == []
     assert all(i.p_violation is None for i in result.items)
     assert "not a scorable premises" in result.error
-    assert GATE_THRESHOLD > 0.001
+    assert (cfg.photo_scoring_threshold or 0.70) > 0.001
 
 
 def test_gate_exactly_at_threshold_passes():
-    from app.inspection.photo_scoring import GATE_THRESHOLD, parse_decision_response
+    from app.inspection.photo_scoring import parse_decision_response
+    from app.shared.config import cfg
 
-    result = parse_decision_response(_answers(gate=GATE_THRESHOLD))
+    result = parse_decision_response(_answers(gate=cfg.photo_scoring_threshold or 0.70))
     assert result.gate_passed is True
 
 

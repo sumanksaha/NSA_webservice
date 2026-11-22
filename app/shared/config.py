@@ -104,10 +104,10 @@ _TABLE: tuple[Setting, ...] = (
         int,
         8192,
         help="Maximum completion tokens for the grounded RAG answer model. "
-             "Raised from 4096 to 8192: 4 qids (Q049/Q053/Q059/Q066) hit the "
-             "cap and were truncated mid-analysis before reaching a conclusion, "
-             "producing false abstentions. 8192 still leaves headroom below the "
-             "provider's hard cap and the 800-call budget.",
+        "Raised from 4096 to 8192: 4 qids (Q049/Q053/Q059/Q066) hit the "
+        "cap and were truncated mid-analysis before reaching a conclusion, "
+        "producing false abstentions. 8192 still leaves headroom below the "
+        "provider's hard cap and the 800-call budget.",
     ),
     Setting(
         "RAG_LLM_REASONING_MAX_TOKENS",
@@ -239,8 +239,8 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         True,
         help="Enable section/act-scoped structural retrieval arm (RAG_SECTION_ARM). "
-             "Validated: deterministic section/act features give R@10=0.474 vs 0.311 "
-             "for untuned cross-encoder. Additive — never displaces existing arms.",
+        "Validated: deterministic section/act features give R@10=0.474 vs 0.311 "
+        "for untuned cross-encoder. Additive — never displaces existing arms.",
     ),
     Setting(
         "RAG_FORM_ARM",
@@ -255,9 +255,9 @@ _TABLE: tuple[Setting, ...] = (
         bool,
         False,
         help="S3 (linear-path abstain): route critically low-groundedness linear-path "
-             "answers to abstain instead of finalize when the retry budget is exhausted. "
-             "Default OFF — the S1 calibration measured false_abstention_rate=0.8148 on "
-             "the current pipeline, so this must be validated on a held-out cohort first.",
+        "answers to abstain instead of finalize when the retry budget is exhausted. "
+        "Default OFF — the S1 calibration measured false_abstention_rate=0.8148 on "
+        "the current pipeline, so this must be validated on a held-out cohort first.",
     ),
     Setting(
         "ENABLE_EVIDENCE_SELECTOR",

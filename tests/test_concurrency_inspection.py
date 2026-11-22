@@ -121,49 +121,54 @@ class TestInspectionConcurrency:
 
 
 class TestSampleConcurrency:
-    def test_put_returns_409_on_concurrent_modification(self):
+    @staticmethod
+    def _seed_linked_sample(code):
         from app.extensions import db
-        from app.models import Sample
+        from app.models import Inspection, Sample
 
+        insp = Inspection(
+            inspection_code=code,
+            fso_name="Test Officer",
+            fbo_name="FBO",
+            inspection_date=datetime.now(UTC),
+            compliance_deadline=datetime.now(UTC),
+        )
+        db.session.add(insp)
+        db.session.commit()
+        samp = Sample(
+            sample_code=code,
+            sample_name="Milk",
+            sample_type="enforcement",
+            fso_name="Test Officer",
+            collection_date=datetime.now(UTC),
+            inspection_id=insp.id,
+        )
+        db.session.add(samp)
+        db.session.commit()
+        return insp, samp
+
+    def test_update_sample_details_returns_409_on_concurrent_modification(self):
         _app, client, ctx = _setup_test_env()
         try:
-            samp = Sample(
-                sample_code="SMP-001",
-                sample_name="Milk",
-                sample_type="enforcement",
-                fso_name="Test Officer",
-                collection_date=datetime.now(UTC),
-            )
-            db.session.add(samp)
-            db.session.commit()
-            samp_id = samp.id
+            insp, _samp = self._seed_linked_sample("SMP-001")
 
             with _patch_commit_stale():
-                resp = client.put(f"/sample/{samp_id}", data={"sample_name": "Updated"})
+                resp = client.post(
+                    f"/inspection/{insp.id}/update-sample-details",
+                    data={"retailer_name": "Updated"},
+                )
             assert resp.status_code == 409
             assert b"Conflict" in resp.data
         finally:
             _teardown_test_env(ctx)
 
-    def test_delete_returns_409_on_staledataerror(self):
-        from app.extensions import db
-        from app.models import Sample
-
+    def test_inspection_put_with_sample_returns_409_on_staledataerror(self):
         _app, client, ctx = _setup_test_env()
         try:
-            samp = Sample(
-                sample_code="SMP-002",
-                sample_name="Water",
-                sample_type="surveillance",
-                fso_name="Test Officer",
-                collection_date=datetime.now(UTC),
-            )
-            db.session.add(samp)
-            db.session.commit()
-            samp_id = samp.id
+            insp, _samp = self._seed_linked_sample("SMP-002")
 
             with _patch_commit_stale():
-                resp = client.delete(f"/sample/{samp_id}")
+                resp = client.put(f"/inspection/{insp.id}", data={"fbo_name": "Updated"})
             assert resp.status_code == 409
             assert b"Conflict" in resp.data
         finally:
