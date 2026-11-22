@@ -69,7 +69,7 @@ if __name__ == "__main__":
         content = f.read()
 
     # Insert right before the next route decorator (top-level marker).
-    marker = '@case_file_generator_bp.route("/case/<int:case_id>/docx/zip")'
+    marker = '@case_file_generator_bp.route("/case/<int:case_id>/pdf/petition")'
     assert marker in content, "marker not found"
     content = content.replace(marker, route + "\n\n" + marker)
 

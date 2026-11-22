@@ -200,6 +200,7 @@ def gold_chunk_ids_for_units(units, idx, payload_index=None, family_map=None, te
             ids |= by_section.get(u.family, {}).get(u.section, set())
         if text_fallback and payload_index is not None and family_map is not None:
             from evaluation.resolution import matches_gold as _mg
+
             # Only scan in-family chunks (by_family already indexes them via
             # payload_to_keys). resolve_by_text requires unit.family in the
             # chunk's payload families, so a cross-family chunk can never
@@ -317,21 +318,7 @@ def retrieve_chunks(chunk_items, payload_index: dict[str, dict]) -> list[Retriev
 # ---------------------------------------------------------------------------
 # Correctness metrics (mirror eval_e2e_v2.compute_question_metrics)
 # ---------------------------------------------------------------------------
-_TOK_RE = re.compile(r"[a-z0-9]+")
-
-
-def _toks(s: str) -> set[str]:
-    return set(_TOK_RE.findall(s.lower())) if s else set()
-
-
-def token_overlap(answer: str, expected: str) -> dict[str, float]:
-    a, e = _toks(answer), _toks(expected or "")
-    if not e:
-        return {"coverage": 0.0, "jaccard": 0.0, "correctness": 0.0}
-    inter = len(a & e)
-    cov = inter / len(e)
-    jac = inter / len(a | e) if (a | e) else 0.0
-    return {"coverage": cov, "jaccard": jac, "correctness": (jac + cov) / 2.0}
+from evaluation.text_overlap import _TOK_RE, _toks, token_overlap
 
 
 _ABSTAIN_RE = re.compile(
@@ -353,7 +340,15 @@ def abstain_check(answer: str) -> bool:
 
 
 def compute_metrics(
-    resp, built, question, ce_topk_chunk_ids, context_chunk_ids, gold_chunk_ids, gold_units, payload_index, family_map,
+    resp,
+    built,
+    question,
+    ce_topk_chunk_ids,
+    context_chunk_ids,
+    gold_chunk_ids,
+    gold_units,
+    payload_index,
+    family_map,
 ) -> dict[str, Any]:
     """Primary LLM metrics (spec section 6) for one (question, K)."""
     answer = resp.answer or ""
@@ -393,7 +388,13 @@ def compute_metrics(
     evidence_texts = {cid: str((payload_index.get(cid) or {}).get("chunk_text") or "") for cid in ce_topk_chunk_ids}
     try:
         g = grade_answer(
-            question, answer, list(cited_chunk_ids), list(ce_topk_chunk_ids), evidence_texts, payload_index, family_map,
+            question,
+            answer,
+            list(cited_chunk_ids),
+            list(ce_topk_chunk_ids),
+            evidence_texts,
+            payload_index,
+            family_map,
         )
         grader_score = int(g.get("score", 0))
     except Exception as exc:
@@ -579,7 +580,9 @@ def phase_build(dry: bool):
             for pid, payload in payload_index.items():
                 if matches_gold(payload, u, family_map, text_fallback=True):
                     brute.add(pid)
-        idxd = gold_chunk_ids_for_units(units, gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True)
+        idxd = gold_chunk_ids_for_units(
+            units, gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True
+        )
         ok = "OK" if brute == idxd else "MISMATCH"
         print(f"  [verify] {qid}: brute={len(brute)} indexed={len(idxd)} -> {ok}", flush=True)
 
@@ -734,7 +737,11 @@ def _print_dry_context_math(ce_cache, questions, payload_index, family_map):
         qd = ce_cache["questions"][qid]
         q = questions[qid]
         units = q.recall_units()
-        gids = sorted(gold_chunk_ids_for_units(units, gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True))
+        gids = sorted(
+            gold_chunk_ids_for_units(
+                units, gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True
+            )
+        )
         chunks = [to_retrieved_chunk(c, payload_index.get(c, {}), 1.0) for c in gids]
         chunks.sort(key=lambda c: (c.document_title, str(c.chunk_index)))
         built = _ExpBOracleBuilder(min(len(chunks), 200)).build(q.question, chunks, "general_qa")
@@ -786,7 +793,9 @@ def _llm_task(qid, k, question, qd, payload_index, family_map, gold_index, clien
     ce_topk_chunk_ids = [it["key"] for it in chunk_items]
     context_chunks = retrieve_chunks(chunk_items, payload_index)
     gold_units = question.recall_units()
-    gold_chunk_ids = gold_chunk_ids_for_units(gold_units, gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True)
+    gold_chunk_ids = gold_chunk_ids_for_units(
+        gold_units, gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True
+    )
 
     # gold_present / ce_gold_rank come from the authoritative cached CE ranking
     # (ce_gold_rank was computed in phase_build on the LIVE CE items, which carry
@@ -823,7 +832,15 @@ def _llm_task(qid, k, question, qd, payload_index, family_map, gold_index, clien
 
     context_ids = [cit["chunk_id"] for cit in (built.citations or [])] if built else ce_topk_chunk_ids
     m = compute_metrics(
-        resp, built, question, ce_topk_chunk_ids, context_ids, gold_chunk_ids, gold_units, payload_index, family_map,
+        resp,
+        built,
+        question,
+        ce_topk_chunk_ids,
+        context_ids,
+        gold_chunk_ids,
+        gold_units,
+        payload_index,
+        family_map,
     )
     m.update({
         "question_id": qid,
@@ -922,7 +939,11 @@ def phase_llm(use_stub: bool, concurrency: int, resume: bool, limit: int | None)
 # ---------------------------------------------------------------------------
 def _oracle_task(qid, question, qd, payload_index, family_map, gold_index, client):
     gold_units = question.recall_units()
-    gold_ids = sorted(gold_chunk_ids_for_units(gold_units, gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True))
+    gold_ids = sorted(
+        gold_chunk_ids_for_units(
+            gold_units, gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True
+        )
+    )
     if not gold_ids:
         return {"question_id": qid, "error": "no gold chunks in corpus", "k": None}
     chunks = [to_retrieved_chunk(c, payload_index.get(c, {}), 1.0) for c in gold_ids]
@@ -942,7 +963,15 @@ def _oracle_task(qid, question, qd, payload_index, family_map, gold_index, clien
 
     context_ids = [cit["chunk_id"] for cit in (built.citations or [])] if built else []
     m = compute_metrics(
-        resp, built, question, gold_ids, context_ids, set(gold_ids), gold_units, payload_index, family_map,
+        resp,
+        built,
+        question,
+        gold_ids,
+        context_ids,
+        set(gold_ids),
+        gold_units,
+        payload_index,
+        family_map,
     )
     m.update({
         "question_id": qid,
@@ -1321,7 +1350,15 @@ def phase_analyze():
             "n_gold_units": qd["n_gold_units"],
             "ce_gold_rank": qd["ce_gold_rank"],
             "pool_size": qd["pool_size"],
-            "n_gold_chunks_total": len(gold_chunk_ids_for_units(questions[qid].recall_units(), gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True))
+            "n_gold_chunks_total": len(
+                gold_chunk_ids_for_units(
+                    questions[qid].recall_units(),
+                    gold_index,
+                    payload_index=payload_index,
+                    family_map=family_map,
+                    text_fallback=True,
+                )
+            )
             if qid in questions
             else 0,
             "k_curve": k_curve_q,
@@ -1675,7 +1712,8 @@ def phase_report():
     A("")
     cfg = agg.get("config", {})
     for row in _tbl(
-        ["Item", "Value"], [[k, (json.dumps(v) if isinstance(v, (dict, list)) else v)] for k, v in cfg.items()],
+        ["Item", "Value"],
+        [[k, (json.dumps(v) if isinstance(v, (dict, list)) else v)] for k, v in cfg.items()],
     ):
         A(row)
     A("")
@@ -1942,8 +1980,10 @@ def phase_report():
     A("---")
     A("## 24. Coverage & Error Rate (per K)")
     A("")
-    A("Coverage disclosure for interpreting 'completed' results: each K attempts all 150 questions; "
-      "records with empty answers / rate-limit errors are counted as n_error.")
+    A(
+        "Coverage disclosure for interpreting 'completed' results: each K attempts all 150 questions; "
+        "records with empty answers / rate-limit errors are counted as n_error."
+    )
     A("")
     for row in _tbl(
         ["K", "attempted", "success (n)", "error (n)", "error_rate"],
@@ -2029,7 +2069,9 @@ def phase_validate():
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Experiment B -- CE Top-K -> LLM answer-quality curve")
     ap.add_argument(
-        "--phase", default="all", choices=["all", "build", "llm", "oracle", "analyze", "plots", "report", "dry"],
+        "--phase",
+        default="all",
+        choices=["all", "build", "llm", "oracle", "analyze", "plots", "report", "dry"],
     )
     ap.add_argument("--dry", action="store_true", help="build in dry mode (no LLM, with verification + context math)")
     ap.add_argument("--stub", action="store_true", help="use stub LLM (validate pipeline, no real API calls)")

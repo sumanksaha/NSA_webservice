@@ -229,15 +229,23 @@ class TestCaseFileValidation:
 # ---------------------------------------------------------------------------
 
 
+def _render_petition(client):
+    from app.case_file_generator.routes import case_file_form_dict
+
+    with client.application.app_context():
+        form = case_file_form_dict(db.session.get(CaseFile, 100))
+    resp = client.post("/case_file_generator/preview", data=form)
+    assert resp.status_code == 200, resp.get_data(as_text=True)
+    return resp.get_json()["petition_html"]
+
+
 class TestPetitionStructure:
     """The petition template has explicit FACTS, GROUNDS, and PRAYER sections."""
 
     def test_petition_renders_structured_sections(self, test_client):
         """Rendered petition contains STATEMENT OF FACTS, GROUNDS, and PRAYER."""
         _login(test_client)
-        resp = test_client.get("/case_file_generator/100/editor", follow_redirects=False)
-        assert resp.status_code == 200
-        html = resp.data.decode("utf-8")
+        html = _render_petition(test_client)
         assert "STATEMENT OF FACTS" in html
         assert "GROUNDS" in html
         assert "PRAYER" in html
@@ -247,8 +255,7 @@ class TestPetitionStructure:
     def test_petition_grounds_reference_case_data(self, test_client):
         """GROUNDS section includes the analysis result and product name."""
         _login(test_client)
-        resp = test_client.get("/case_file_generator/100/editor", follow_redirects=False)
-        html = resp.data.decode("utf-8")
+        html = _render_petition(test_client)
         # Product name appears in the grounds narrative
         assert "Test Product" in html
         # Grounds section contains the appeal reference (Section 46(4))
@@ -257,7 +264,6 @@ class TestPetitionStructure:
     def test_petition_prayer_section_has_prayer_clauses(self, test_client):
         """PRAYER section contains numbered prayer clauses."""
         _login(test_client)
-        resp = test_client.get("/case_file_generator/100/editor", follow_redirects=False)
-        html = resp.data.decode("utf-8")
+        html = _render_petition(test_client)
         # Traditional closing line of a prayer preserved
         assert "ever pray" in html

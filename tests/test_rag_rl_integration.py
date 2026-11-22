@@ -91,7 +91,7 @@ class TestRLIntegrationFlow:
         """The policy has the expected action space of (top_k, rrf_k) pairs."""
         from app.rag.rl.policy import DEFAULT_RRF_K_VALUES, DEFAULT_TOP_K_VALUES
 
-        assert DEFAULT_TOP_K_VALUES == (5, 10, 15, 20)
+        assert DEFAULT_TOP_K_VALUES == (5, 10, 15, 20, 30, 40, 50)
         assert DEFAULT_RRF_K_VALUES == (10.0, 30.0, 60.0, 100.0)
 
     def test_reward_model_returns_components(self):

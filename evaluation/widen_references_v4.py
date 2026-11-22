@@ -57,6 +57,7 @@ STATE_PATH = OUT / "widen_v4" / "drafts_state.json"
 MERGE_REPORT = OUT / "widen_v4" / "merge_report.json"
 BUNDLE_PATH = PROJECT_ROOT / "evaluation" / "evaluator_v4_references.json"
 C_PERQ = OUT / "experiment_C_per_question.json"
+CONTEXT_MANIFEST = OUT / "experiment_C_context_manifest.json"
 TABULATION = OUT / "full_review_tabulation.json"
 WORKSHEET = OUT / "full_review_worksheet_completed.md"
 
@@ -106,6 +107,36 @@ class _Ctx(dict):
     pass
 
 
+def _backfill_gold_payload_ids(perq: dict[str, Any]) -> None:
+    """Deterministic fallback when perq rows lack gold_payload_ids.
+
+    Some context manifests expose gold chunk ids only under
+    questions[qid].gold_unit_resolution[unit].chunk_ids. Backfilling keeps
+    packet-building anchor extraction usable without LLM calls.
+    """
+    if not CONTEXT_MANIFEST.exists():
+        return
+    try:
+        manifest = json.loads(CONTEXT_MANIFEST.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    questions = (manifest.get("questions") or {}) if isinstance(manifest, dict) else {}
+    for qid, qrec in (perq or {}).items():
+        if not isinstance(qrec, dict) or qrec.get("gold_payload_ids"):
+            continue
+        mq = questions.get(qid) or {}
+        gur = mq.get("gold_unit_resolution") or {}
+        gold_payload_ids: dict[str, list[str]] = {}
+        for unit, info in gur.items():
+            if not isinstance(info, dict):
+                continue
+            chunk_ids = [str(c) for c in (info.get("chunk_ids") or []) if c]
+            if chunk_ids:
+                gold_payload_ids[str(unit)] = chunk_ids
+        if gold_payload_ids:
+            qrec["gold_payload_ids"] = gold_payload_ids
+
+
 def load_context() -> _Ctx:
     """Bundle, tabulation, worksheet answers, gold anchors — the packet material."""
     from evaluation.build_references_v4 import verify_bundle
@@ -117,13 +148,14 @@ def load_context() -> _Ctx:
     bundle = json.loads(BUNDLE_PATH.read_text(encoding="utf-8"))
     tab = {r["qid"]: r for r in (json.loads(TABULATION.read_text(encoding="utf-8")).get("records") or [])}
     perq = json.loads(C_PERQ.read_text(encoding="utf-8")) if C_PERQ.exists() else {}
+    _backfill_gold_payload_ids(perq)
     payload_index: dict[str, dict[str, Any]] = {}
-    for line in (
-        (PROJECT_ROOT / "evaluation" / "out" / "cache" / "payload_index.jsonl").read_text(encoding="utf-8").splitlines()
-    ):
-        if line.strip():
-            rec = json.loads(line)
-            payload_index[str(rec.get("id"))] = rec.get("payload") or {}
+    cache_path = PROJECT_ROOT / "evaluation" / "out" / "cache" / "payload_index.jsonl"
+    if cache_path.exists():
+        for line in cache_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                rec = json.loads(line)
+                payload_index[str(rec.get("id"))] = rec.get("payload") or {}
     arms = parse_worksheet(WORKSHEET) if WORKSHEET.exists() else {}
     return _Ctx(
         bundle=bundle,
@@ -183,7 +215,7 @@ def build_packets(
     out_dir = Path(out_dir)
     (out_dir).mkdir(parents=True, exist_ok=True)
     state: dict[str, Any] = {}
-    for qid in (qids or WIDEN_QIDS):
+    for qid in qids or WIDEN_QIDS:
         qrec = (ctx["perq"] or {}).get(qid) or {}
         trec = (ctx["tabulation"] or {}).get(qid) or {}
         bref = (ctx["bundle"].get("questions") or {}).get(qid) or {}
@@ -318,15 +350,13 @@ def validate_entry(qid: str, entry: dict[str, str], ctx: dict[str, Any]) -> dict
             )
     v1 = (((ctx["bundle"].get("questions") or {}).get(qid) or {}).get("conclusions") or [""])[0]
     if v1 and add:
-        from evaluation.experiment_b_topk_eval import token_overlap
+        from evaluation.text_overlap import token_overlap
 
         ov = token_overlap(add, v1).get("correctness", 0.0)
         if ov > V1_DUP_MAX_OVERLAP:
             reasons.append(f"add duplicates the v1 reference (overlap {ov:.2f}) — nothing widened")
     d2text = ((ctx["worksheet_arms"] or {}).get(qid) or {}).get("D2") or ""
     if d2text and add:
-        from evaluation.experiment_b_topk_eval import token_overlap
-
         ov = token_overlap(add, d2text).get("correctness", 0.0)
         if ov > INDEPENDENCE_MAX_OVERLAP:
             reasons.append(

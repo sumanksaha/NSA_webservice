@@ -8,10 +8,10 @@ retrieval context.  The fix is to pick the right variant *per question*.
 
 * **Multi-candidate mode** (default, no JEV): runs a small candidate set of
   system prompts, scores each answer, and returns the best result:
-    1. Keep candidates whose soft correctness >= baseline_soft - 0.02.
-    2. Among those, pick the shortest answer (brevity).
-    3. If none meet correctness, pick the highest-soft candidate.
-    4. Prefer non-abstaining candidates.
+    1. Keep candidates whose source-content retention is within
+       ``CONTENT_EQUIVALENCE_BAND`` of the best candidate.
+    2. Prefer candidates that answered over refusals.
+    3. Among content-equivalent candidates, pick the shortest (brevity).
 
 * **JEV-guided mode** (``RAG_VARIANT_SELECTOR_JEV=true``): asks the sanctioned
   JEV decision model (``typesafe/jev-1.13``) via OpenRouter's Decisions API to
@@ -20,10 +20,11 @@ retrieval context.  The fix is to pick the right variant *per question*.
   returns unusable scores, fall back to running all candidates
   (multi-candidate mode) and never raise.
 
-The scoring (soft correctness, coverage, abstention) requires an expected
-answer, which the runtime doesn't have.  So the selector uses *answer length*
-as the brevity proxy and *citation count / answer presence* as the
-correctness proxy — both computed without a gold reference.
+The scoring requires an expected answer, which the runtime doesn't have.  So
+the selector uses a length-invariant source-token overlap as the content
+retention proxy and raw answer length only as the final tiebreak — both
+computed without a gold reference.  Citation breadth is retained as a
+diagnostic signal only: it rewards verbosity and must not decide selection.
 
 ``typesafe/jev-router`` is banned and never used (enforced by
 ``DecisionModelClient``).
@@ -32,6 +33,7 @@ correctness proxy — both computed without a gold reference.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import Any
 
@@ -127,12 +129,13 @@ DEFAULT_CANDIDATES: tuple[str, ...] = (
     "guardrail_confident",
 )
 
-#: Soft-correctness tolerance vs baseline (matches experiment guardrail).
-CORRECTNESS_DROP_LIMIT = 0.02
+#: Max content-retention gap treated as noise (evaluation/noise_floor.py).
+CONTENT_EQUIVALENCE_BAND = 0.0815
 #: Max abstention increase vs baseline (matches experiment guardrail).
 ABSTENTION_INCREASE_LIMIT = 0.10
 #: Minimum brevity reduction vs baseline (percent).
 BREVITY_REDUCTION_TARGET = 15.0
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 #: JEV variant-selection instructions — one noul question per candidate variant.
 _JEV_VARIANT_INSTR = (
@@ -161,10 +164,18 @@ def _is_abstention(text: str) -> bool:
         return True
     t = text.strip().lower()
     markers = [
-        "cannot be determined", "cannot determine", "not established",
-        "does not establish", "not in the context", "not mentioned",
-        "insufficient evidence", "no information", "unable to answer",
-        "does not provide", "not specified", "not stated",
+        "cannot be determined",
+        "cannot determine",
+        "not established",
+        "does not establish",
+        "not in the context",
+        "not mentioned",
+        "insufficient evidence",
+        "no information",
+        "unable to answer",
+        "does not provide",
+        "not specified",
+        "not stated",
     ]
     return any(m in t for m in markers)
 
@@ -213,13 +224,17 @@ class VariantSelector:
         """
         if prompts is not None or not self.enabled:
             return self.service.generate_with_prompts(
-                query=query, chunks=chunks, query_type=query_type,
+                query=query,
+                chunks=chunks,
+                query_type=query_type,
                 prompts=prompts,
             )
 
         if not chunks:
             return self.service.generate_with_prompts(
-                query=query, chunks=chunks, query_type=query_type,
+                query=query,
+                chunks=chunks,
+                query_type=query_type,
                 prompts=prompts,
             )
 
@@ -231,9 +246,7 @@ class VariantSelector:
     # ------------------------------------------------------------------ #
     # Multi-candidate mode (existing behavior)
     # ------------------------------------------------------------------ #
-    def _generate_multi_candidate(
-        self, query: str, chunks: list[RetrievedChunk], query_type: str
-    ) -> Any:
+    def _generate_multi_candidate(self, query: str, chunks: list[RetrievedChunk], query_type: str) -> Any:
         user_prompt = self._render_user_prompt(query, chunks)
         results: list[dict[str, Any]] = []
         for name in ("baseline",) + self.candidates:
@@ -256,11 +269,14 @@ class VariantSelector:
                 "length": len(text),
                 "abstained": _is_abstention(text),
                 "soft_proxy": self._soft_proxy(text, chunks),
+                "content_proxy": self._content_proxy(text, chunks),
             })
 
         if not results:
             return self.service.generate_with_prompts(
-                query=query, chunks=chunks, query_type=query_type,
+                query=query,
+                chunks=chunks,
+                query_type=query_type,
                 prompts=None,
             )
 
@@ -269,9 +285,7 @@ class VariantSelector:
     # ------------------------------------------------------------------ #
     # JEV-guided mode
     # ------------------------------------------------------------------ #
-    def _generate_jev_guided(
-        self, query: str, chunks: list[RetrievedChunk], query_type: str
-    ) -> Any:
+    def _generate_jev_guided(self, query: str, chunks: list[RetrievedChunk], query_type: str) -> Any:
         user_prompt = self._render_user_prompt(query, chunks)
         started = time.monotonic()
 
@@ -322,14 +336,11 @@ class VariantSelector:
             }
             probs: dict[int, float] = {}
             for start in range(0, len(variants), _JEV_BATCH):
-                batch_variants = variants[start:start + _JEV_BATCH]
-                batch_candidates = candidates[start:start + _JEV_BATCH]
+                batch_variants = variants[start : start + _JEV_BATCH]
+                batch_candidates = candidates[start : start + _JEV_BATCH]
                 batch_state = dict(state)
                 batch_state["candidates"] = batch_candidates
-                batch_questions = {
-                    f"v{i}": questions[f"v{i}"]
-                    for i in range(start, start + len(batch_variants))
-                }
+                batch_questions = {f"v{i}": questions[f"v{i}"] for i in range(start, start + len(batch_variants))}
                 body = {
                     "model": self.jev_model,
                     "state": batch_state,
@@ -340,14 +351,10 @@ class VariantSelector:
                 for attempt in range(_JEV_ATTEMPTS):
                     try:
                         with httpx.Client(timeout=cfg.decision_timeout) as client:
-                            resp = client.post(
-                                _JEV_DECISIONS_URL, headers=headers, json=body
-                            )
+                            resp = client.post(_JEV_DECISIONS_URL, headers=headers, json=body)
                             data = resp.json()
                         if resp.status_code >= 400 or "error" in data:
-                            raise RuntimeError(
-                                f"HTTP {resp.status_code}: {data.get('error')}"
-                            )
+                            raise RuntimeError(f"HTTP {resp.status_code}: {data.get('error')}")
                         break
                     except Exception as exc:
                         last = exc
@@ -376,7 +383,7 @@ class VariantSelector:
         )
 
         # Pick top-scored variant; generate one answer.
-        best_index = max(probs, key=probs.get)
+        best_index = max(probs, key=lambda i: probs[i])
         best_name = variants[best_index]
         best_system = CANDIDATE_SYSTEM_PROMPTS[best_name]
         try:
@@ -389,7 +396,8 @@ class VariantSelector:
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "variant_selector: generation for %s failed (%s) — multi-candidate",
-                best_name, exc,
+                best_name,
+                exc,
             )
             return self._generate_multi_candidate(query, chunks, query_type)
 
@@ -401,6 +409,7 @@ class VariantSelector:
             "length": len(text),
             "abstained": _is_abstention(text),
             "soft_proxy": self._soft_proxy(text, chunks),
+            "content_proxy": self._content_proxy(text, chunks),
         }
 
         # Sanity: if the chosen answer abstained but baseline would answer,
@@ -415,8 +424,7 @@ class VariantSelector:
             base_text = base_resp.answer or ""
             if chosen_result["abstained"] and not _is_abstention(base_text):
                 logger.info(
-                    "variant_selector: JEV pick %s abstained but baseline answered "
-                    "(advisory trace)",
+                    "variant_selector: JEV pick %s abstained but baseline answered (advisory trace)",
                     best_name,
                 )
         except Exception:  # noqa: BLE001 — advisory only
@@ -428,45 +436,53 @@ class VariantSelector:
     # Selection logic (shared)
     # ------------------------------------------------------------------ #
     def _pick_best(self, results: list[dict[str, Any]]) -> Any:
-        baseline = results[0]
-        baseline_soft = baseline["soft_proxy"]
-        baseline_abstained = baseline["abstained"]
-
-        correct_ok = [
-            r for r in results
-            if r["soft_proxy"] >= baseline_soft - CORRECTNESS_DROP_LIMIT
-        ]
-
-        chosen = None
-        reason = ""
-        if correct_ok:
-            non_abstain = [r for r in correct_ok if not r["abstained"]]
-            pool = non_abstain if non_abstain else correct_ok
-            chosen = min(pool, key=lambda r: r["length"])
-            reason = "shortest among correctness-eligible"
-        else:
-            chosen = max(results, key=lambda r: r["soft_proxy"])
-            reason = "highest soft proxy (no variant met correctness limit)"
+        best_content = max(r["content_proxy"] for r in results)
+        content_ok = [r for r in results if r["content_proxy"] >= best_content - CONTENT_EQUIVALENCE_BAND]
+        non_abstain = [r for r in content_ok if not r["abstained"]]
+        pool = non_abstain or content_ok
+        chosen = min(pool, key=lambda r: r["length"])
+        reason = (
+            "shortest among content-equivalent answers"
+            if non_abstain
+            else "shortest among content-equivalent candidates"
+        )
 
         logger.info(
-            "variant_selector: chose %s (%s), len=%d, abstained=%s",
-            chosen["name"], reason, chosen["length"], chosen["abstained"],
+            "variant_selector: chose %s (%s), len=%d, abstained=%s, content=%.3f",
+            chosen["name"],
+            reason,
+            chosen["length"],
+            chosen["abstained"],
+            chosen["content_proxy"],
         )
         return chosen["response"]
 
     @staticmethod
-    def _soft_proxy(text: str, chunks: list[RetrievedChunk]) -> float:
-        """Reference-free correctness proxy: citation coverage + presence.
+    def _content_proxy(text: str, chunks: list[RetrievedChunk]) -> float:
+        """Fraction of distinct source tokens retained by an answer."""
+        if not text or not text.strip():
+            return 0.0
+        context_tokens: set[str] = set()
+        for chunk in chunks:
+            context_tokens.update(_TOKEN_RE.findall((chunk.text or "").lower()))
+        if not context_tokens:
+            return 0.0
+        answer_tokens = set(_TOKEN_RE.findall(text.lower()))
+        return len(answer_tokens & context_tokens) / len(context_tokens)
 
-        Fraction of retrieved chunks cited at least once, plus a bonus for
-        non-empty non-abstaining text.  Higher = more of the evidence base is
-        covered by the answer, which correlates with soft correctness.
+    @staticmethod
+    def _soft_proxy(text: str, chunks: list[RetrievedChunk]) -> float:
+        """Diagnostic citation coverage: how much of the evidence is cited.
+
+        Kept for traceability and evaluation comparisons only.  Selection uses
+        ``_content_proxy`` because citation breadth rewards verbosity while the
+        brevity tiebreak rewards the opposite.
         """
         if not text or not text.strip():
             return 0.0
         cited = 0
         for i, _ in enumerate(chunks):
-            marker = f"[{i+1}]"
+            marker = f"[{i + 1}]"
             if marker in text:
                 cited += 1
         coverage = cited / max(len(chunks), 1)
@@ -475,14 +491,5 @@ class VariantSelector:
 
     @staticmethod
     def _render_user_prompt(query: str, context_chunks: list[RetrievedChunk]) -> str:
-        ctx = "\n\n".join(
-            f"[{i+1}] {c.text}" for i, c in enumerate(context_chunks)
-        )
-        return (
-            "Relevant legal context:\n"
-            "<legal_context>\n"
-            f"{ctx}\n"
-            "</legal_context>\n\n"
-            f"Question: {query}\n"
-            "Answer:"
-        )
+        ctx = "\n\n".join(f"[{i + 1}] {c.text}" for i, c in enumerate(context_chunks))
+        return f"Relevant legal context:\n<legal_context>\n{ctx}\n</legal_context>\n\nQuestion: {query}\nAnswer:"

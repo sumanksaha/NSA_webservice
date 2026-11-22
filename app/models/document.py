@@ -25,7 +25,7 @@ class CaseFile(db.Model):
     # Issued later by the Designated Officer when the permission file is
     # submitted — optional at first data entry, recorded on the petition.
     authorization_date = db.Column(db.DateTime, nullable=True)
-    inspection_date = db.Column(db.DateTime, nullable=False)
+    inspection_date = db.Column(db.DateTime, nullable=True)
     inspection_time = db.Column(db.String(100), nullable=False)
 
     # Link to Sample (optional FK - Step 5 addition)
@@ -65,9 +65,9 @@ class CaseFile(db.Model):
     # prints a blank line to be filled in by hand.
     witness_name = db.Column(db.String(200), nullable=True)
     sample_code = db.Column(db.String(100), nullable=False)
-    sample_submission_date = db.Column(db.DateTime, nullable=False)
+    sample_submission_date = db.Column(db.DateTime, nullable=True)
     Lab_Registration_No = db.Column(db.String(100), nullable=False)
-    do_receipt_date = db.Column(db.DateTime, nullable=False)
+    do_receipt_date = db.Column(db.DateTime, nullable=True)
 
     # Results
     is_misbranded = db.Column(db.Boolean, default=False)
@@ -77,10 +77,10 @@ class CaseFile(db.Model):
     # unsafe and/or substandard. Drives the Unsafe-File option in the UI.
     is_unsafe = db.Column(db.Boolean, default=False)
     analyst_report_no = db.Column(db.String(100), nullable=False)
-    analyst_report_date = db.Column(db.DateTime, nullable=False)
+    analyst_report_date = db.Column(db.DateTime, nullable=True)
     directive_letter_no = db.Column(db.String(100), nullable=False)
-    directive_letter_date = db.Column(db.DateTime, nullable=False)
-    retailer_report_receive_date = db.Column(db.DateTime, nullable=False)
+    directive_letter_date = db.Column(db.DateTime, nullable=True)
+    retailer_report_receive_date = db.Column(db.DateTime, nullable=True)
     manufacturer_report_receive_date = db.Column(db.DateTime, nullable=True)
     applicable_regulation = db.Column(db.String(200))
     applicable_clause = db.Column(db.String(200))

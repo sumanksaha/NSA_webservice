@@ -1,6 +1,6 @@
 """TDD: Red → Green for adjudication DOCX download.
 
-Seam: routes.py download endpoints (/docx/petition, /docx/permission, /docx/zip).
+Seam: routes.py download endpoints (/docx/petition, /docx/permission).
 
 Red: DOCX download must not contain unsubstituted literal placeholders
      and must contain the same field values that preview renders.
@@ -206,54 +206,3 @@ class TestPermissionDocxDownload:
         text = _extract_docx_text(response.data)
         placeholders = _brace_placeholders(text)
         assert not placeholders, f"Permission DOCX contains unsubstituted placeholders: {placeholders}"
-
-
-# ── ZIP with both DOCX ───────────────────────────────────────────────────
-
-
-class TestBothDocxZip:
-    """Seam: GET /adjudication/case/<id>/docx/zip"""
-
-    def test_returns_200(self, client, adjudication):
-        response = client.get(f"/adjudication/case/{adjudication.id}/docx/zip")
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-
-    def test_returns_zip_mimetype(self, client, adjudication):
-        response = client.get(f"/adjudication/case/{adjudication.id}/docx/zip")
-        assert response.content_type == "application/zip", f"Expected application/zip, got {response.content_type}"
-
-    def test_zip_contains_petition_docx(self, client, adjudication):
-        response = client.get(f"/adjudication/case/{adjudication.id}/docx/zip")
-        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
-            names = zf.namelist()
-        petition_files = [n for n in names if "Petition" in n and n.endswith(".docx")]
-        assert petition_files, f"No Petition .docx in ZIP. Contents: {names}"
-
-    def test_zip_contains_permission_docx(self, client, adjudication):
-        response = client.get(f"/adjudication/case/{adjudication.id}/docx/zip")
-        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
-            names = zf.namelist()
-        permission_files = [n for n in names if "Permission" in n and n.endswith(".docx")]
-        assert permission_files, f"No Permission .docx in ZIP. Contents: {names}"
-
-    def test_zip_petition_docx_no_placeholders(self, client, adjudication):
-        response = client.get(f"/adjudication/case/{adjudication.id}/docx/zip")
-        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
-            names = [n for n in zf.namelist() if "Petition" in n and n.endswith(".docx")]
-            assert names, "No petition docx found"
-            with zf.open(names[0]) as f:
-                docx_bytes = f.read()
-        text = _extract_docx_text(docx_bytes)
-        placeholders = _brace_placeholders(text)
-        assert not placeholders, f"ZIP petition DOCX has unsubstituted placeholders: {placeholders}"
-
-    def test_zip_permission_docx_no_placeholders(self, client, adjudication):
-        response = client.get(f"/adjudication/case/{adjudication.id}/docx/zip")
-        with zipfile.ZipFile(io.BytesIO(response.data)) as zf:
-            names = [n for n in zf.namelist() if "Permission" in n and n.endswith(".docx")]
-            assert names, "No permission docx found"
-            with zf.open(names[0]) as f:
-                docx_bytes = f.read()
-        text = _extract_docx_text(docx_bytes)
-        placeholders = _brace_placeholders(text)
-        assert not placeholders, f"ZIP permission DOCX has unsubstituted placeholders: {placeholders}"

@@ -78,7 +78,7 @@ for _mod in ("torch", "sentence_transformers"):
         sys.modules[_mod] = _stub
 
 import evaluation.step0_label_residual as s0
-from evaluation.experiment_b_topk_eval import token_overlap
+from evaluation.text_overlap import token_overlap
 from evaluation.step1_preregister_gates import quote_in_evidence
 
 OUT = s0.OUT
@@ -110,21 +110,70 @@ CONDITIONS = ("C-O3", "D2", "D3", "E1")
 # gold-derived anchor cannot be quoted from, and a widening drafted on it is
 # impossible even though the evidence IS present.
 ANCHOR_RANKED_TOP_K = 4
-ANCHOR_GOLD_MIN_SCORE = 0.12   # gold text must cover at least this of the query
-ANCHOR_GOLD_RELATIVE = 1.5     # ranked must beat gold by this factor to take over
+ANCHOR_GOLD_MIN_SCORE = 0.12  # gold text must cover at least this of the query
+ANCHOR_GOLD_RELATIVE = 1.5  # ranked must beat gold by this factor to take over
 _STOPWORDS = frozenset(
-    ["the", "a", "an", "of", "and", "or", "to", "in", "for", "is", "are", "be", "shall", "must", "may", "with", "on", "by", "that", "this", "it", "as", "at", "from", "any", "its", "not", "no", "if", "or", "other", "under", "within", "act", "section", "any", "all", "being", "having", "here", "there", "when", "where", "which", "who", "whom", "what", "how", "why", "does", "do", "done"],
+    [
+        "the",
+        "a",
+        "an",
+        "of",
+        "and",
+        "or",
+        "to",
+        "in",
+        "for",
+        "is",
+        "are",
+        "be",
+        "shall",
+        "must",
+        "may",
+        "with",
+        "on",
+        "by",
+        "that",
+        "this",
+        "it",
+        "as",
+        "at",
+        "from",
+        "any",
+        "its",
+        "not",
+        "no",
+        "if",
+        "or",
+        "other",
+        "under",
+        "within",
+        "act",
+        "section",
+        "any",
+        "all",
+        "being",
+        "having",
+        "here",
+        "there",
+        "when",
+        "where",
+        "which",
+        "who",
+        "whom",
+        "what",
+        "how",
+        "why",
+        "does",
+        "do",
+        "done",
+    ],
 )
 
 
 def _anchor_toks(text: str) -> set[str]:
     import re as _re
 
-    return {
-        t
-        for t in _re.findall(r"[a-z0-9]+", (text or "").lower())
-        if t not in _STOPWORDS and len(t) > 2
-    }
+    return {t for t in _re.findall(r"[a-z0-9]+", (text or "").lower()) if t not in _STOPWORDS and len(t) > 2}
 
 
 def _anchor_overlap(query: set[str], text: str, weights: dict[str, float] | None = None) -> float:
@@ -153,9 +202,7 @@ def _anchor_idf_weights(o3_ids: list[str], payload_index: dict[str, dict], query
         n += 1
         for t in query & toks:
             df[t] = df.get(t, 0) + 1
-    return {
-        t: math.log((n + 1) / (df.get(t, 0) + 1)) + 0.1 for t in query
-    }
+    return {t: math.log((n + 1) / (df.get(t, 0) + 1)) + 0.1 for t in query}
 
 
 def _anchor_query(question: Any) -> set[str]:
@@ -263,7 +310,15 @@ def collect_evidence_anchor(
 
     o3_ids = load_o3_chunk_ids(manifest, qid)
     o3_set = set(o3_ids)
-    gold_cids = sorted(gold_chunk_ids_for_units(list(question.primary_units()), gold_index, payload_index=payload_index, family_map=family_map, text_fallback=True))
+    gold_cids = sorted(
+        gold_chunk_ids_for_units(
+            list(question.primary_units()),
+            gold_index,
+            payload_index=payload_index,
+            family_map=family_map,
+            text_fallback=True,
+        )
+    )
     anchor_ids = [cid for cid in gold_cids if cid in o3_set]
     fallback = False
 
@@ -275,21 +330,14 @@ def collect_evidence_anchor(
     # provision past the cap ("noxious", "single-use plastic" never reached the
     # anchor even though their chunks are gold). Rank gold chunks by IDF-weighted
     # query overlap so the rare, operative terms fill the cap first.
-    anchor_ids = [
-        cid
-        for _score, cid in _rank_o3_chunks(anchor_ids, payload_index, query, weights)
-    ]
-    gold_text = "\n".join(
-        s0._chunk_text(payload_index.get(cid) or {}) for cid in anchor_ids
-    )
+    anchor_ids = [cid for _score, cid in _rank_o3_chunks(anchor_ids, payload_index, query, weights)]
+    gold_text = "\n".join(s0._chunk_text(payload_index.get(cid) or {}) for cid in anchor_ids)
     gold_score = _anchor_overlap(query, gold_text, weights)
     ranked = _rank_o3_chunks(o3_ids, payload_index, query, weights)
     top_ids = [cid for _score, cid in ranked[:ANCHOR_RANKED_TOP_K]]
     ranked_best = _anchor_overlap(
         query,
-        "\n".join(
-            s0._chunk_text(payload_index.get(cid) or {}) for cid in top_ids
-        ),
+        "\n".join(s0._chunk_text(payload_index.get(cid) or {}) for cid in top_ids),
         weights,
     )
     anchor_source = "gold_units" if anchor_ids else "first_o3_chunks"
@@ -325,10 +373,7 @@ def collect_evidence_anchor(
         total += len(text) + 8
         if total >= ANCHOR_TEXT_CAP:
             break
-    units = [
-        {"provision_id": u.provision_id, "section": u.section, "act": u.act}
-        for u in question.primary_units()
-    ]
+    units = [{"provision_id": u.provision_id, "section": u.section, "act": u.act} for u in question.primary_units()]
     return {
         "anchor_chunk_ids": used_ids,
         "anchor_text": "\n\n".join(texts),
@@ -386,8 +431,7 @@ def build_worksheet(anchors: dict[str, dict]) -> tuple[Path, Path]:
     lines = [
         "# Step 0b — Draft widened references from the statute",
         "",
-        f"Targets without a widened conclusion: **{len(todo)}** of {len(dual_score_targets())} "
-        "dual-score qids.",
+        f"Targets without a widened conclusion: **{len(todo)}** of {len(dual_score_targets())} dual-score qids.",
         "",
         "For each packet: read the statute anchor, write a widened reference that states the",
         "**defensible statutory reading** (not a paraphrase of the candidate answer), quote the",
@@ -408,7 +452,7 @@ def build_worksheet(anchors: dict[str, dict]) -> tuple[Path, Path]:
         raw = getattr(q, "raw", {}) or {}
         a = anchors.get(qid) or {}
         v2row = v2_perq.get(qid, {})
-        rec = (v2row.get("D2") or {})
+        rec = v2row.get("D2") or {}
         v1r = rec.get("v1") or {}
         v2r = rec.get("v2") or {}
         v1_ref = (q.acceptable_conclusion if q else None) or "(none recorded)"
@@ -546,7 +590,7 @@ def validate_all(drafts: dict[str, dict], anchors: dict[str, dict]) -> dict:
     results: list[dict] = []
     for qid, draft in sorted(drafts.items()):
         q = questions.get(qid)
-        v1_ref = (q.acceptable_conclusion if q else None)
+        v1_ref = q.acceptable_conclusion if q else None
         d2 = (d_perq.get(qid, {}).get("D2") or {}).get("answer")
         results.append(validate_widening(qid, draft, anchors.get(qid), v1_ref, d2, overlay))
     return {
@@ -617,7 +661,9 @@ def run_rescore() -> dict:
 
 def build_report() -> dict:
     """Dual-score report: v1 AND v2 per condition for every dual-score target."""
-    labels = (json.loads(LABELS_PUBLISHED.read_text(encoding="utf-8")) if LABELS_PUBLISHED.exists() else {}).get("labels", {})
+    labels = (json.loads(LABELS_PUBLISHED.read_text(encoding="utf-8")) if LABELS_PUBLISHED.exists() else {}).get(
+        "labels", {}
+    )
     v2_perq = s0._load_jsonl_map(OUT / "evaluator_v2_per_question.jsonl")
     overlay = json.loads(OVERLAY_PATH.read_text(encoding="utf-8")).get("widened_conclusions", {})
     targets = dual_score_targets()
@@ -747,7 +793,8 @@ def main(argv: list[str] | None = None) -> int:
                 for reason in r["reasons"]:
                     print(f"  {r['qid']} [{r['status']}]: {reason}")
         (OUT / "step0_dual_score_validation.json").write_text(
-            json.dumps(validation, indent=1, ensure_ascii=False), encoding="utf-8",
+            json.dumps(validation, indent=1, ensure_ascii=False),
+            encoding="utf-8",
         )
 
     if args.merge:

@@ -39,18 +39,14 @@ def _clean_env(monkeypatch):
 def test_defaults_outside_app_context():
     assert cfg.rag_enabled is True
     assert cfg.evidence_selector is False
-    assert cfg.context_max_chunks == 20  # context-K lever (activated ceiling)
-    assert cfg.context_max_chars == 24000
-    # KG context is OFF by default.  The 150-question A/B
-    # (evaluation/ab_kg_fusion.py) measured both paths subtracting, and the
-    # graph carries only a section reference rather than provision text, so
-    # the measured-harmful path must not be the default.  tasks.py still
-    # applies fusion first and expansion only when fusion is off, so either
-    # flag alone re-enables KG context.
-    assert cfg.kg_fusion is False
+    assert cfg.context_max_chunks == 50  # context-K lever (activated ceiling)
+    assert cfg.context_max_chars == 40000
+    # KG context is ON by default on this branch (KG roadmap + KG fusion
+    # fixes flipped RAG_KG_FUSION to True; kg_expansion stays off).
+    assert cfg.kg_fusion is True
     assert cfg.kg_expansion is False
     assert cfg.ensemble_ce_head == 30  # unified with create_app (was 20 in tasks.py)
-    assert cfg.ensemble_ce_weight == 0.5
+    assert cfg.ensemble_ce_weight == 0.13
     assert cfg.agent_checkpointer == "memory"
     assert cfg.qdrant_collection == "fssai_legal_768"
     assert cfg.vector_size == 768

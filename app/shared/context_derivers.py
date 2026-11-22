@@ -225,9 +225,9 @@ def derive_applicable_sections_from_case_file(
       - Section 51 (sub-standard, clause (zx))
       - Section 52 (mis-branded, clause (zf))
       - Section 59 (unsafe, clause (zz)(v) and (viii)) — added when the sample
-        was found unsafe. Unsafe cases generate only the prohibition-order file,
-        but the section list still carries 59 so the clause citation and the
-        liability paragraph in that document can enumerate it.
+        was found unsafe. Unsafe cases generate the unsafe file and the
+        prohibition-order letter as separate documents, but the section list
+        still carries 59 so both documents can enumerate the clause citation.
 
     Args:
         is_substandard: True if sample was found sub-standard

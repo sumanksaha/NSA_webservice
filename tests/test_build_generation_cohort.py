@@ -26,7 +26,11 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
+CEILING = ROOT / "evaluation" / "out" / "ceiling_v5"
+COHORT_INPUTS = (CEILING / "failure_attribution.json", CEILING / "full_review_tabulation.json")
 sys.path.insert(0, str(ROOT))
 
 from evaluation.build_generation_cohort import (  # noqa: E402
@@ -47,6 +51,8 @@ class TestCohortDefinition:
         assert EXPECTED_COUNT == 59
 
     def test_the_cohort_is_the_model_wrong_generation_slice(self):
+        if any(not p.exists() for p in COHORT_INPUTS):
+            pytest.skip("missing gitignored evaluation/out inputs for generation cohort")
         from evaluation.rerun_gold_in_prompt import load_targets
 
         targets = load_targets()
@@ -57,6 +63,8 @@ class TestCohortDefinition:
             assert t["audit_action"] in AUDIT_ACTIONS
 
     def test_the_cohort_covers_all_three_audit_failure_modes(self):
+        if any(not p.exists() for p in COHORT_INPUTS):
+            pytest.skip("missing gitignored evaluation/out inputs for generation cohort")
         from collections import Counter
 
         from evaluation.rerun_gold_in_prompt import load_targets

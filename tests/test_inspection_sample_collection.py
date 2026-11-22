@@ -107,7 +107,12 @@ class TestCreateInspectionSampleCollection:
                 "problem": "No problem",
                 "visit_purpose": "routine",
                 "sample_collected": "on",
+                "sample_type": "enforcement",
                 "sample_code": "SL/WB/123456/7890/12345",
+                "collection_date": "2026-08-01",
+                "sample_name": "Milk Sample",
+                "price": "100",
+                "sample_status": "ok",
             },
         )
         assert resp.status_code in (200, 201)
@@ -178,7 +183,12 @@ class TestUpdateInspectionSampleCollection:
             f"/inspection/{insp.id}",
             data={
                 "sample_collected": "on",
+                "sample_type": "enforcement",
                 "sample_code": "SL/WB/654321/0987/54321",
+                "collection_date": "2026-08-01",
+                "sample_name": "Milk Sample",
+                "price": "100",
+                "sample_status": "ok",
             },
         )
         assert resp.status_code in (200, 201)

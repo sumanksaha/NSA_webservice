@@ -47,10 +47,78 @@ OUT_DIR = PROJECT_ROOT / "evaluation" / "out" / "ceiling_v5" / "rerun_gip"
 NOISE_FLOOR_FLIPS = 4
 
 SOFT_TIE = 0.02  # below this, a soft-correctness delta is a tie
+COVERAGE_TIE = 0.02  # below this, a coverage delta is a tie
+LENGTH_MAX_INFLATION_PCT = 10.0  # max median length inflation percent
 
 
 def _mean(values: list[float]) -> float | None:
     return round(sum(values) / len(values), 4) if values else None
+
+
+def _median(values: list[int]) -> float:
+    if not values:
+        return 0
+    s = sorted(values)
+    m = len(s) // 2
+    if len(s) % 2:
+        return float(s[m])
+    return (s[m - 1] + s[m]) / 2.0
+
+
+def _gates(row: dict, regression_guard: bool = False, noise_band: dict | None = None) -> dict:
+    """Gate set v2 over a paired metric row.
+
+    A promotion needs a content delta (soft and coverage), a binary net beyond
+    the same-config flip floor, no median length inflation and no rise in the
+    *recorded* abstentions.  The control cohort is only a harm guard: it can
+    pass the soft regression gate but is never promotion-eligible.
+
+    A measured noise band adds a fifth gate.  Its per-answer spread (``soft``)
+    and its standard error (``soft_se``) were measured at ``n`` qids; both are
+    rescaled to the candidate's own n, since a mean over more questions can
+    resolve a smaller movement.
+    """
+    soft = row.get("soft") or {}
+    coverage = row.get("coverage") or {}
+    binary = row.get("binary") or {}
+    length = row.get("length") or {}
+    abstention = row.get("abstention") or {}
+
+    soft_delta = float(soft.get("mean_paired_delta") or 0.0)
+    coverage_delta = float(coverage.get("mean_paired_delta") or 0.0)
+    binary_net = int(binary.get("net") or 0)
+    length_delta_pct = length.get("delta_pct")
+
+    abstention_pass = int(abstention.get("answered_arm") or 0) <= int(abstention.get("answered_base") or 0)
+    soft_pass = soft_delta > -SOFT_TIE if regression_guard else soft_delta >= SOFT_TIE
+    coverage_pass = coverage_delta >= COVERAGE_TIE
+    binary_pass = binary_net > NOISE_FLOOR_FLIPS
+    length_pass = length_delta_pct is None or length_delta_pct <= LENGTH_MAX_INFLATION_PCT
+
+    noise_pass: bool | None = None
+    noise_band_out: dict | None = None
+    if noise_band is not None:
+        band_soft = float(noise_band.get("soft") or 0.0)
+        band_soft_se = float(noise_band.get("soft_se") or 0.0)
+        scale = (int(noise_band.get("n") or 1) / int(row.get("n") or 1)) ** 0.5
+        threshold = band_soft_se * scale
+        noise_pass = abs(soft_delta) > band_soft * scale
+        noise_band_out = {"soft_threshold_at_candidate_n": threshold}
+
+    core_pass = soft_pass and coverage_pass and binary_pass and length_pass and abstention_pass
+    promotion_eligible = bool(core_pass) and noise_pass is not False and not regression_guard
+    return {
+        "soft_pass": soft_pass,
+        "coverage_pass": coverage_pass,
+        "binary_pass": binary_pass,
+        "length_pass": length_pass,
+        "abstention_pass": abstention_pass,
+        "promotion_eligible": promotion_eligible,
+        "binary_net": binary_net,
+        "regression_guard": regression_guard,
+        "noise_pass": noise_pass,
+        "noise_band": noise_band_out,
+    }
 
 
 def _metric_row(base_recs: list[dict], arm_recs: list[dict], questions: dict, actions: dict[str, str]) -> dict:
@@ -74,6 +142,12 @@ def _metric_row(base_recs: list[dict], arm_recs: list[dict], questions: dict, ac
             "binary_a": int(rec_a.get("binary_correct") or 0),
             "soft_b": float(rec_b.get("answer_correctness") or 0.0),
             "soft_a": float(rec_a.get("answer_correctness") or 0.0),
+            "coverage_b": float(rec_b.get("answer_coverage") or 0.0),
+            "coverage_a": float(rec_a.get("answer_coverage") or 0.0),
+            "length_b": int(rec_b.get("answer_length") or 0),
+            "length_a": int(rec_a.get("answer_length") or 0),
+            "abstained_b": bool(rec_b.get("abstained")),
+            "abstained_a": bool(rec_a.get("abstained")),
             "dims_b": dims_b,
             "dims_a": dims_a,
             "cit_b": cit_b,
@@ -89,6 +163,13 @@ def _metric_row(base_recs: list[dict], arm_recs: list[dict], questions: dict, ac
     lost = sum(1 for r in rows if r["binary_b"] and not r["binary_a"])
     soft_deltas = [r["soft_a"] - r["soft_b"] for r in rows]
 
+    coverages_b = [r["coverage_b"] for r in rows]
+    coverages_a = [r["coverage_a"] for r in rows]
+    softs_b = [r["soft_b"] for r in rows]
+    softs_a = [r["soft_a"] for r in rows]
+    lengths_b = [r["length_b"] for r in rows]
+    lengths_a = [r["length_a"] for r in rows]
+
     out: dict[str, Any] = {
         "n": n,
         "binary": {
@@ -98,6 +179,24 @@ def _metric_row(base_recs: list[dict], arm_recs: list[dict], questions: dict, ac
             "lost": lost,
             "net": gained - lost,
             "inside_noise_floor": abs(gained - lost) <= NOISE_FLOOR_FLIPS,
+        },
+        "coverage": {
+            "base": _mean(coverages_b),
+            "arm": _mean(coverages_a),
+            "mean_paired_delta": _mean([a - b for a, b in zip(coverages_a, coverages_b)]),
+        },
+        "jaccard": {
+            "base": _mean([2 * s - c for s, c in zip(softs_b, coverages_b)]),
+            "arm": _mean([2 * s - c for s, c in zip(softs_a, coverages_a)]),
+        },
+        "length": {
+            "base_median": _median(lengths_b),
+            "arm_median": _median(lengths_a),
+            "delta_pct": (
+                round((_median(lengths_a) - _median(lengths_b)) / _median(lengths_b) * 100, 4)
+                if _median(lengths_b)
+                else None
+            ),
         },
         "soft": {
             "base": _mean([r["soft_b"] for r in rows]),
@@ -128,8 +227,8 @@ def _metric_row(base_recs: list[dict], arm_recs: list[dict], questions: dict, ac
         "false_abstention_arm": sum(1 for r in rows if r["dims_a"]["abstention_discipline"]["false_abstention"]),
         "missed_abstention_base": sum(1 for r in rows if r["dims_b"]["abstention_discipline"]["missed_abstention"]),
         "missed_abstention_arm": sum(1 for r in rows if r["dims_a"]["abstention_discipline"]["missed_abstention"]),
-        "answered_base": sum(1 for r in rows if r["dims_b"]["abstention_discipline"]["abstained"]),
-        "answered_arm": sum(1 for r in rows if r["dims_a"]["abstention_discipline"]["abstained"]),
+        "answered_base": sum(1 for r in rows if r["abstained_b"]),
+        "answered_arm": sum(1 for r in rows if r["abstained_a"]),
     }
 
     # Citation gate: paired only where BOTH arms recorded gold-in-prompt,

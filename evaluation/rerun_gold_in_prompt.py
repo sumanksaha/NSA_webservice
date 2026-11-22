@@ -48,6 +48,9 @@ TABULATION = CEILING_DIR / "full_review_tabulation.json"
 #: backoff absorb 429s (ADR-0010 §9.5 records the same constraint).
 DEFAULT_CONCURRENCY = 3
 
+#: Candidate prompt selected with --template-variant; recorded on every row.
+PROMPT_VARIANT = "shipped"
+
 
 def load_targets() -> list[dict]:
     """The gold-in-prompt failure set: bucket == generation ∩ model_wrong."""
@@ -153,6 +156,7 @@ def flags_used() -> dict:
     from app.shared.config import cfg
 
     return {
+        "prompt_variant": PROMPT_VARIANT,
         "structured_reasoner": bool(cfg.structured_reasoner),
         "query_type_directives": bool(cfg.query_type_directives),
         "structured_query_type_directives": bool(cfg.structured_query_type_directives),
@@ -395,6 +399,8 @@ def authority_coverage(answer: str, question) -> dict:
 
 
 def main() -> int:
+    global PROMPT_VARIANT
+
     from dotenv import load_dotenv
 
     load_dotenv(PROJECT_ROOT / ".env", override=True)
@@ -423,6 +429,11 @@ def main() -> int:
         "--legacy-template",
         action="store_true",
         help="render the pre-conditioning scan-only user template (control for the template change)",
+    )
+    parser.add_argument(
+        "--template-variant",
+        default="",
+        help="candidate from prompt_template.TEMPLATE_VARIANTS (shipped/armshape/armshape_v2)",
     )
     parser.add_argument("--no-drop-index", action="store_true", help="control for the index-chunk packing change")
     parser.add_argument(
@@ -504,6 +515,16 @@ def main() -> int:
         legacy = _CANDIDATES["cand_scan"]
         pt.GROUND_QA_USER_TEMPLATE = legacy
         pt._TEMPLATES["grounded_qa"] = (pt.GROUND_QA_SYSTEM_PROMPT, legacy)
+    if args.template_variant:
+        if args.legacy_template:
+            raise SystemExit("--template-variant and --legacy-template are mutually exclusive")
+        variant = args.template_variant
+        if variant not in pt.TEMPLATE_VARIANTS:
+            raise SystemExit(f"unknown template variant {variant!r}; known: {list(pt.TEMPLATE_VARIANTS)}")
+        PROMPT_VARIANT = variant
+        system, template = pt.TEMPLATE_VARIANTS[variant]
+        pt.GROUND_QA_USER_TEMPLATE = template
+        pt._TEMPLATES["grounded_qa"] = (system, template)
     if args.no_drop_index:
         cfg.context_drop_index_chunks = False
 

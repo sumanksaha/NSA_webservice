@@ -415,6 +415,7 @@ evaluation/probe_*.py
 evaluation/audit_*.py
 evaluation/diagnose_*.py
 evaluation/measure_*.py
+!evaluation/measure_component_rule_identity.py
 evaluation/census_*.py
 evaluation/oracle_*.py
 evaluation/reeval_*.py

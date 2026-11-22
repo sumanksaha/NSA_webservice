@@ -8,6 +8,7 @@
         id="caseFileForm"
         action="{{ url_for('case_file_generator.generate_case_file_route') }}"
         method="post"
+        novalidate
     >
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
         <div id="case-task-status" class="info-box" style="display: none"></div>
@@ -574,6 +575,9 @@
             <button type="submit" id="caseSubmitBtn" class="btn btn-primary btn-lg">
                 <i class="fa-solid fa-save"></i> Save
             </button>
+            <button type="button" id="caseDraftBtn" class="btn btn-secondary btn-lg">
+                <i class="fa-solid fa-file-circle-plus"></i> Save Draft
+            </button>
         </div>
     </form>
 </div>
@@ -1067,6 +1071,49 @@
                     " Refresh the page to see the new row in the table below.</span>";
             }
         });
+    });
+
+    document.getElementById("caseDraftBtn").addEventListener("click", async function () {
+        clearFieldErrors();
+        var draftBtn = this;
+        var form = document.getElementById("caseFileForm");
+        var statusBox = document.getElementById("case-task-status");
+
+        draftBtn.disabled = true;
+        draftBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving draft…';
+        statusBox.style.display = "block";
+        statusBox.className = "info-box";
+        statusBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving case data…';
+
+        try {
+            const response = await fetch(
+                "{{ url_for('case_file_generator.save_case_file_route') }}",
+                { method: "POST", body: new FormData(form) }
+            );
+            const data = await response.json();
+            if (!response.ok) {
+                statusBox.className = "info-box info-box--error";
+                statusBox.innerHTML =
+                    '<i class="fa-solid fa-circle-exclamation"></i> ' +
+                    (data.error || "Could not save case data.");
+                if (data.errors) {
+                    renderFieldErrors(data.errors);
+                }
+                return;
+            }
+            statusBox.className = "info-box info-box--success";
+            statusBox.innerHTML =
+                '<i class="fa-solid fa-circle-check"></i> Case data saved as draft #' +
+                data.case_file_id +
+                ". Complete the remaining fields and use Save to generate documents.";
+        } catch (error) {
+            statusBox.className = "info-box info-box--error";
+            statusBox.innerHTML =
+                '<i class="fa-solid fa-circle-exclamation"></i> Could not save case data: ' + error;
+        } finally {
+            draftBtn.disabled = false;
+            draftBtn.innerHTML = '<i class="fa-solid fa-file-circle-plus"></i> Save Draft';
+        }
     });
 </script>
 

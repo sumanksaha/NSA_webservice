@@ -3,15 +3,22 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+
+import pytest
 
 import evaluation.audit_insufficient_24 as w7
 
+TRIAGE = w7.TRIAGE
 RESULTS = w7.RESULTS
+
+pytestmark = pytest.mark.skipif(
+    not TRIAGE.exists() or not RESULTS.exists(),
+    reason="WF-7 artifacts are gitignored; run evaluation.triage_evaluator_v3 then evaluation.audit_insufficient_24",
+)
 
 
 def test_artifact_matches_the_triage_bucket_exactly():
-    triage = json.loads((w7.OUT / "evaluator_v3_triage.json").read_text(encoding="utf-8"))
+    triage = json.loads(TRIAGE.read_text(encoding="utf-8"))
     expected = {e["qid"] for e in triage["buckets"]["overlay_insufficient"]}
     data = json.loads(RESULTS.read_text(encoding="utf-8"))
     got = {row["qid"] for row in data["dispositions"]}

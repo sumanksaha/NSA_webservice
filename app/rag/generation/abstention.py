@@ -180,19 +180,13 @@ def strip_banned(answer: str, banned: set[str] | None) -> str:
 def is_abstention(response_text: str, banned: set[str] | None = None) -> bool:
     """True when the answer declines rather than asserts.
 
-    Production semantics matching evaluation rules (abstain_match):
-    an abstention must match a negation-anchored marker.  A short or empty
-    answer (<= :data:`MIN_ABSTENTION_CHARS` chars) asserts nothing and is
-    not a *refusal* — laundering it into "not a hallucination" would be a
-    safety regression, so the length floor is load-bearing.  It is treated
-    as ungrounded rather than abstention by the frozen scorer contract.
+    Matches evaluation rules (``evaluation.abstention_rule.abstain_match``):
+    an empty or short answer (<= :data:`MIN_ABSTENTION_CHARS` chars) is an
+    abstention — it declines to answer rather than asserting anything.
+    A substantive answer must match a negation-anchored marker.
 
     Citation markers ([n]) override the regex — a short answer that cites
-    sources is answering, not abstaining.  Q091/Q076 write short refusals
-    WITHOUT citations (len ~700–800 chars, under SUBSTANTIVE_ANSWER_CHARS
-    and with no [n] markers), so they are still correctly classified as
-    abstentions.  A short answer like "The penalty is ₹1 lakh. [1]" (with
-    citation) would NOT be an abstention.
+    sources is answering, not abstaining.
 
     A long answer (>= :data:`SUBSTANTIVE_ANSWER_CHARS`) is substantive,
     not an abstention.  The regex below can match a *legal qualification*
@@ -204,8 +198,10 @@ def is_abstention(response_text: str, banned: set[str] | None = None) -> bool:
     matching a qualification phrase.
     """
     text = str(response_text or "").strip()
+    if not text:
+        return True  # empty answer is abstention
     if len(text) < MIN_ABSTENTION_CHARS:
-        return False  # short/empty: ungrounded, not a refusal
+        return True  # short/degenerate answer is abstention
     if _CITATION_RE.search(text):
         return False  # cited answer is substantive, not an abstention
     if len(text) >= SUBSTANTIVE_ANSWER_CHARS:

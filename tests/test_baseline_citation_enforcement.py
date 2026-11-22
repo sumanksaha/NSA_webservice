@@ -105,7 +105,8 @@ class TestShippedScanInstruction:
     def test_shipped_template_is_the_winning_candidate_verbatim(self):
         """The shipped wording must equal the measured candidate exactly.
 
-        Pinned to ``cand_scan_cond`` (the 2026-10-10 conditioning block). The
+        Pinned to ``cand_scan_cond`` (the conditioning block plus the
+        no-blanket-refusal guard). The
         2026-10-20 decomposition candidate (``cand_scan_cond_v2``) was measured
         and **reverted** from the shipped template — it stays registered so the
         measurement is reproducible. A future move must repeat this: keep the

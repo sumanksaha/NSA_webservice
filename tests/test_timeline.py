@@ -10,7 +10,7 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from app.timeline.engine import TimelineEngine
 
@@ -523,14 +523,14 @@ class TestTimelineRoutes:
             assert adj_tl in html
 
             # Sample list — timeline button when the sample has a linked case.
-            page = client.get("/sample/list")
+            page = client.get("/inspection/samples")
             assert page.status_code == 200
             assert case_tl in page.get_data(as_text=True)
         finally:
             _teardown_test_env(ctx)
 
     def test_sample_detail_json_includes_timeline_link(self):
-        """GET /sample/<id> carries the linked case + timeline URL."""
+        """GET /inspection/samples/<id> carries the linked case + timeline URL."""
         from app.extensions import db
 
         _app, client, ctx = _setup_test_env()
@@ -538,13 +538,13 @@ class TestTimelineRoutes:
             sample = _make_sample(db)
 
             # Unlinked sample → no timeline link.
-            data = client.get(f"/sample/{sample.id}").get_json()
+            data = client.get(f"/inspection/samples/{sample.id}").get_json()
             assert data["case_id"] is None
             assert data["timeline_url"] is None
 
             # Once linked to a case, the detail JSON surfaces the timeline URL.
             case = _make_case_file(db, sample_id=sample.id)
-            data = client.get(f"/sample/{sample.id}").get_json()
+            data = client.get(f"/inspection/samples/{sample.id}").get_json()
             assert data["case_id"] == case.id
             assert data["timeline_url"] == f"/timeline/case/{case.id}?kind=case_file"
         finally:
@@ -666,16 +666,18 @@ class TestLegalDeadlines:
         _app, client, ctx = _setup_test_env()
         try:
             # Handover within the last 30 days → embargo still active today.
+            today = datetime.now(UTC)
+            handover = today - timedelta(days=1)
             case = _make_case_file(
                 db,
-                retailer_report_receive_date=_dt(1, 10),
-                manufacturer_report_receive_date=_dt(5, 10),
+                retailer_report_receive_date=handover - timedelta(days=4),
+                manufacturer_report_receive_date=handover,
             )
             data = client.get(f"/timeline/api/case/{case.id}?kind=case_file").get_json()
             deadlines = data["deadlines"]
-            assert deadlines["petition_deadline_date"] == "2027-02-01"
-            assert deadlines["generation_allowed_from_date"] == "2026-11-04"
-            assert deadlines["handover_max_date"] == "2026-10-05"
+            assert deadlines["petition_deadline_date"] == (_dt(1, 2) + timedelta(days=365)).strftime("%Y-%m-%d")
+            assert deadlines["generation_allowed_from_date"] == (handover + timedelta(days=30)).strftime("%Y-%m-%d")
+            assert deadlines["handover_max_date"] == handover.strftime("%Y-%m-%d")
             assert deadlines["generation_blocked"] is True
             # Handover was recent relative to today → embargo warning present.
             assert any("cannot be generated" in w["message"] for w in data["warnings"])

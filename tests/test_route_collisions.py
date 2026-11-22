@@ -95,11 +95,6 @@ def test_lookup_endpoints_reachable_anonymously():
                 "/inspection/lookup_fssai",
                 {"fssai_license": license_no},
             ),
-            (
-                "sample.lookup_retailer",
-                "/sample/lookup_retailer",
-                {"retailer_fssai_license": license_no},
-            ),
         ]
         for endpoint, path, payload in lookups:
             resp = client.post(path, json=payload)

@@ -728,13 +728,13 @@ class TestValidationUIEntryPoints:
             _teardown_test_env(ctx)
 
     def test_editor_page_has_validate_button(self):
-        """The document editor action bar carries a Validate button + drawer."""
+        """The case edit form action bar carries a Validate button + drawer."""
         from app.extensions import db
 
         _app, client, ctx = _setup_test_env()
         try:
             case = _make_case_file(db)
-            html = client.get(f"/case_file_generator/{case.id}/editor").get_data(as_text=True)
+            html = client.get(f"/case_file_generator/case/{case.id}/edit").get_data(as_text=True)
             assert "js-validate-case" in html
             assert f'data-case-id="{case.id}"' in html
             assert 'data-case-type="case_file"' in html
@@ -746,13 +746,13 @@ class TestValidationUIEntryPoints:
             _teardown_test_env(ctx)
 
     def test_editor_page_has_validate_button_adjudication(self):
-        """The adjudication editor serves the same button with its own case type."""
+        """The adjudication edit form serves the same button with its own case type."""
         from app.extensions import db
 
         _app, client, ctx = _setup_test_env()
         try:
             adj = _make_adjudication(db)
-            html = client.get(f"/adjudication/{adj.id}/editor").get_data(as_text=True)
+            html = client.get(f"/adjudication/case/{adj.id}/edit").get_data(as_text=True)
             assert "js-validate-case" in html
             assert f'data-case-id="{adj.id}"' in html
             assert 'data-case-type="adjudication"' in html

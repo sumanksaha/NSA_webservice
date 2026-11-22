@@ -53,9 +53,7 @@ from app.rag import query_type_registry as _registry
 #: they are declared as `surface` in the registry rather than normalised to
 #: snake_case here.  Changing them is an artifact-breaking migration, not a
 #: cleanup -- see the registry docstring.
-LEGAL_QUERY_TYPES: frozenset[str] = frozenset(
-    _registry.REGISTRY[c].emitted for c in _registry.CLASSIFIER_TARGETS
-)
+LEGAL_QUERY_TYPES: frozenset[str] = frozenset(_registry.REGISTRY[c].emitted for c in _registry.CLASSIFIER_TARGETS)
 
 
 @dataclass(frozen=True)
@@ -249,8 +247,7 @@ assert set(_CONFIGS_BY_CANONICAL) == _registry.CLASSIFIER_TARGETS, (
 
 #: Master mapping: emitted query-type surface -> QueryTypeConfig
 QUERY_TYPE_CONFIGS: dict[str, QueryTypeConfig] = {
-    _registry.REGISTRY[canonical].emitted: config
-    for canonical, config in _CONFIGS_BY_CANONICAL.items()
+    _registry.REGISTRY[canonical].emitted: config for canonical, config in _CONFIGS_BY_CANONICAL.items()
 }
 
 
@@ -373,6 +370,7 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
             r"\bdetention\b",
             r"\bclosure\s+notice\b",
             r"\bshow\s+cause\b",
+            r"\bconduct\b",
             # exercise-of-power vocabulary: the action an officer may take
         ],
     ),
@@ -509,9 +507,7 @@ _TYPE_PATTERNS: list[tuple[str, list[str]]] = [
 
 #: Pattern labels are canonical ids; emitted strings are the registry surfaces.
 for _label, _ in _TYPE_PATTERNS:
-    assert _registry.resolve(_label) == _label, (
-        f"legal classifier pattern label {_label!r} must be canonical"
-    )
+    assert _registry.resolve(_label) == _label, f"legal classifier pattern label {_label!r} must be canonical"
 _AMBIGUOUS_SURFACE: str = _registry.REGISTRY["ambiguous"].emitted
 del _label
 

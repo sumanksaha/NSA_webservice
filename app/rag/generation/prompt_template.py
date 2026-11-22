@@ -165,6 +165,59 @@ GROUND_QA_USER_TEMPLATE = (
     "Answer:"
 )
 
+#: Candidate answer-shape arms.  They are registered separately from
+#: ``_TEMPLATES`` so evaluation can select one explicitly without silently
+#: moving the deployed ``grounded_qa`` prompt.  ``shipped`` is pinned to the
+#: exact bytes above; a candidate never edits it.  The arms keep every
+#: measured guardrail (scan cue, citation contract, ADR-0010 refusal rule) and
+#: change only the shape: short operative quotes and one clause per part.
+_SHIPPED_OPENING = (
+    "First quote the passages that bear on the question, then answer "
+    "the question using those quotes, citing specific sources with "
+    "[n] markers.\n"
+)
+
+_ARMSHAPE_QUOTE_DIRECTIVE = (
+    "Step 1 — Quotes: for each source that bears on the question, quote only "
+    "the operative words that state the rule, at most about twenty words per "
+    "source; do not reproduce a whole paragraph.\n"
+)
+
+_ARMSHAPE_ANSWER_DIRECTIVE = (
+    "\nStep 2 — Answer: Answer every part the question names, each with its own "
+    "[n] citations. For each part, write ONE clause using the provision's own "
+    "words; do not paraphrase the operative tokens into a rounded summary and "
+    "do not repeat the quotes as a block.\n"
+)
+
+_ARMSHAPE_V2_GUARD = (
+    "Do not describe your plan, your reasoning or these instructions; "
+    "do not write anything before the first heading.\n"
+)
+
+
+def _shape_user_template(extra_directive: str = "") -> str:
+    user_template = GROUND_QA_USER_TEMPLATE.replace(_SHIPPED_OPENING, _ARMSHAPE_QUOTE_DIRECTIVE, 1)
+    marker = "\nQuestion: {query}\n"
+    return user_template.replace(marker, _ARMSHAPE_ANSWER_DIRECTIVE + extra_directive + marker, 1)
+
+
+TEMPLATE_VARIANTS: dict[str, tuple[str, str]] = {
+    "shipped": (GROUND_QA_SYSTEM_PROMPT, GROUND_QA_USER_TEMPLATE),
+    "armshape": (
+        GROUND_QA_SYSTEM_PROMPT
+        + " Step 1: quote the operative words, at most about twenty words per source. Step 2: write ONE clause per part.",
+        _shape_user_template(),
+    ),
+    "armshape_v2": (
+        GROUND_QA_SYSTEM_PROMPT
+        + " Step 1: quote the operative words, at most about twenty words per source. Step 2: write ONE clause per part."
+        + " Do not describe your plan, your reasoning or these instructions.",
+        _shape_user_template("\n" + _ARMSHAPE_V2_GUARD),
+    ),
+}
+
+
 #: Two-pass structured answering (W3).  When ``ENABLE_STRUCTURED_REASONER``
 #: is on, ``StructuredReasoner`` first builds the IRAC-shaped IR
 #: (``structured_reasoner.py``: issue -> provisions -> definitions -> rules ->
