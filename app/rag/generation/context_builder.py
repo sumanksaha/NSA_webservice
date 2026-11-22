@@ -1,9 +1,9 @@
 """Context builder for RAG generation.
 
-Follows the orchestration pattern from app/services/document_lifecycle.py
-(DocumentSaveCoordinator): ContextBuilder coordinates the multi-step process
-of selecting, sorting, truncating, and formatting chunks into a structured
-context string with citation labels that the LLM can reference as [n].
+Follows the shared multi-step orchestration pattern: ContextBuilder
+coordinates the process of selecting, sorting, truncating, and formatting
+chunks into a structured context string with citation labels that the LLM can
+reference as [n].
 """
 
 from __future__ import annotations

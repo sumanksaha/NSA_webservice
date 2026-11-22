@@ -131,8 +131,8 @@
                 </div>
                 {% endif %}
                 <div class="evidence-meta form-hint">
-                    {% if ev.case_id %}<a href="{{ url_for('case_file_generator.edit_case', case_id=ev.case_id) }}">Case #{{ ev.case_id }}</a>{% endif %}
-                    {% if ev.adjudication_id %}<a href="{{ url_for('adjudication.edit_case', case_id=ev.adjudication_id) }}">Adj #{{ ev.adjudication_id }}</a>{% endif %}
+                    {% if ev.case_id %}<a href="{{ url_for('case_file_generator.edit_form', case_id=ev.case_id) }}">Case #{{ ev.case_id }}</a>{% endif %}
+                    {% if ev.adjudication_id %}<a href="{{ url_for('adjudication.edit_form', case_id=ev.adjudication_id) }}">Adj #{{ ev.adjudication_id }}</a>{% endif %}
                     {% if ev.inspection_id %}<span>Insp #{{ ev.inspection_id }}</span>{% endif %}
                     {% if not ev.case_id and not ev.adjudication_id and not ev.inspection_id %}<span>Unlinked</span>{% endif %}
                 </div>

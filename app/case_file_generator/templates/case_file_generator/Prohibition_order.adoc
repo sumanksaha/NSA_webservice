@@ -1,13 +1,14 @@
 ////
 // ─────────────────────────────────────────────────────────────────────────
-// Prohibition Order — letter to the FBO manufacturer (ADR-001 .adoc template).
+// Prohibition Order — letter to the FBO (ADR-001 .adoc template).
 //
 // This is the SECOND document for an UNSAFE sample. It is rendered by its own
 // endpoint (download_prohibition_order_docx) and is addressed to the food
-// business operator (manufacturer). It is NOT issued for retailer-cum-manufacturer
-// (prepared/loose food) cases — the route returns 403 for those, because the
-// product has no separate manufacturer and no batch/manufacturing/expiry
-// details. The prayer (Unsafe_file.adoc) is still generated for RCM cases.
+// business operator. It is generated for EVERY unsafe case, including
+// retailer-cum-manufacturer (prepared/loose food) cases. For RCM cases the
+// letter is addressed to the retailer (no separate manufacturer exists) and
+// the batch/manufacturing/expiry clauses are omitted. The prayer
+// (Unsafe_file.adoc) is still generated for those cases too.
 //
 // The first document for an unsafe case is the prayer (Unsafe_file.adoc). This
 // letter repeats the first paragraph of the prayer (the sample description) so
@@ -23,7 +24,8 @@
 //   batch_no           → batch_no               / batch_no
 //   mfg_date           → mfg_date               / mfg_date
 //   expiry_date        → expiry_date            / expiry_date
-//   retailer_cum_manufacturer → retailer_cum_manufacturer (bool; route rejects RCM)
+//   retailer_cum_manufacturer → retailer_cum_manufacturer (bool; omits batch/mfg/expiry and
+//                               addresses the letter to the retailer when true)
 //   case_number        → case_number            / case_number
 //   inspection_date    → inspection_date        / inspection_date        (sampling date)
 //   authorization_date → authorization_date     / authorization_date
@@ -37,11 +39,20 @@
 
 F.S. & S Case No. {{ case_number }}
 
-To,
-The Food Business Operator (Manufacturer),
-{{ manufacturer_name }} ({{ manufacturer_fbo_name }}),
-{{ manufacturer_address }},
-FSSAI License No - {{ manufacturer_fssai }}
+To, +
+{% if retailer_cum_manufacturer %}
+The Food Business Operator (Retailer-cum-Manufacturer), +
+{{ retailer_name }}, +
+({{ retailer_fbo_name }}), +
+{{ retailer_address }}, +
+FSSAI License No - {{ retailer_fssai }} +
+{% else %}
+The Food Business Operator (Manufacturer), +
+{{ manufacturer_name }}, +
+({{ manufacturer_fbo_name }}), +
+{{ manufacturer_address }}, +
+FSSAI License No - {{ manufacturer_fssai }} +
+{% endif %}
 
 *Sub:* Prohibition of Sale of Unsafe Food in respect of Sample No : {{ sample_code }}
 
@@ -54,7 +65,7 @@ Whereas, a sample namely **{{ sample_name }}** of {{ packet_count }} sealed pack
 Whereas, upon analysis of sample by the Food Analyst according to Section 46 of the Food Safety &amp; Standards Act, 2006 read with Section 2.14(2) of the Food Safety &amp; Standards Rules, 2011, it has been opined by the Food Analyst that the sample is ** "Unsafe" as per clause (zz)[(v), (viii)]{% if is_substandard %} and "substandard" as per clause (zx) of subsection (1) of Section 3{% endif %}{% if is_misbranded %} and "misbranded" as per clause (zf) of subsection (1) of Section 3{% endif %} of the Food Safety &amp; Standards Act, 2006 **, (sample analysis report: {{ analyst_report_no }} dated {{ analyst_report_date }} — attached herewith, marked A).
 
 [.text-justify]
-Therefore, under Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, //// read with Section 18(1)(2) of the said Act ////, you — {{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, FSSAI License No — {{ manufacturer_fssai }} — are hereby directed to stop sale and distribution of **{{ sample_name }}** (product name),{% if not retailer_cum_manufacturer %} bearing Batch No - {{ batch_no }} and manufactured on {{ mfg_date }}, Date of Expiry — {{ expiry_date }},{% endif %} with immediate effect.
+Therefore, under Section 36(3)(b) of the Food Safety &amp; Standards Act, 2006, //// read with Section 18(1)(2) of the said Act ////, you — {% if retailer_cum_manufacturer %}{{ retailer_name }} ({{ retailer_fbo_name }}), {{ retailer_address }}, FSSAI License No — {{ retailer_fssai }}{% else %}{{ manufacturer_name }} ({{ manufacturer_fbo_name }}), {{ manufacturer_address }}, FSSAI License No — {{ manufacturer_fssai }}{% endif %} — are hereby directed to stop sale and distribution of **{{ sample_name }}** (product name),{% if not retailer_cum_manufacturer %} bearing Batch No - {{ batch_no }} and manufactured on {{ mfg_date }}, Date of Expiry — {{ expiry_date }},{% endif %} with immediate effect.
 
 [.text-justify]
 This prohibition applies to all packets, bottles, and units of the said product, whether in the possession of the retailer or the manufacturer, and shall remain in force until further orders.

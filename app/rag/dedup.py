@@ -1,8 +1,8 @@
 """SHA-256 content-hash deduplication (Agent A, Phase 1 — Day 5, §4).
 
-Reuses the SHA-256 pattern from ``app/services/version_control.py`` /
-``app/services/audit.py`` (R0) to fingerprint documents and chunks so a
-corpus rebuild never embeds or upserts content that is already indexed.
+Reuses the SHA-256 pattern from ``app/services/audit.py`` (R0) to
+fingerprint documents and chunks so a corpus rebuild never embeds or upserts
+content that is already indexed.
 
 Design:
 
@@ -43,7 +43,7 @@ class ContentHasher:
         """Return the SHA-256 hexdigest of ``text`` (normalized).
 
         Mirrors the SHA-256 pattern used by ``app/services/audit.py``
-        (``compute_hash``) and ``app/services/version_control.py``.
+        (``compute_hash``).
         """
         return hashlib.sha256(normalize_for_hash(text).encode("utf-8")).hexdigest()
 

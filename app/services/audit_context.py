@@ -5,7 +5,7 @@ module — but every caller historically re-implemented the same shallow wrapper
 bind ``entity_type``, normalize ``actor`` from the request context, wrap in
 ``try/except`` so an audit failure never fails the operation, and log a
 warning.  That wrapper was duplicated 3x (``annexure/routes.py``,
-``evidence/routes.py``, ``document_lifecycle.py``) with inconsistent ``actor``
+``evidence/routes.py``, and document save paths) with inconsistent ``actor``
 sources.
 
 :func:`audit_logger` is the single factory for that wrapper.  Callers bind

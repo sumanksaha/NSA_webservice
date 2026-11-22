@@ -28,8 +28,8 @@ _TOC_PLACEHOLDER_RE = re.compile(
 # "ANNEXURE". The ``(?![a-z])`` guard rejects the plural forms ("ANNEXURES",
 # "APPENDICES") and the anchored ``$`` rejects descriptive titles like
 # "Annexure Management" or "ANNEXURE A: LAB REPORT" so only true markers are
-# flagged. Mirrored exactly in editor.js (buildToc) so the live panel and the
-# server agree on what counts as an annexure.
+# flagged. The server-side TOC generator and PDF assembly agree on what counts
+# as an annexure.
 _ANNEXURE_MARKER_RE = re.compile(
     r"^(annexure|appendix|enclosure|attachment)(?![a-z])"
     r"(?:\s*[-\u2013\u2014:.]?\s*(?:[a-z]{1,2}|[0-9]+|\[?[ivxlcdm]+\]?))?$",

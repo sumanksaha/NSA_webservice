@@ -1,8 +1,8 @@
 """AI Assistant blueprint for NSA_webservice.
 
-Provides an AI-powered assistant integrated into the document editor,
-offering summarization, legal-language refinement, contradiction detection,
-missing-annexure suggestions, and prayer drafting.
+Provides an AI-powered assistant service used by the API, auditor, notepad,
+and RAG layers, offering summarization, legal-language refinement,
+contradiction detection, missing-annexure suggestions, and prayer drafting.
 
 Routes are prefixed at ``/ai-assistant``.  The LLM API key and provider are
 read from Flask config (set in ``create_app`` from environment variables), so

@@ -215,14 +215,14 @@
     </div>
     <div class="tl-actions">
         {% if case_id is not none %}
-        <a class="tl-refresh" href="{{ url_for('case_file_generator.edit_case', case_id=case_id) }}"
-           title="Open in document editor">
-            <span class="lbl"><i class="fa-solid fa-pen-to-square"></i> Edit case</span>
+        <a class="tl-refresh" href="{{ url_for('case_file_generator.edit_form', case_id=case_id) }}"
+           title="Edit case details">
+            <span class="lbl"><i class="fa-solid fa-pen-to-square"></i> Edit details</span>
         </a>
         {% elif adjudication_id is not none %}
-        <a class="tl-refresh" href="{{ url_for('adjudication.edit_case', case_id=adjudication_id) }}"
-           title="Open in document editor">
-            <span class="lbl"><i class="fa-solid fa-pen-to-square"></i> Edit case</span>
+        <a class="tl-refresh" href="{{ url_for('adjudication.edit_form', case_id=adjudication_id) }}"
+           title="Edit case details">
+            <span class="lbl"><i class="fa-solid fa-pen-to-square"></i> Edit details</span>
         </a>
         {% endif %}
         <button type="button" class="tl-refresh" id="tlRefresh" title="Regenerate timeline from record dates">

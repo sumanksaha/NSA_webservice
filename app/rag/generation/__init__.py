@@ -9,7 +9,7 @@ response with citations → validated / sanitised RAGResponse.
 
 Each component follows a documented reuse pattern:
 
-- ``ContextBuilder``      → ``DocumentSaveCoordinator`` orchestration pattern (R1)
+- ``ContextBuilder``      → shared multi-step orchestration pattern (R1)
 - ``PromptTemplate``      → ``AIAssistantService`` PROMPTS dict pattern (R3)
 - ``GroundedLLMClient``   → ``AIAssistantService`` httpx client pattern (R3)
 - ``CitationTracker``     → ``CrossReferenceEngine`` reference extraction (R2)

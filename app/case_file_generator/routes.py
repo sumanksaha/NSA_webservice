@@ -1,6 +1,6 @@
 """Case File Generator blueprint — thin routes + DocumentCaseManager.
 
-Common CRUD, editor, xref/toc, and renumber routes are registered via
+Common CRUD and document-generation routes are registered via
 :class:`app.shared.document_case_manager.DocumentCaseManager`.  This file
 retains only the case-file-specific helpers and routes:
 
@@ -304,7 +304,7 @@ def process_form_data(form_data):
             case_data[field] = format_date_indian(case_data[field])
 
     # Alias model-cased keys to their canonical form keys so templates
-    # (which use ``lab_registration_no``) render on regenerate/docx/editor
+    # (which use ``lab_registration_no``) render on regenerate/docx
     # paths built from ``case_file_to_dict()`` (which uses model columns).
     for alias, canonical in _FIELD_ALIASES.items():
         if alias in case_data and not case_data.get(canonical):
@@ -621,7 +621,7 @@ def preview_case_file_route():
 
     Unlike ``generate_case_file_route``, this does NOT create a CaseFile
     record or dispatch a PDF task — it returns the rendered HTML so the
-    user can review both documents in the Quill editor before committing.
+    user can review both documents on the preview page before committing.
     """
     form_data = request.form.to_dict()
 
@@ -853,7 +853,7 @@ def _case_visible_to_current_user(case_id: int, case_type: str) -> bool:
 @case_file_generator_bp.route("/api/cases/<int:case_id>/export.json", methods=["GET"])
 @login_required
 def export_case_json_route(case_id: int):
-    """Full JSON export of a case + annexures + evidence + versions."""
+    """Full JSON export of a case + annexures + evidence."""
     from app.case_file_generator.services import export_case_as_json
 
     if not _case_visible_to_current_user(case_id, _case_type_from_args()):
@@ -1126,20 +1126,16 @@ def _compute_per_packet_sample_quantity(
     return f"{per_packet:g}{m.group(2)}"
 
 
-@case_file_generator_bp.route("/case/<int:case_id>/docx/unsafe_file")
-@login_required
-def download_unsafe_file_docx(case_id: int):
-    """Download the Unsafe File (prohibition order) as Word (.docx).
+def _prepare_unsafe_file_context(case_id: int):
+    """Prepare the Prayer (Unsafe File) context; returns (case, case_data, error_response).
 
-    Renders ``Unsafe_file.adoc`` from a sample-adjudication case file whose
-    data was entered through the sample adjudication UI. The AsciiDoc template
-    uses ``fso_name`` and ``sample_name`` placeholders which are aliased here
-    to the CaseFile columns ``food_safety_officer_name`` and ``product_name``
-    respectively (see Unsafe_file.adoc header for the full variable map).
+    error_response is None on success. Shared by the DOCX and Adoc prayer
+    download paths so they cannot drift on visibility, aliasing, quantity
+    derivation, or the offender table.
     """
     case = CaseFile.query.get_or_404(case_id)
     if not _case_visible_to_current_user(case_id, "case_file"):
-        return jsonify({"error": "Case not found"}), 404
+        return case, None, (jsonify({"error": "Case not found"}), 404)
 
     form_data = case_file_to_dict(case)
     case_data = process_form_data(form_data)
@@ -1160,6 +1156,25 @@ def download_unsafe_file_docx(case_id: int):
     # Page-1 14-column offender table rows (fill rules in the helper).
     case_data["table_rows"] = _unsafe_offender_table_rows(case_data)
 
+    return case, case_data, None
+
+
+@case_file_generator_bp.route("/case/<int:case_id>/docx/unsafe_file")
+@login_required
+def download_unsafe_file_docx(case_id: int):
+    """Download the Unsafe File (Prayer) as Word (.docx).
+
+    Renders ``Unsafe_file.adoc`` from a sample-adjudication case file whose
+    data was entered through the sample adjudication UI. The AsciiDoc template
+    uses ``fso_name`` and ``sample_name`` placeholders which are aliased here
+    to the CaseFile columns ``food_safety_officer_name`` and ``product_name``
+    respectively (see Unsafe_file.adoc header for the full variable map).
+    """
+    case, case_data, error_response = _prepare_unsafe_file_context(case_id)
+    if error_response is not None:
+        response, status = error_response
+        return response, status
+
     docx_bytes = render_docx("unsafe_file", case_data)
 
     buf = io.BytesIO(docx_bytes)
@@ -1177,12 +1192,20 @@ def _prepare_prohibition_order_context(case_id: int):
 
     error_response is None on success. Shared by the DOCX and Adoc prohibition-order
     download paths so they cannot drift on visibility, aliasing, quantity derivation,
-    or the retailer-cum-manufacturer gate.
+    or gating. A prohibition order is generated for EVERY unsafe case — including
+    retailer-cum-manufacturer (prepared/loose food) cases. For RCM cases the letter
+    is addressed to the retailer (no separate manufacturer exists) and the
+    batch/manufacturing/expiry clauses are omitted.
     """
-    case, case_data, error_response = _prepare_prohibition_order_context(case_id)
-    if error_response is not None:
-        response, status = error_response
-        return response, status
+    case = CaseFile.query.get_or_404(case_id)
+    if not _case_visible_to_current_user(case_id, "case_file"):
+        return case, None, (jsonify({"error": "Case not found"}), 404)
+
+    if not case.is_unsafe:
+        return case, None, (jsonify({"error": "Prohibition order only available for unsafe cases"}), 403)
+
+    form_data = case_file_to_dict(case)
+    case_data = process_form_data(form_data)
 
     case_data.setdefault("fso_name", case_data.get("food_safety_officer_name", ""))
     case_data.setdefault("sample_name", case_data.get("product_name", ""))
@@ -1192,45 +1215,25 @@ def _prepare_prohibition_order_context(case_id: int):
         case_data.get("packet_count"),
     )
 
-    if case_data.get("retailer_cum_manufacturer"):
-        return (
-            case,
-            None,
-            (
-                jsonify(
-                    {
-                        "error": "Prohibition order cannot be issued for prepared/loose "
-                        "food (retailer-cum-manufacturer). The product has no separate "
-                        "manufacturer and no batch/manufacturing/expiry details. "
-                        "Download the Prayer to the Designated Officer instead.",
-                    },
-                ),
-                403,
-            ),
-        )
-
     return case, case_data, None
 
 
 @case_file_generator_bp.route("/case/<int:case_id>/docx/prohibition_order")
 @login_required
 def download_prohibition_order_docx(case_id: int):
-    # Download the prohibition-order letter to the FBO manufacturer as Word (.docx).
+    # Download the prohibition-order letter to the FBO as Word (.docx).
     #
-    # This is the SECOND document for an UNSAFE sample. It is generated only for
-    # non-RCM cases (a separate manufacturer exists and batch/manufacturing/expiry
-    # details are present). RCM (prepared/loose food) cases cannot have a
-    # prohibition order issued — the endpoint returns 403 and invites the user to
-    # download the Prayer instead. The letter repeats the first paragraph of the
-    # Prayer (the sample description) so that it is self-contained.
+    # This is the SECOND document for an UNSAFE sample. It is generated for every
+    # unsafe case, including retailer-cum-manufacturer (prepared/loose food) cases:
+    # for RCM cases the letter is addressed to the retailer (no separate
+    # manufacturer exists) and omits batch/manufacturing/expiry details (see
+    # Prohibition_order.adoc). The letter repeats the first paragraph of the
+    # Prayer (the sample description) so it is self-contained.
     case, case_data, error_response = _prepare_prohibition_order_context(case_id)
     if error_response is not None:
         response, status = error_response
         return response, status
 
-    # Unsafe_file.adoc / Prohibition_order.adoc template variables that differ
-    # from the canonical CaseFile column names — alias them so the .adoc renders
-    # from UI-entered data.
     docx_bytes = render_docx("prohibition_order", case_data)
 
     buf = io.BytesIO(docx_bytes)
@@ -1246,30 +1249,40 @@ def download_prohibition_order_docx(case_id: int):
 @case_file_generator_bp.route("/case/<int:case_id>/adoc/<doc_type>")
 @login_required
 def download_adoc(case_id: int, doc_type: str):
-    """Download a case-file document as raw AsciiDoc (.adoc) source.
+    """Download an unsafe-case document as raw AsciiDoc (.adoc) source.
 
-    ``doc_type`` selects the template (``prohibition_order`` or
-    ``advocate_engagement``). Returns the Jinja2-rendered AsciiDoc rather than
-    the compiled Word document; same context and gating as the DOCX routes.
+    ``doc_type`` is ``unsafe_file`` (Prayer), ``prohibition_order``, or
+    ``advocate_engagement``. Returns the Jinja2-rendered AsciiDoc rather than
+    the compiled Word document; same context and gating as the DOCX routes so
+    every unsafe case can download all three documents in both formats.
     """
     case = CaseFile.query.get_or_404(case_id)
     if not _case_visible_to_current_user(case_id, "case_file"):
         return jsonify({"error": "Case not found"}), 404
 
     adoc_map = {
+        "unsafe_file": "unsafe_file",
         "prohibition_order": "prohibition_order",
         "advocate_engagement": "advocate_engagement",
     }
     if doc_type not in adoc_map:
         return jsonify({"error": f"Unknown doc_type: {doc_type}"}), 400
-    if doc_type == "prohibition_order":
+
+    if doc_type == "unsafe_file":
+        case, case_data, error_response = _prepare_unsafe_file_context(case_id)
+        if error_response is not None:
+            response, status = error_response
+            return response, status
+        adoc_source = render_adoc("unsafe_file", case_data)
+        download_name = f"Prayer_{case.case_number or case_id}.adoc"
+    elif doc_type == "prohibition_order":
         case, case_data, error_response = _prepare_prohibition_order_context(case_id)
         if error_response is not None:
             response, status = error_response
             return response, status
         adoc_source = render_adoc("prohibition_order", case_data)
         download_name = f"Prohibition_Order_{case.case_number or case_id}.adoc"
-    else:
+    else:  # advocate_engagement
         if not case.is_unsafe:
             return jsonify({"error": "Advocate engagement letter only available for unsafe cases"}), 403
         access = check_generation_allowed(
@@ -1281,6 +1294,7 @@ def download_adoc(case_id: int, doc_type: str):
         )
         if not access.allowed:
             return jsonify(access.payload()), access.status
+        case_data = process_form_data(case_file_to_dict(case))
         adoc_source = render_adoc("advocate_engagement", {"case_data": case_data})
         download_name = f"Advocate_Engagement_{case.case_number or case_id}.adoc"
 

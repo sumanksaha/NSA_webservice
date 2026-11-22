@@ -52,6 +52,7 @@ Files the engineering skills read before acting:
 - [ADR-0015: Delete orphan codegen fragments](adr/0015-delete-orphan-codegen-fragments.md) - Remove 34 one-shot source-assembly modules; keep the finished evaluator/comparator/engine and the import-write guard
 - [ADR-0016: Neutral benchmark entry](adr/0016-neutral-benchmark-entry.md) - Move `QueryBenchmark` out of the evaluator so the benchmark/metrics type graph is acyclic
 - [ADR-0017: Query-type registry consumers](adr/0017-query-type-registry-consumers.md) - Derive classifier labels, reranker config keys, and `QueryType` normalization from the canonical registry
+- [ADR-0018: Remove document viewer and version control](adr/0018-remove-document-viewer-and-version-control.md) - Delete the Quill editor, xref/TOC report UI, version history, and the `versions` table; repoint editor links to the data edit form
 
 ## Additional Resources
 
@@ -77,7 +78,6 @@ Files the engineering skills read before acting:
 - [plans/PROJECT_PLAN.md](plans/PROJECT_PLAN.md) — The original project plan: scope, phases, and delivery order
 - [plans/REFACTORING_PLAN.md](plans/REFACTORING_PLAN.md) — Structural refactoring backlog and sequencing
 - [plans/technical_debt_implementation_plan.md](plans/technical_debt_implementation_plan.md) — Technical-debt register with an implementation order
-- [plans/DOCUMENT_VIEWER_IMPLEMENTATION_PLAN.md](plans/DOCUMENT_VIEWER_IMPLEMENTATION_PLAN.md) — In-app document viewer implementation plan
 - [plans/shrink-implementation.md](plans/shrink-implementation.md) — Shrinking pass over the codebase
 - [plans/deletion_plan.md](plans/deletion_plan.md) — Files and modules marked for deletion, with rationale
 

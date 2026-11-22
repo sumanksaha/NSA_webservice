@@ -13,8 +13,8 @@ the full FSS Act section set — ``FSS_ACT_SECTIONS`` (§1–104) from
 it resolves against that act's registered section range (unknown acts
 report ``known=None`` rather than a false negative).  NOT the app's
 ``CrossReferenceEngine.KNOWN_SECTIONS`` (11 petition-relevant sections pinned
-by ``test_cross_reference.py`` and ``xref_report.html``; scope §9 warning #6
-is satisfied inside the RAG layer only, so no existing feature is disturbed).
+by ``test_cross_reference.py``; scope §9 warning #6 is satisfied inside the
+RAG layer only, so no existing feature is disturbed).
 
 ``enrich_chunk`` re-runs extraction per chunk text and sets ``chunk.references``
 (the §5.1 payload-shape list; use :meth:`structured_references` for the §5.2

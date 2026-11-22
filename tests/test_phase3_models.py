@@ -1,9 +1,9 @@
-"""Unit tests for Phase 3 / Step 3 models: Settings, Annexure, Evidence, Version."""
+"""Unit tests for Phase 3 / Step 3 models: Settings, Annexure, Evidence."""
 
 import pytest
 
 from app.extensions import db
-from app.models import Annexure, Evidence, Settings, Version
+from app.models import Annexure, Evidence, Settings
 
 
 @pytest.fixture
@@ -195,52 +195,3 @@ class TestEvidenceModel:
     def test_evidence_repr(self, test_db):
         e = Evidence(evidence_type="photo", filepath="/tmp/photo.jpg", filename="photo.jpg")
         assert "Evidence" in repr(e)
-
-
-class TestVersionModel:
-    """Test the Version history model."""
-
-    def test_create_version(self, test_db):
-        v = Version(
-            doc_type="petition",
-            version_number=1,
-            content_hash="a" * 64,
-            html_snapshot="<p>This is the HTML content</p>",
-        )
-        test_db.session.add(v)
-        test_db.session.commit()
-        assert v.doc_type == "petition"
-        assert v.version_number == 1
-        assert v.content_hash == "a" * 64
-        assert v.html_snapshot == "<p>This is the HTML content</p>"
-        assert v.delta is None
-        assert v.created_at is not None
-
-    def test_version_with_delta(self, test_db):
-        v = Version(
-            doc_type="permission",
-            version_number=2,
-            content_hash="b" * 64,
-            html_snapshot="<p>Updated content</p>",
-            delta='{"ops":[{"insert":"hello"}]}',
-        )
-        test_db.session.add(v)
-        test_db.session.commit()
-        assert v.delta == '{"ops":[{"insert":"hello"}]}'
-        assert v.content_hash == "b" * 64
-
-    def test_version_created_at_defaults(self, test_db):
-        v = Version(
-            doc_type="petition",
-            version_number=1,
-            content_hash="c" * 64,
-            html_snapshot="<p>test</p>",
-        )
-        test_db.session.add(v)
-        test_db.session.commit()
-        assert v.created_at is not None
-
-    def test_version_repr(self, test_db):
-        v = Version(doc_type="petition", version_number=3, html_snapshot="<p>test</p>")
-        assert "petition" in repr(v)
-        assert "3" in repr(v)

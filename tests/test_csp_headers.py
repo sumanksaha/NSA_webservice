@@ -9,9 +9,8 @@ Content-Security-Policy to flask-talisman's built-in default
 - Every inline ``<script>`` block in the Jinja templates was blocked:
   the FSSAI/CE license-lookup handlers were never defined, so the
   Lookup buttons did nothing and form fields never populated.
-- ``window.CASE_ID`` on the document editor page stayed undefined;
-  editor.js fetched ``/document_viewer/saved//petition`` (empty ID -> 404)
-  and inline Quill bootstrap code was dead.
+- Inline Quill bootstrap code on editor pages (now removed) was dead,
+  which is one reason the document editor was retired.
 
 These tests pin the served CSP header so the custom policy survives.
 """

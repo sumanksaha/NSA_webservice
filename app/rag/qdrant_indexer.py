@@ -55,9 +55,9 @@ _CHUNK_OPTIONAL_FIELDS = frozenset(Chunk.__dataclass_fields__) - {
 class ChunkIngestionResult:
     """Outcome of an ingestion / sync operation.
 
-    Mirrors the ``SaveResult`` pattern from
-    ``app/services/document_lifecycle.py`` (§2.2) — ``ok`` is True only when
-    every chunk was upserted and no errors were recorded.
+    Mirrors the outcome-result pattern used elsewhere in the RAG
+    pipeline — ``ok`` is True only when every chunk was upserted and no
+    errors were recorded.
     """
 
     document_id: str = ""

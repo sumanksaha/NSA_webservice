@@ -338,11 +338,11 @@
             var linkable = false;
             var timelineLink = null;
             if (r.entity_type === 'case_file') {
-                link = '/case_file_generator/' + escapeHtml(r.entity_id) + '/editor';
+                link = '/case_file_generator/case/' + escapeHtml(r.entity_id) + '/edit';
                 linkable = true;
                 timelineLink = '/timeline/case/' + escapeHtml(r.entity_id) + '?kind=case_file';
             } else if (r.entity_type === 'adjudication') {
-                link = '/adjudication/' + escapeHtml(r.entity_id) + '/editor';
+                link = '/adjudication/case/' + escapeHtml(r.entity_id) + '/edit';
                 linkable = true;
                 timelineLink = '/timeline/case/' + escapeHtml(r.entity_id) + '?kind=adjudication';
             }

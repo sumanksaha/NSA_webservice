@@ -399,8 +399,8 @@ class TestTimelineRoutes:
             assert resp.status_code == 200
             html = resp.get_data(as_text=True)
             assert "Case Timeline" in html
-            # Hero action jumps back to the document editor.
-            assert f"/case_file_generator/{case.id}/editor" in html
+            # Hero action jumps back to the case data edit form.
+            assert f"/case_file_generator/case/{case.id}/edit" in html
         finally:
             _teardown_test_env(ctx)
 
@@ -414,7 +414,7 @@ class TestTimelineRoutes:
             assert resp.status_code == 200
             html = resp.get_data(as_text=True)
             assert "Case Timeline" in html
-            assert f"/adjudication/{adj.id}/editor" in html
+            assert f"/adjudication/case/{adj.id}/edit" in html
         finally:
             _teardown_test_env(ctx)
 
@@ -522,11 +522,6 @@ class TestTimelineRoutes:
             assert case_tl in html
             assert adj_tl in html
 
-            # Version-control history — header timeline button.
-            page = client.get(f"/api/version-control/history/ui/{case.id}?kind=case_file")
-            assert page.status_code == 200
-            assert case_tl in page.get_data(as_text=True)
-
             # Sample list — timeline button when the sample has a linked case.
             page = client.get("/sample/list")
             assert page.status_code == 200
@@ -582,26 +577,6 @@ class TestTimelineRoutes:
             assert adj_list
             a = adj_list[0]
             assert "id" in a and "case_number" in a and "fbo_name" in a
-        finally:
-            _teardown_test_env(ctx)
-
-    def test_editor_page_links_to_timeline(self):
-        """The document-editor action bar exposes a Timeline button per case."""
-        from app.extensions import db
-
-        _app, client, ctx = _setup_test_env()
-        try:
-            case = _make_case_file(db)
-            page = client.get(f"/case_file_generator/{case.id}/editor")
-            assert page.status_code == 200
-            html = page.get_data(as_text=True)
-            assert f"/timeline/case/{case.id}?kind=case_file" in html
-
-            adj = _make_adjudication(db)
-            page = client.get(f"/adjudication/{adj.id}/editor")
-            assert page.status_code == 200
-            html = page.get_data(as_text=True)
-            assert f"/timeline/case/{adj.id}?kind=adjudication" in html
         finally:
             _teardown_test_env(ctx)
 

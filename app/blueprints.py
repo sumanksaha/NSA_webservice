@@ -26,7 +26,6 @@ def register_blueprints(app: Flask) -> None:
     from app.bill_generator.routes import bill_generator_bp as _bill_generator_bp
     from app.billing.routes import billing_bp as _billing_bp
     from app.case_file_generator.routes import case_file_generator_bp as _case_file_generator_bp
-    from app.document_viewer import document_viewer_bp as _document_viewer_bp
     from app.evidence import evidence_bp as _evidence_bp
     from app.fbo_issue.routes import fbo_issue_bp as _fbo_issue_bp
     from app.food_cell import food_cell_bp as _food_cell_bp
@@ -45,7 +44,6 @@ def register_blueprints(app: Flask) -> None:
     from app.tasks_webhook import tasks_webhook_bp as _tasks_webhook_bp
     from app.timeline import timeline_bp as _timeline_bp
     from app.validation import validation_bp as _validation_bp
-    from app.version_control import version_control_bp as _version_control_bp
     from app.case_intelligence import intelligence_bp as _intelligence_bp
     from app.ai_assistant import ai_bp as _ai_bp
     from app.workdiary import workdiary_bp as _workdiary_bp
@@ -66,7 +64,6 @@ def register_blueprints(app: Flask) -> None:
         (_auditor_bp, "/auditor"),
         (_case_file_generator_bp, "/case_file_generator"),
         (_adjudication_bp, "/adjudication"),
-        (_document_viewer_bp, "/document_viewer"),
         (_evidence_bp, "/evidence"),
         (_bill_generator_bp, "/bill_generator"),
         (_fbo_issue_bp, "/fbo-issue"),
@@ -75,7 +72,6 @@ def register_blueprints(app: Flask) -> None:
         (_inspection_bp, "/inspection"),
         (_legal_analysis_bp, "/legal"),
         (_audit_bp, "/admin"),
-        (_version_control_bp, None),
         (_tasks_webhook_bp, None),
         (_search_bp, "/search"),
         (_annexure_bp, "/annexure"),

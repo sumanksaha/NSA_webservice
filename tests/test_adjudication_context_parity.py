@@ -18,7 +18,7 @@ from tests.test_preview_adjudication import VALID_FORM
 class TestRendererDelegates:
     def test_build_adjudication_context_delegates_to_routes(self):
         from app.adjudication import routes as adj_routes
-        from app.document_viewer import renderer
+        from app.shared import document_rendering as renderer
 
         with mock.patch.object(
             adj_routes, "_prepare_adjudication_context", wraps=adj_routes._prepare_adjudication_context,
@@ -29,7 +29,7 @@ class TestRendererDelegates:
 
     def test_delegated_context_matches_routes_output(self):
         from app.adjudication.routes import _prepare_adjudication_context
-        from app.document_viewer import renderer
+        from app.shared import document_rendering as renderer
 
         form = dict(VALID_FORM)
         assert renderer.build_adjudication_context(form) == {
