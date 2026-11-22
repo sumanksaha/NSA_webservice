@@ -450,8 +450,10 @@ class TestUnsafeFileDocxDownload:
         sections = doc.sections
         assert len(sections) == 2, f"expected 2 sections, got {len(sections)}"
         first = sections[0]
+        assert first.page_width is not None and first.page_height is not None
         assert first.page_width > first.page_height, "page 1 must be landscape"
         last = sections[-1]
+        assert last.page_width is not None and last.page_height is not None
         assert last.page_height > last.page_width, "pages after page 1 must be portrait"
 
     def test_docx_applies_justify_alignment(self, client, case_file):
