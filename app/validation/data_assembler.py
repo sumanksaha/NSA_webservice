@@ -122,12 +122,12 @@ class CaseDataAssembler:
     def render_documents(resolved):
         try:
             if resolved.case_type == "case_file":
-                from app.document_viewer.renderer import render_case_file_document
+                from app.shared.document_rendering import render_case_file_document
 
                 petition = render_case_file_document(resolved.case_id, "petition")
                 permission = render_case_file_document(resolved.case_id, "permission")
             else:
-                from app.document_viewer.renderer import render_adjudication_document
+                from app.shared.document_rendering import render_adjudication_document
 
                 petition = render_adjudication_document(resolved.adjudication_id, "petition")
                 permission = render_adjudication_document(resolved.adjudication_id, "permission")

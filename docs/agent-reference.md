@@ -46,7 +46,7 @@ NSA_webservice/
 │   │   ├── auth.py               # User, RecordAudit
 │   │   ├── billing.py            # Bill, BillSample, CodeSequence, Sample
 │   │   ├── config.py             # AppSecret, Settings
-│   │   ├── document.py           # Adjudication, Annexure, CaseFile, Evidence, Version
+│   │   ├── document.py           # Adjudication, Annexure, CaseFile, Evidence
 │   │   ├── inspection.py         # FSO, AuditLog, Inspection
 │   │   ├── issue.py              # FboIssue, FboIssueAudit
 │   │   ├── food_cell.py          # DoIntimation (DO intimation record)
@@ -61,7 +61,6 @@ NSA_webservice/
 │   ├── case_file_generator/      # Sample-based petition/PDF generation
 │   ├── document_cleaner/         # Legal text cleaning pipeline
 │   ├── document_loader/          # PDF/DOCX/TXT ingestion
-│   ├── document_viewer/          # Quill editor + save/restore
 │   ├── evidence/                 # Unified Evidence model + UI
 │   ├── fbo_issue/                # State machine + audit trail
 │   ├── food_cell/                # Phase 21 DO Intimation workflow (2026-08-06)
@@ -90,7 +89,6 @@ NSA_webservice/
 │   ├── services/                 # Business logic services
 │   │   ├── legal_engine.py       # Legal engine wrapper
 │   │   ├── sheets_sync.py        # Google Sheets sync
-│   │   ├── version_control.py    # Version compare/restore, branching
 │   │   ├── neo4j_graph.py        # Neo4j Aura service (APOC dynamic labels, constraints, indexes)
 │   │   ├── backup_coordinator.py # Multi-target backup (Sheets + Airtable + R2)
 │   │   └── audit.py
@@ -101,14 +99,13 @@ NSA_webservice/
 │   ├── toc_generator/            # Dynamic TOC extraction/numbering
 │   ├── ai_assistant/             # Phase 11 AI assistant (2026-08-08)
 │   ├── utils/                    # Filters, storage, pdf_utils, lookup, etc.
-│   ├── static/                   # CSS, JS (Quill vendor, editor.js, task_status.js)
+│   ├── static/                   # CSS, JS (Quill vendor, task_status.js)
 │   ├── templates/base.html       # Master layout (global Timeline case-picker)
 │   ├── workdiary/                # Work Diary (2026-08-26): per-FSO inspection diary,
 │   │                             #   engine.py (row shaping + explicit visit_purpose),
 │   │                             #   routes (/ , /preview, /pdf), report.html = official
 │   │                             #   FSO_Work_Diary_Template.html format
-│   └── version_control/          # Version history UI + routes
-├── migrations/                   # Alembic — 28 migration files (newest: add_inspection_visit_purpose)
+├── migrations/                   # Alembic — 28 migration files (newest: drop_versions_table)
 ├── tests/                        # 90+ pytest modules, ~1,930 test cases (incl. 28 workdiary + 12 backup-monitoring), all passing
 ├── legal_paragraph_detection_engine/  # Standalone rule-based legal parser
 ├── scripts/                      # Utility scripts (create_user.py kept; others deleted)
@@ -119,14 +116,13 @@ NSA_webservice/
 └── .env.example                  # 23 environment variables
 ```
 
-### Registered Flask Blueprints (26)
+### Registered Flask Blueprints (24)
 
 | Blueprint           | Prefix               | Purpose                                     |
 | ------------------- | -------------------- | ------------------------------------------- |
 | auth                | /auth                | Login, logout, change password              |
 | case_file_generator | /case_file_generator | Petition + permission letter (sample-based) |
 | adjudication        | /adjudication        | Non-sample adjudication                     |
-| document_viewer     | /document_viewer     | Quill editor, save/restore, PDF             |
 | evidence            | /evidence            | Evidence library (photos, reports, etc.)    |
 | bill_generator      | /bill_generator      | Bill PDF (async via QStash)                 |
 | billing             | /billing             | Billing summary + Excel export              |
@@ -136,7 +132,6 @@ NSA_webservice/
 | legal_analysis      | /legal               | Legal paragraph detection workbench         |
 | audit               | /admin               | Read-only audit log viewer                  |
 | settings            | /settings            | Settings dashboard, backup/restore          |
-| version_control     | /api/version-control | Version history UI + API                    |
 | search              | /search              | FTS5 + fuzzy search API                     |
 | rag                 | /rag                 | RAG health + retrieval API (2026-08-08)     |
 | tasks_webhook       | _(none)_             | QStash webhook, task status                 |
@@ -261,7 +256,6 @@ The following were deleted in the 2026-08-03/04 cleanup commit (`deletion_plan.m
 | One-off check scripts | `check_*.py`, `search_*.py`, `filter_house_number.py`, `fuzzy_dedup_stage0.py`      | 0 importers, 0 CI references                                                                    |
 | AI tool artifacts     | `.pi-subagents/artifacts/`, `piolium/`, `.opencode/plans/`, `.ai/PROJECT_MEMORY.md` | Agent harness working state                                                                     |
 | Debug snapshots       | `_init_full.txt`, `_plan_output.txt`, `_roadmap_out.txt`, etc.                      | AI tooling output                                                                               |
-| Runtime artifacts     | `instance/saved/*.html`, `instance/editor_images/*.png`                             | Now gitignored                                                                                  |
 | CSV data files        | `*.csv` (root)                                                                      | ~70MB, untracked via `.gitignore`                                                               |
 
 ### AI Planning Docs Removed (consolidated into this file set)
@@ -285,18 +279,14 @@ The following modules have low Module Depth (interface nearly as complex as impl
 ### ✅ CONFIRMED SHALLOW MODULES (Priority Order)
 
 1. **Cross-module case resolution** — **HIGHEST PRIORITY (D1)**
-    - **Problem**: `_resolve_case()` in `document_viewer/routes.py` (lines 66-78), `_resolve_target()` + `_kind_param()` in `version_control/routes.py` (lines 39-68), and inline lookups in evidence/search/annexure all solve the same "CaseFile vs Adjudication ID" problem
+    - **Problem**: inline lookups in evidence/search/annexure historically solved the same "CaseFile vs Adjudication ID" problem as the (now removed) document viewer and version-control routes
     - **Target**: `CaseResolver` class in `app/shared/case_resolver.py` with `ResolvedCase` dataclass
     - **Interface**: `resolve(case_id, kind=None) -> ResolvedCase | None`
     - **Dependencies**: None (prerequisite for D2 and D5)
     - **Effort**: 1 day | **Risk**: Low | **Module Depth**: 1 → 4
 
-2. **Document viewer inlined concerns** — **PRIORITY 2 (D2)**
-    - **Problem**: Route file directly calls `VersionService`, `log_audit`, `save_saved_document` via 5 private helpers (`_resolve_case`, `_save_document_content`, `_log_audit`, `_snapshot_version`, `_actor`)
-    - **Target**: `DocumentSaveCoordinator` class in `app/services/document_lifecycle.py`
-    - **Interface**: `save(case_id, case_type, doc_type, html, delta, force_snapshot=False) -> SaveResult`
-    - **Dependencies**: D1 (CaseResolver)
-    - **Effort**: 1 day | **Risk**: Low | **Module Depth**: 2 → 4
+2. **Document viewer inlined concerns** — **REMOVED (2026-11-21)**
+    - The Quill document viewer/editor, xref/TOC report UI, and version-control feature were deleted to simplify the code (ADR-0018). `DocumentSaveCoordinator` and `app/services/document_lifecycle.py` no longer exist.
 
 3. **PDF utils grab-bag** — **PRIORITY 3 (D3)**
     - **Problem**: `app/utils/pdf_utils.py` mixes WeasyPrint import guard, bookmark CSS, post-processing orchestration, and image embedding
@@ -416,7 +406,6 @@ The following modules have low Module Depth (interface nearly as complex as impl
 | test_case_backup.py              | 14    | Phase 16: JSON/ZIP export, case import                                                                                                                                                                      |
 | test_case_resolver.py            | —     | CaseResolver CaseFile/Adjudication disambiguation                                                                                                                                                           |
 | test_concurrency_inspection.py   | 4     | S9a: StaleDataError → 409 on inspection PUT/DELETE                                                                                                                                                          |
-| test_document_lifecycle.py       | —     | DocumentSaveCoordinator save/version/audit                                                                                                                                                                  |
 | test_food_cell_do_intimation.py  | 15    | Phase 21: DO Intimation generate/forward/sync                                                                                                                                                               |
 | test_workdiary.py                | 28    | Work Diary: explicit `visit_purpose` derivation + legacy heuristic, per-FSO/date/purpose filters, index/preview/PDF routes (official template), create-route validation, auth gate                            |
 | test_rbac.py                     | 44    | Phase 18 RBAC: role gate matrix, login landing, CaseFile/Adjudication scoping+stamping, child inheritance, Inspection/Work Diary lock, Notepad access, Comments API, provisioning uniqueness + seed   |
@@ -431,14 +420,13 @@ The following modules have low Module Depth (interface nearly as complex as impl
 | test_preview_adjudication.py     | 9     | Adjudication Preview (TDD): `POST /adjudication/preview` — form validation, template render, JSON response, RBAC stamping                                          |
 | test_sync_fallback_fix.py        | 5     | Sync fallback: `_run_task_inline()` (2), sync-fallback integration (3)                                                                                                     |
 | test_document_loader.py          | 35    | PDF/DOCX/TXT loading                                                                                                                                                                                        |
-| test_document_viewer.py          | 24+27 | Editor save/retrieve, Markdown export, TOC                                                                                                                                                                  |
 | test_legal_suggest.py            | 4     | Section suggestions                                                                                                                                                                                         |
 | test_neo4j_kg_sync.py            | 15    | Phase 14 Neo4j: config detection, real connection, APOC push, sync task, route async/sync                                                                                                                   |
 | test_metadata_extractor.py       | 31    | Regex + NER extraction                                                                                                                                                                                      |
 | test_ocr_pipeline.py             | 24    | OCR pipeline                                                                                                                                                                                                |
 | test_pdf_photo_embedding.py      | 11    | Photo embedding in PDFs                                                                                                                                                                                     |
 | test_phase1.py                   | —     | Validation errors, Facts/Grounds/Prayer                                                                                                                                                                     |
-| test_phase3_models.py            | —     | Settings, Annexure, Evidence, Version models                                                                                                                                                                |
+| test_phase3_models.py            | —     | Settings, Annexure, Evidence models                                                                                                                                                                         |
 | test_phase5_evidence.py          | 16    | Unified Evidence model                                                                                                                                                                                      |
 | test_phase7_toc_generator.py     | 37    | TOC extraction/numbering/bookmarks                                                                                                                                                                          |
 | test_phase8_pdf_assembly.py      | 40    | PDF assembly, hyperlinks, QR, signatures                                                                                                                                                                    |
@@ -447,7 +435,6 @@ The following modules have low Module Depth (interface nearly as complex as impl
 | test_step1-5_integration.py      | 74    | End-to-end integration                                                                                                                                                                                      |
 | test_storage.py                  | —     | Storage backend selection                                                                                                                                                                                   |
 | test_timeline.py                 | 21    | Phase 13: engine, routes, picker, entry points                                                                                                                                                              |
-| test_version_control.py          | 23    | Version compare, restore, branching                                                                                                                                                                         |
 | test_toc_generator.py            | 37    | TOC generator engine                                                                                                                                                                                        |
 | test_qdrant_client.py            | 25    | QdrantStore: connect, collection, upsert, search, delete, health                                                                                                                                            |
 | test_embedding_service.py        | 17    | EmbeddingService: embed_text, batch, dim validation                                                                                                                                                         |

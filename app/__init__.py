@@ -254,8 +254,7 @@ def create_app(db_uri: str | None = None):
     # reset the CSP to flask-talisman's default
     # (`default-src 'self'; object-src 'none'`), stripping `script-src
     # 'unsafe-inline'` and blocking every inline <script> block in the
-    # templates: FSSAI/CE lookup buttons stopped populating fields and the
-    # document editor booted with an undefined window.CASE_ID.
+    # templates: FSSAI/CE lookup buttons stopped populating fields.
     # Regression-pinned by tests/test_csp_headers.py.
     login_manager.init_app(app)
     login_manager.login_view = "auth.login"

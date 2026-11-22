@@ -839,15 +839,15 @@ class TestComments:
 class TestChildRouteInheritance:
     """S6 — child routes inherit the parent case's visibility."""
 
-    def test_editor_visible_for_own_case(self, two_officers):
+    def test_edit_form_visible_for_own_case(self, two_officers):
         own = _make_case_file("Officer A", "CF/A/3")
         _, client_a = _make_fso("Officer A")
-        assert client_a.get(f"/case_file_generator/{own.id}/editor").status_code == 200
+        assert client_a.get(f"/case_file_generator/case/{own.id}/edit").status_code == 200
 
-    def test_editor_blocked_for_other_officers_case(self, two_officers):
+    def test_edit_form_blocked_for_other_officers_case(self, two_officers):
         other = _make_case_file("Officer B", "CF/B/3")
         _, client_a = _make_fso("Officer A")
-        assert client_a.get(f"/case_file_generator/{other.id}/editor").status_code == 404
+        assert client_a.get(f"/case_file_generator/case/{other.id}/edit").status_code == 404
 
     def test_export_json_blocked_for_other_officers_case(self, two_officers):
         other = _make_case_file("Officer B", "CF/B/4")

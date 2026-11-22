@@ -1,7 +1,7 @@
 """Phase 16 tests — case-level export, import, and daily DB snapshot.
 
 Covers:
-1. JSON export structure (case + annexures + evidence + versions).
+1. JSON export structure (case + annexures + evidence).
 2. ZIP export contents (JSON manifest + annexure/evidence files).
 3. Import (JSON) creates a new case with cloned related records.
 4. Daily scheduled DB snapshot writes a dated ZIP to disk.
@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from app.extensions import db
-from app.models import Annexure, CaseFile, Evidence, User, Version
+from app.models import Annexure, CaseFile, Evidence, User
 
 # ---------------------------------------------------------------------------
 # Test fixtures
@@ -135,18 +135,6 @@ def test_client(tmp_path, test_db_uri):
                 caption="Test Evidence",
             )
             db.session.add(e)
-            db.session.flush()
-
-            v = Version(
-                case_id=1,
-                doc_type="petition",
-                version_number=1,
-                content_hash="c" * 64,
-                html_snapshot="<p>Snapshot HTML</p>",
-                delta='{"ops":[]}',
-                change_summary="Initial version",
-            )
-            db.session.add(v)
 
             # Same for adjudication (id=1)
             a2 = Annexure(
@@ -178,17 +166,6 @@ def test_client(tmp_path, test_db_uri):
             )
             db.session.add(e2)
             db.session.flush()
-
-            v2 = Version(
-                adjudication_id=1,
-                doc_type="petition",
-                version_number=1,
-                content_hash="f" * 64,
-                html_snapshot="<p>Adj snapshot HTML</p>",
-                delta=None,
-                change_summary="Adj initial",
-            )
-            db.session.add(v2)
 
             db.session.commit()
 
@@ -226,7 +203,6 @@ class TestExportCaseJson:
         assert "exported_at" in data
         assert len(data["annexures"]) == 1
         assert len(data["evidence"]) == 1
-        assert len(data["versions"]) == 1
 
     def test_export_adjudication_json_structure(self, test_client):
         """Adjudication JSON export has the expected top-level keys."""
@@ -240,10 +216,9 @@ class TestExportCaseJson:
         assert data["case"]["case_number"] == "ADJ001"
         assert len(data["annexures"]) == 1
         assert len(data["evidence"]) == 1
-        assert len(data["versions"]) == 1
 
     def test_export_case_file_serializes_nested_fields(self, test_client):
-        """Annexure/evidence/version serialized fields match the model."""
+        """Annexure/evidence serialized fields match the model."""
         _, app = test_client
         from app.case_file_generator.services import export_case_as_json
 
@@ -259,11 +234,6 @@ class TestExportCaseJson:
         evidence = data["evidence"][0]
         assert evidence["evidence_type"] == "photo"
         assert evidence["verification_status"] == "VERIFIED"
-
-        version = data["versions"][0]
-        assert version["doc_type"] == "petition"
-        assert version["version_number"] == 1
-        assert version["html_snapshot"] == "<p>Snapshot HTML</p>"
 
     def test_export_nonexistent_case_returns_404_via_http(self, test_client):
         """HTTP endpoint returns 404 for a missing case."""
@@ -342,10 +312,9 @@ class TestImportCase:
 
             assert Annexure.query.filter_by(case_id=new_id).count() == 1
             assert Evidence.query.filter_by(case_id=new_id).count() == 1
-            assert Version.query.filter_by(case_id=new_id).count() == 1
 
     def test_import_adjudication_clones_related_records(self, test_client):
-        """Importing an Adjudication JSON clones annexures/evidence/versions."""
+        """Importing an Adjudication JSON clones annexures/evidence."""
         _, app = test_client
         from app.case_file_generator.services import export_case_as_json, import_case_from_json
 
@@ -361,7 +330,24 @@ class TestImportCase:
 
             assert Annexure.query.filter_by(adjudication_id=new_id).count() == 1
             assert Evidence.query.filter_by(adjudication_id=new_id).count() == 1
-            assert Version.query.filter_by(adjudication_id=new_id).count() == 1
+
+    def test_import_legacy_versions_key_warns(self, test_client):
+        """Legacy exports with a ``versions`` key import with a warning, not an error."""
+        _, app = test_client
+        from app.case_file_generator.services import export_case_as_json, import_case_from_json
+
+        with app.app_context():
+            json_data = export_case_as_json(1, "case_file")
+            # Simulate a legacy export that still carries a versions key.
+            json_data["versions"] = [
+                {"doc_type": "petition", "version_number": 1, "html_snapshot": "<p>old</p>"}
+            ]
+            new_id = import_case_from_json(json_data)
+            assert new_id != 1
+            # The versions key is silently dropped — no Version table to write to.
+            from app.models import CaseFile
+
+            assert db.session.get(CaseFile, new_id) is not None
 
     def test_import_rejects_invalid_case_type(self, test_client):
         """Import raises ValueError for unknown case_type."""

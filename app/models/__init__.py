@@ -24,7 +24,6 @@ from app.models.document import (
     Relationship,
     Section,
     TimelineEvent,
-    Version,
 )
 from app.models.enrichment import (
     ChunkCrossReference,

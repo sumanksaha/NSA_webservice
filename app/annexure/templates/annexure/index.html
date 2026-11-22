@@ -94,9 +94,9 @@
                     </td>
                     <td>
                         {% if a.case_id %}
-                            <a href="{{ url_for('case_file_generator.edit_case', case_id=a.case_id) }}">Case #{{ a.case_id }}</a>
+                            <a href="{{ url_for('case_file_generator.edit_form', case_id=a.case_id) }}">Case #{{ a.case_id }}</a>
                         {% elif a.adjudication_id %}
-                            <a href="{{ url_for('adjudication.edit_case', case_id=a.adjudication_id) }}">Adj #{{ a.adjudication_id }}</a>
+                            <a href="{{ url_for('adjudication.edit_form', case_id=a.adjudication_id) }}">Adj #{{ a.adjudication_id }}</a>
                         {% else %}
                             <span class="form-hint">—</span>
                         {% endif %}

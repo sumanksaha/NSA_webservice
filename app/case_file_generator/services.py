@@ -21,7 +21,7 @@ from typing import Any
 from flask import current_app
 
 from app.extensions import db
-from app.models import Adjudication, Annexure, CaseFile, Evidence, Version
+from app.models import Adjudication, Annexure, CaseFile, Evidence
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ def _get_case(case_id: int, case_type: str):
 
 
 def _fk_field(case_type: str) -> str:
-    """Return the FK column name used by Annexure/Evidence/Version."""
+    """Return the FK column name used by Annexure/Evidence."""
     return "case_id" if case_type == "case_file" else "adjudication_id"
 
 
@@ -140,24 +140,6 @@ def _serialize_evidence(e: Evidence) -> dict:
         "ocr_text": e.ocr_text,
         "tags": e.tags,
         "uploaded_at": _serialize_dt(e.uploaded_at),
-    }
-
-
-def _serialize_version(v: Version) -> dict:
-    return {
-        "id": v.id,
-        "case_id": v.case_id,
-        "adjudication_id": v.adjudication_id,
-        "doc_type": v.doc_type,
-        "version_number": v.version_number,
-        "content_hash": v.content_hash,
-        "html_snapshot": v.html_snapshot,
-        "delta": v.delta,
-        "created_at": _serialize_dt(v.created_at),
-        "user_id": v.user_id,
-        "change_summary": v.change_summary,
-        "branch_name": v.branch_name,
-        "branch_of": v.branch_of,
     }
 
 
@@ -298,7 +280,7 @@ def _try_generate_pdfs(case_id: int, case_type: str) -> bytes | None:
 
 
 # --------------------------------------------------------------------------- #
-#  Export — JSON (metadata + annexures + evidence + versions)
+#  Export — JSON (metadata + annexures + evidence)
 # --------------------------------------------------------------------------- #
 
 
@@ -306,10 +288,10 @@ def export_case_as_json(case_id: int, case_type: str) -> dict[str, Any]:
     """Build a full JSON-serialisable dict for *case_id* of *case_type*.
 
     Returns a dict with keys: ``case_type``, ``case``, ``annexures``,
-    ``evidence``, ``versions``.
+    ``evidence``.
 
     Reuses the existing ``case_file_to_dict`` / ``adjudication_to_dict``
-    serializers to keep field-name mapping consistent with the editor and API.
+    serializers to keep field-name mapping consistent with the API.
     """
     case = _get_case(case_id, case_type)
     if case is None:
@@ -320,7 +302,6 @@ def export_case_as_json(case_id: int, case_type: str) -> dict[str, Any]:
 
     annexures = [_serialize_annexure(a) for a in Annexure.query.filter(getattr(Annexure, fk) == case_id).all()]
     evidence = [_serialize_evidence(e) for e in Evidence.query.filter(getattr(Evidence, fk) == case_id).all()]
-    versions = [_serialize_version(v) for v in Version.query.filter(getattr(Version, fk) == case_id).all()]
 
     return {
         "case_type": case_type,
@@ -328,7 +309,6 @@ def export_case_as_json(case_id: int, case_type: str) -> dict[str, Any]:
         "case": case_data,
         "annexures": annexures,
         "evidence": evidence,
-        "versions": versions,
     }
 
 
@@ -400,20 +380,28 @@ def export_case_as_zip(case_id: int, case_type: str) -> bytes:
 
 
 def import_case_from_json(json_data: dict) -> int:
-    """Create a new case (and related annexure/evidence/version clones) from *json_data*.
+    """Create a new case (and related annexure/evidence clones) from *json_data*.
 
     The JSON must be the output of :func:`export_case_as_json`.
 
     Returns the new case ``id``.
 
     Related records that reference the original case_id/adjudication_id
-    (Annexure, Evidence, Version) are cloned with new UUIDs / autoincrement
+    (Annexure, Evidence) are cloned with new UUIDs / autoincrement
     PKs, pointing to the new case.  Raw files are NOT duplicated — only
-    DB records are created; file paths are preserved as-is.
+    DB records are created; file paths are preserved as-is.  A legacy
+    ``versions`` key (from older exports) is ignored with a warning.
     """
     case_type = json_data.get("case_type")
     if case_type not in _CASE_TYPE_MODELS:
         raise ValueError(f"Unknown case_type: {case_type!r}")
+
+    if json_data.get("versions"):
+        logger.warning(
+            "Importing case JSON with %d version snapshot(s) — version history "
+            "is no longer supported (ADR-0018) and will be dropped.",
+            len(json_data["versions"]),
+        )
 
     case_dict = json_data.get("case")
     if not isinstance(case_dict, dict):
@@ -479,23 +467,6 @@ def import_case_from_json(json_data: dict) -> int:
             uploaded_at=_parse_dt(e_dict.get("uploaded_at")),
         )
         db.session.add(new_evidence)
-
-    # Clone versions (HTML/delta snapshots, not files).
-    for v_dict in json_data.get("versions", []):
-        new_version = Version(
-            **fk_kwargs,
-            doc_type=v_dict.get("doc_type", "petition"),
-            version_number=v_dict.get("version_number", 1),
-            content_hash=v_dict.get("content_hash", ""),
-            html_snapshot=v_dict.get("html_snapshot", ""),
-            delta=v_dict.get("delta"),
-            created_at=_parse_dt(v_dict.get("created_at")),
-            user_id=v_dict.get("user_id"),
-            change_summary=v_dict.get("change_summary"),
-            branch_name=v_dict.get("branch_name"),
-            branch_of=v_dict.get("branch_of"),
-        )
-        db.session.add(new_version)
 
     try:
         db.session.commit()

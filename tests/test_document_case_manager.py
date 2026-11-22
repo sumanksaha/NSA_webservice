@@ -87,26 +87,6 @@ def test_list_cases_orders_newest_first_and_summarizes(manager):
         assert lookup.case_summary.call_count == 2
 
 
-def test_render_editor_delegates_to_reports(manager):
-    with patch("app.shared.document_case_manager.reports") as reports:
-        manager.render_editor(3)
-        reports.render_editor.assert_called_once_with(manager.model, "case_file", "case_file_generator", 3)
-
-
-def test_xref_and_toc_reports_delegate(manager):
-    with patch("app.shared.document_case_manager.reports") as reports:
-        manager.xref_report(3, "permission")
-        reports.xref_report.assert_called_once_with(manager.model, "case_file", "case_file_generator", 3, "permission")
-        manager.toc_report(3)
-        reports.toc_report.assert_called_once_with(manager.model, "case_file", "case_file_generator", 3, "petition")
-
-
-def test_renumber_annexures_delegates(manager):
-    with patch("app.shared.document_case_manager.reports") as reports:
-        manager.renumber_annexures(3)
-        reports.renumber_annexures.assert_called_once_with("case_file", 3)
-
-
 def test_regenerate_passes_injected_context_fn(manager, callbacks):
     with patch("app.shared.document_case_manager.generation") as generation:
         manager.regenerate(9, context_overrides={"k": "v"})

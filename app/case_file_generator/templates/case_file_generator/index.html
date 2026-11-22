@@ -685,9 +685,16 @@
                         <a
                             href="{{ url_for('case_file_generator.download_unsafe_file_docx', case_id=c.id) }}"
                             class="btn btn-secondary btn-sm"
-                            title="Download Prayer (prohibition order) as Word"
+                            title="Download Prayer as Word"
                         >
                             <i class="fa-solid fa-file-word"></i> Prayer
+                        </a>
+                        <a
+                            href="{{ url_for('case_file_generator.download_adoc', case_id=c.id, doc_type='unsafe_file') }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Download Prayer as .adoc source"
+                        >
+                            <i class="fa-solid fa-file-powerline"></i> Prayer (.adoc)
                         </a>
                         <a
                             href="{{ url_for('case_file_generator.download_advocate_engagement_docx', case_id=c.id) }}"
@@ -696,15 +703,27 @@
                         >
                             <i class="fa-solid fa-file-word"></i> Advocate Engagement
                         </a>
-                        {% if not c.retailer_cum_manufacturer %}
+                        <a
+                            href="{{ url_for('case_file_generator.download_adoc', case_id=c.id, doc_type='advocate_engagement') }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Download Advocate Engagement Letter as .adoc source — only for unsafe cases"
+                        >
+                            <i class="fa-solid fa-file-powerline"></i> Advocate Engagement (.adoc)
+                        </a>
                         <a
                             href="{{ url_for('case_file_generator.download_prohibition_order_docx', case_id=c.id) }}"
                             class="btn btn-secondary btn-sm"
-                            title="Download Prohibition Order as Word — batch/manufacturing/expiry details; not available for prepared/loose food (retailer-cum-manufacturer)"
+                            title="Download Prohibition Order as Word — generated for every unsafe case, including prepared/loose food (retailer-cum-manufacturer)"
                         >
                             <i class="fa-solid fa-file-word"></i> Prohibition Order
                         </a>
-                        {% endif %}
+                        <a
+                            href="{{ url_for('case_file_generator.download_adoc', case_id=c.id, doc_type='prohibition_order') }}"
+                            class="btn btn-secondary btn-sm"
+                            title="Download Prohibition Order as .adoc source — generated for every unsafe case, including prepared/loose food (retailer-cum-manufacturer)"
+                        >
+                            <i class="fa-solid fa-file-powerline"></i> Prohibition Order (.adoc)
+                        </a>
                         {% endif %}
                     </td>
                 </tr>

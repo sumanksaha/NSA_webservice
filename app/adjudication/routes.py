@@ -1,6 +1,6 @@
 """Adjudication blueprint — thin routes + DocumentCaseManager.
 
-Common CRUD, editor, xref/toc, and renumber routes are registered via
+Common CRUD and document-generation routes are registered via
 :class:`app.shared.document_case_manager.DocumentCaseManager`.  This file
 retains only the adjudication-specific helpers and routes:
 
@@ -669,7 +669,7 @@ def preview_adjudication_route():
 
     Unlike ``generate_all``, this does NOT create an Adjudication record or
     generate a PDF — it returns the rendered HTML so the user can review both
-    documents in the Quill editor before committing.
+    documents on the preview page before committing.
     """
     form_data = request.form.to_dict()
 

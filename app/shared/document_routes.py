@@ -9,13 +9,12 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from flask import Blueprint, current_app, jsonify, render_template, request, url_for
+from flask import Blueprint, current_app, jsonify, render_template, request
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.extensions import db
 from app.services.audit_context import audit_logger
 from app.shared import document_lookup as lookup
-from app.shared import document_reports as reports
 
 
 def _audit_entity(case_type: str) -> str:
@@ -121,61 +120,6 @@ def register_document_routes(
         if case is None or not lookup.visible_to_current_user(model, case_type, case):
             return jsonify({"error": f"Case with number {case_number} not found"}), 404
         return jsonify(model_to_dict_fn(case))
-
-    @bp.route("/<int:case_id>/editor", methods=["GET"])
-    def edit_case(case_id):
-        case = lookup.get_case(model, case_id)
-        if case is None or not lookup.visible_to_current_user(model, case_type, case):
-            return jsonify({"error": f"Case with id {case_id} not found"}), 404
-        return reports.render_editor(model, case_type, bp_name, case_id)
-
-    @bp.route("/<int:case_id>/xref_report", methods=["GET"])
-    def xref_report(case_id):
-        case = lookup.get_case(model, case_id)
-        if case is None or not lookup.visible_to_current_user(model, case_type, case):
-            return jsonify({"error": f"Case with id {case_id} not found"}), 404
-        doc_type = request.args.get("doc_type", "petition")
-        annotated_html = reports.render_document_for_report(case_type, case_id, doc_type)
-        report = reports.xref_report_data(case_type, annotated_html, case_id)
-        return render_template(
-            "xref_report.html",
-            case_number=lookup.get_case_number(case),
-            fbo_name=lookup.get_fbo_name(case_type, case),
-            food_safety_officer=lookup.get_fso(case_type, case),
-            doc_type=doc_type,
-            report=report,
-            annotated_html=annotated_html,
-            report_url=url_for(f"{bp_name}.xref_report", case_id=case_id),
-            renumber_url=url_for(f"{bp_name}.renumber_annexures", case_id=case_id),
-        )
-
-    @bp.route("/<int:case_id>/toc_report", methods=["GET"])
-    def toc_report(case_id):
-        case = lookup.get_case(model, case_id)
-        if case is None or not lookup.visible_to_current_user(model, case_type, case):
-            return jsonify({"error": f"Case with id {case_id} not found"}), 404
-        doc_type = request.args.get("doc_type", "petition")
-        annotated_html = reports.render_document_for_report(case_type, case_id, doc_type)
-        toc_data, toc_html = reports.toc_report_data(annotated_html)
-        return render_template(
-            "toc_report.html",
-            case_number=lookup.get_case_number(case),
-            fbo_name=lookup.get_fbo_name(case_type, case),
-            food_safety_officer=lookup.get_fso(case_type, case),
-            doc_type=doc_type,
-            toc_data=toc_data,
-            toc_html=toc_html,
-            annotated_html=annotated_html,
-            toc_url=url_for(f"{bp_name}.toc_report", case_id=case_id),
-        )
-
-    @bp.route("/<int:case_id>/renumber_annexures", methods=["POST"])
-    def renumber_annexures(case_id):
-        case = lookup.get_case(model, case_id)
-        if case is None or not lookup.visible_to_current_user(model, case_type, case):
-            return jsonify({"error": f"Case with id {case_id} not found"}), 404
-        result = reports.renumber_annexures(case_type, case_id)
-        return jsonify({"status": "ok", "updates": result["updates"], "count": result["count"]})
 
     # ------------------------------------------------------------------ #
     # Field edit (prefilled form) + archive / unarchive (soft-delete)

@@ -1,9 +1,8 @@
-"""Shared document rendering helpers for the editor.
+"""Shared document rendering helpers.
 
 These functions extract the "fetch case data -> build context -> render template
-to HTML string" logic that is currently duplicated inline in
-``generate_case_file_route()``, ``generate_case_file_pdf()`` (case_file_generator),
-and ``generate_all()`` / ``regenerate_adjudication_documents()`` (adjudication).
+to HTML string" logic that is used by the validation data assembler and other
+callers that need to render a case's documents to HTML.
 """
 
 from datetime import datetime

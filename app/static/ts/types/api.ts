@@ -48,77 +48,6 @@ export interface AdjudicationPreviewResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Document Viewer endpoints
-// ---------------------------------------------------------------------------
-
-/** Doc type union — matches _VALID_DOC_TYPES in document_viewer/routes.py. */
-export type DocType = "petition" | "permission";
-
-// --- autosave ---
-
-/** POST /document_viewer/autosave/<case_id> — request body. */
-export interface AutosaveRequest {
-    html: string;
-    delta: QuillDelta | null;
-    doc_type: DocType;
-}
-
-/** POST /document_viewer/autosave/<case_id> — 200 response. */
-export interface AutosaveResponse {
-    status: "ok";
-    /** ISO-8601 timestamp of the save, e.g. "2026-08-26T12:34:56". */
-    timestamp: string;
-    has_delta: boolean;
-}
-
-// --- saved document ---
-
-/** GET /document_viewer/saved/<case_id>/<doc_type> — 200 response. */
-export interface SavedDocumentResponse {
-    html: string;
-    /**
-     * Quill Delta JSON for lossless round-trip, or null if no delta was stored.
-     * Shape: Quill's Delta op-list format — see @types/quill for full typing.
-     */
-    delta: QuillDelta | null;
-}
-
-// --- image upload ---
-
-/** POST /document_viewer/upload_image — 201 response. */
-export interface ImageUploadResponse {
-    status: "ok";
-    /** Server-relative URL for the uploaded image, e.g. "/document_viewer/image/<hex>.png". */
-    url: string;
-}
-
-// --- markdown export ---
-
-/** POST /document_viewer/export_markdown — request body. */
-export interface ExportMarkdownRequest {
-    delta: QuillDelta | null;
-    html: string;
-    doc_type: DocType;
-}
-
-/** POST /document_viewer/export_markdown — 200 response. */
-export interface ExportMarkdownResponse {
-    markdown: string;
-    filename: string;
-}
-
-// --- save (PDF) ---
-
-/** POST /document_viewer/save/<case_id> — request body. */
-export interface SaveDocumentRequest {
-    html: string;
-    delta: QuillDelta | null;
-    doc_type: DocType;
-}
-// NOTE: The 200 response is a PDF binary blob (Content-Type: application/pdf),
-// not JSON. No response interface needed — callers use resp.blob().
-
-// ---------------------------------------------------------------------------
 // Task status polling (task_status.js)
 // ---------------------------------------------------------------------------
 
@@ -170,59 +99,12 @@ export interface PollOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Quill Delta (lightweight — full typing from @types/quill)
-// ---------------------------------------------------------------------------
-
-/**
- * Minimal Quill Delta representation.
- *
- * The full type is `Delta` from @types/quill. This alias exists so that
- * non-Quill files (task_status.js, preview routes) can reference the shape
- * without importing from Quill's types.
- *
- * In Phase 4 (editor.ts migration), files that use `@types/quill` directly
- * should prefer `import type { Delta } from "quill"` instead.
- */
-export interface QuillDelta {
-    ops: Array<Record<string, unknown>>;
-}
-
-// ---------------------------------------------------------------------------
 // Window globals set by Jinja2 templates
 // ---------------------------------------------------------------------------
 
 /** Augment the global Window interface with template-injected globals. */
-/** Minimal Quill interface matching the methods used by this codebase. */
-export interface QuillInstance {
-    setContents(delta: unknown): void;
-    getContents(): Record<string, unknown>;
-    clipboard: { dangerouslyPasteHTML(html: string): void };
-    getText(): string;
-}
-
-/** Minimal Quill delta interface matching the methods used by this codebase. */
-export interface DeltaStatic {
-    ops: Array<{
-        insert?: string;
-        retain?: number;
-        delete?: number;
-        attributes?: Record<string, unknown>;
-    }>;
-}
-
 declare global {
     interface Window {
-        /** Case ID injected by document_viewer/editor.html as a hidden input. */
-        CASE_ID?: string | number;
-        /** Quill editor facade exposed by editor.js for cross-module access. */
-        QuillEditor?: {
-            getQuill(): QuillInstance;
-            getPreviewHtml(): string;
-            getDelta(): DeltaStatic | null;
-            getAutosaveDebounceMs(): number;
-            getToc(): Array<TocEntry>;
-            triggerAutosave(): void;
-        };
         /** TaskPoll facade exposed by task_status.js. */
         TaskPoll: {
             submitAndPoll(
@@ -244,10 +126,6 @@ declare global {
             initForm(opts: ValidationDrawerFormOpts): void;
             initRowButtons(opts: ValidationDrawerRowOpts): void;
         };
-        /** AIAssistant facade exposed by ai_assistant.js. */
-        AIAssistant: {
-            init(opts: AiAssistantOpts): void;
-        };
         /** RagQueryUI facade exposed by rag_query.js. */
         RagQueryUI: {
             init(): void;
@@ -262,26 +140,7 @@ declare global {
             clearHistory(): void;
             renderHistory(): void;
         };
-        /** Version control config injected by the version_control template. */
-        VC_CONFIG?: {
-            caseId: number | null;
-            adjudicationId: number | null;
-            caseType?: string;
-        };
     }
-}
-
-// ---------------------------------------------------------------------------
-// TOC (Table of Contents) — used by editor.js buildToc()
-// ---------------------------------------------------------------------------
-
-/** Single TOC entry produced by buildToc() in editor.js. */
-export interface TocEntry {
-    level: number;
-    text: string;
-    id: string;
-    number: string;
-    annexure: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -323,23 +182,6 @@ export interface ValidationDrawerFormOpts {
     drawerId: string;
     statusId?: string;
     endpoint: string;
-}
-
-// ---------------------------------------------------------------------------
-// AI Assistant types (ai_assistant.js)
-// ---------------------------------------------------------------------------
-
-/** Options for AIAssistant.init(). */
-export interface AiAssistantOpts {
-    buttonsSelector?: string;
-    drawerId: string;
-    statusId?: string;
-}
-
-/** POST /ai-assistant/assist — 200 response. */
-export interface AiAssistResponse {
-    result: string;
-    tokens_used: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -420,41 +262,6 @@ export interface RagHistoryEntry {
     query: string;
     ts: number;
     data: Record<string, unknown>;
-}
-
-// ---------------------------------------------------------------------------
-// Version control types (version_control.js)
-// ---------------------------------------------------------------------------
-
-/** Version summary from GET /api/version-control/history/<id>. */
-export interface VersionSummary {
-    id: number;
-    version_number: number;
-    created_at: string;
-    created_by?: {
-        id: number;
-        username?: string;
-    };
-    change_summary?: string;
-}
-
-/** Diff from GET /api/version-control/compare/<id>/<type>/<from>/<to>. */
-export interface VersionDiffResponse {
-    diff: {
-        content_changed: boolean;
-        insertions: string[];
-        deletions: string[];
-        similarity: number;
-        word_count_diff: number;
-    };
-}
-
-/** Branch creation POST /api/version-control/branch — 200 response. */
-export interface VersionBranchResponse {
-    branch: {
-        branch_name: string;
-        [key: string]: unknown;
-    };
 }
 
 // ---------------------------------------------------------------------------

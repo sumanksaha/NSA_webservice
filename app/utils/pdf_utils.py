@@ -3,7 +3,7 @@
 All logic has been consolidated into :mod:`app.pdf_assembly.engine`.
 These functions delegate to a module-level :class:`PDFAssemblyEngine`
 instance so that existing import sites (``adjudication.routes``,
-``document_viewer.renderer``, ``case_file_generator.tasks``, etc.) need
+``shared.document_rendering``, ``case_file_generator.tasks``, etc.) need
 no changes.
 """
 

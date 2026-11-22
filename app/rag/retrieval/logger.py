@@ -9,8 +9,7 @@ the ``RAGQueryLog`` schema from ``RAG_AGENT_B_SCOPE.md`` §5.1.
 ``AuditLog`` table with a SHA-256 chain, providing tamper-evident logging of
 the full retrieval pipeline (query → retrieved → generated → verified).
 
-The content-hash uses the SHA-256 pattern from
-``app/services/version_control.py`` (``_calculate_content_hash``).
+The content-hash uses a plain SHA-256 fingerprint of the query + response.
 """
 
 from __future__ import annotations
@@ -29,11 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def _content_hash(query: str, response_text: str | None) -> str:
-    """SHA-256 hex digest of query + response (fingerprint).
-
-    Reuses the hashing approach from ``app/services/version_control.py``
-    ``VersionService._calculate_content_hash``.
-    """
+    """SHA-256 hex digest of query + response (fingerprint)."""
     payload = query + ":" + (response_text or "")
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -119,7 +114,7 @@ class RetrievalAuditLog:
     Wraps the :func:`app.services.audit.log_audit` function, which chains each
     audit entry's SHA-256 hash to the previous entry for the same entity
     (``query → retrieved → generated → verified``).  This provides the same
-    tamper-evidence as the inspection and document-editor audit chains.
+    tamper-evidence as the inspection audit chains.
 
     The ``entity_id`` is the ``RAGQueryLog.id`` UUID, so the full lifecycle
     of a single query can be verified end-to-end via

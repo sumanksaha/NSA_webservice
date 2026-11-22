@@ -3,8 +3,7 @@
 Defines the ``RetrievedChunk``, ``SearchResult``, ``RAGResponse``, and
 ``Citation`` dataclasses that flow through every retrieval layer component.
 These are plain dataclasses (not ORM models) so they are cheap to construct,
-serialize, and test — following the ``SaveResult`` pattern from
-``app/services/document_lifecycle.py``.
+serialize, and test.
 """
 
 from __future__ import annotations

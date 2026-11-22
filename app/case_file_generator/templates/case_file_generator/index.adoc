@@ -34,6 +34,7 @@ toc::
                            class="btn btn-primary btn-sm" title="Download both as Word ZIP">
                             <i class="fa-solid fa-file-zipper"></i> Word ZIP
                         </a>
+                        {{ adoc_download(url=url_for('case_file_generator.download_adoc', case_id=c.id, doc_type='unsafe_file'), label='Prayer', title='Download Prayer as .adoc') }}
                         {{ adoc_download(url=url_for('case_file_generator.download_adoc', case_id=c.id, doc_type='prohibition_order'), label='Prohibition Order', title='Download Prohibition Order as .adoc') }}
                         {{ adoc_download(url=url_for('case_file_generator.download_adoc', case_id=c.id, doc_type='advocate_engagement'), label='Advocate Engagement', title='Download Advocate Engagement as .adoc') }}
                         <button type="button" class="btn btn-secondary btn-sm js-copy-letter"

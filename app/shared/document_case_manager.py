@@ -1,8 +1,7 @@
 """Document case management — shared abstraction for CaseFile and Adjudication.
 
 Thin facade over the focused helpers in :mod:`app.shared.document_lookup`,
-:mod:`app.shared.document_reports`, :mod:`app.shared.document_routes`, and
-:mod:`app.shared.document_generation`.
+:mod:`app.shared.document_routes`, and :mod:`app.shared.document_generation`.
 
 Each concrete module instantiates :class:`DocumentCaseManager` with
 model-specific callbacks (``model_to_dict_fn``, ``process_form_fn``,
@@ -19,10 +18,6 @@ Canonical interface:
             def get_case(self, case_id) -> model | None
             def get_case_by_number(self, case_number) -> model | None
             def list_cases(self) -> list[dict]
-            def render_editor(self, case_id) -> str
-            def xref_report(self, case_id, doc_type) -> str
-            def toc_report(self, case_id, doc_type) -> str
-            def renumber_annexures(self, case_id) -> dict
             def regenerate(self, case_id, **kwargs) -> PDFResult
             def generate_case(self, form_data) -> (dict, int)
 """
@@ -37,7 +32,6 @@ from flask import Blueprint
 
 from app.shared import document_generation as generation
 from app.shared import document_lookup as lookup
-from app.shared import document_reports as reports
 from app.shared.document_routes import register_document_routes
 
 logger = logging.getLogger(__name__)
@@ -148,22 +142,6 @@ class DocumentCaseManager:
     # ------------------------------------------------------------------ #
     # Document generation / regeneration
     # ------------------------------------------------------------------ #
-
-    def render_editor(self, case_id: int) -> str:
-        """Render the Quill editor page pre-filled with a case's documents."""
-        return reports.render_editor(self.model, self.case_type, self.bp_name, case_id)
-
-    def xref_report(self, case_id: int, doc_type: str = "petition") -> str:
-        """Render the cross-reference report for a case."""
-        return reports.xref_report(self.model, self.case_type, self.bp_name, case_id, doc_type)
-
-    def toc_report(self, case_id: int, doc_type: str = "petition") -> str:
-        """Render the table-of-contents report for a case."""
-        return reports.toc_report(self.model, self.case_type, self.bp_name, case_id, doc_type)
-
-    def renumber_annexures(self, case_id: int) -> dict:
-        """Renumber annexure letters in upload order."""
-        return reports.renumber_annexures(self.case_type, case_id)
 
     def regenerate(self, case_id: int, context_overrides: dict | None = None) -> Any:
         """Regenerate documents from an existing case.
